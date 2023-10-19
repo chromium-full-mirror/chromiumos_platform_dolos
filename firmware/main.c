@@ -8,6 +8,9 @@
 #include "printf.h"
 #include "led.h"
 #include "dolos_smbus.h"
+#include "pac.h"
+
+#define ONE_SECOND_DELAY 32000000
 
 int main(void)
 {
@@ -23,5 +26,7 @@ int main(void)
 	dsb_init();
 
 	while (1) {
+		pac_refresh();
+		delay_cycles(ONE_SECOND_DELAY);
 	}
 }
