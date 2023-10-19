@@ -7,6 +7,7 @@
 
 #include "printf.h"
 #include "led.h"
+#include "dolos_smbus.h"
 
 int main(void)
 {
@@ -18,6 +19,8 @@ int main(void)
 	led_turn_off(LED_DOLOS_READY);
 	led_turn_off(LED_DOLOS_POWERING);
 	led_turn_on(LED_DOLOS_PROGRAMMED);
+
+	dsb_init();
 
 	while (1) {
 	}
