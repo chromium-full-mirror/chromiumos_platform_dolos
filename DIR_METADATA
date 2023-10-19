@@ -1,7 +1,7 @@
 team_email: "chromeos-hardware-tools@google.com"
 
 buganizer {
-  component_id: 983411 # ChromeOS > Platform > System > Tools > Hardware Tools
+  component_id: 983411  # ChromeOS > Platform > System > Tools > Hardware Tools
 }
 
 chromeos {
