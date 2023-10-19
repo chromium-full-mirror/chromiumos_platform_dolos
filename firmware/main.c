@@ -3,14 +3,21 @@
  * found in the LICENSE file.
  */
 
-#include "printf.h"
 #include "ti_msp_dl_config.h"
+
+#include "printf.h"
+#include "led.h"
 
 int main(void)
 {
 	SYSCFG_DL_init();
 
 	DEBUG("Starting Dolos");
+
+	led_turn_off(LED_INPUT_POWER_STATUS);
+	led_turn_off(LED_DOLOS_READY);
+	led_turn_off(LED_DOLOS_POWERING);
+	led_turn_on(LED_DOLOS_PROGRAMMED);
 
 	while (1) {
 	}
