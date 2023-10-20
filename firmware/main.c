@@ -10,8 +10,7 @@
 #include "dolos_smbus.h"
 #include "pac.h"
 #include "stats.h"
-
-#define ONE_SECOND_DELAY 32000000
+#include "time.h"
 
 int main(void)
 {
@@ -29,6 +28,6 @@ int main(void)
         while (1) {
                 pac_refresh();
                 print_stats();
-                delay_cycles(ONE_SECOND_DELAY);
+                sleep(1);
         }
 }
