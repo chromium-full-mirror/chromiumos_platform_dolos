@@ -8,8 +8,9 @@
 
 #include "printf.h"
 #include "error.h"
-
+#include "stats.h"
 #include "dolos_smbus.h"
+#include "smart_battery.h"
 
 #define SMBUS_CONTROLLER_CLK 32000000
 #define SMBUS_CONTROLLER_TIMEOUT 10000
@@ -134,9 +135,54 @@ void DOLOS_SMBUS_CONTROLLER_INST_IRQHandler(void)
         smbus_controller_bus_state = SMBus_controllerProcessInt(&smbus_controller_inst);
 }
 
+/** Handles SMBus read requests for smart battery registers.
+ *
+ *  Find the value in the register array and write it in the smbus.
+ */
+static void dsb_handle_sb_smbus_read(SMBus *smbus, uint8_t cmd)
+{
+        uint8_t buffer[SB_REG_DATA_MAX_SIZE];
+        uint8_t buf_size;
+        int i, ret;
+
+        ret = sb_read_register(cmd, buffer, &buf_size);
+        if (ret != DOLOS_SUCCESS) {
+                stats.smbus_target_reg_read_failures++;
+                return;
+        }
+        smbus->nwk.txLen = buf_size;
+        for (i = 0; i < buf_size; i++) {
+                smbus->nwk.txBuffPtr[i] = buffer[i];
+        }
+        stats.smbus_target_reg_read_success++;
+        stats.smbus_target_reg_read_bytes += buf_size;
+}
+
+static uint8_t last_rx_cmd;
+
 /* smbus_target_inst interrupt handler */
 void DOLOS_SMBUS_TARGET_INST_IRQHandler(void)
 {
-        const SMBus_State bus_state = SMBus_targetProcessInt(&smbus_target_inst);
+        SMBus_State bus_state;
+
+        stats.smbus_target_int_count++;
+
+        bus_state = SMBus_targetProcessInt(&smbus_target_inst);
+        if (bus_state < SMBus_State_Unknown) {
+                stats.smbus_target_state_count[bus_state]++;
+        } else {
+                stats.smbus_target_state_count[SMBus_State_Unknown]++;
+        }
+        switch (bus_state) {
+        case SMBus_State_Target_FirstByte:
+                last_rx_cmd = SMBus_targetGetCommand(&smbus_target_inst);
+                break;
+        case SMBus_State_Target_CmdComplete:
+                dsb_handle_sb_smbus_read(&smbus_target_inst, last_rx_cmd);
+                break;
+        default:
+                break;
+        }
+
         SMBus_processDone(&smbus_target_inst);
 }
