@@ -11,6 +11,7 @@
 #include "pac.h"
 #include "stats.h"
 #include "time.h"
+#include "buck_boost.h"
 
 int main(void)
 {
@@ -24,6 +25,7 @@ int main(void)
         led_turn_on(LED_DOLOS_PROGRAMMED);
 
         dsb_init();
+        bb_init();
 
         while (1) {
                 pac_refresh();
