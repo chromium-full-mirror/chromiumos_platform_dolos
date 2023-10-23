@@ -9,15 +9,15 @@
 
 void led_turn_on(enum led_dolos_status status)
 {
-	DL_GPIO_clearPins(DOLOS_LEDS_GROUP_PORT, status);
+        DL_GPIO_clearPins(DOLOS_LEDS_GROUP_PORT, status);
 }
 
 void led_turn_off(enum led_dolos_status status)
 {
-	DL_GPIO_setPins(DOLOS_LEDS_GROUP_PORT, status);
+        DL_GPIO_setPins(DOLOS_LEDS_GROUP_PORT, status);
 }
 
 void led_toggle(enum led_dolos_status status)
 {
-	DL_GPIO_togglePins(DOLOS_LEDS_GROUP_PORT, status);
+        DL_GPIO_togglePins(DOLOS_LEDS_GROUP_PORT, status);
 }

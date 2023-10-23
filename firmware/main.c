@@ -14,19 +14,19 @@
 
 int main(void)
 {
-	SYSCFG_DL_init();
+        SYSCFG_DL_init();
 
-	DEBUG("Starting Dolos");
+        DEBUG("Starting Dolos");
 
-	led_turn_off(LED_INPUT_POWER_STATUS);
-	led_turn_off(LED_DOLOS_READY);
-	led_turn_off(LED_DOLOS_POWERING);
-	led_turn_on(LED_DOLOS_PROGRAMMED);
+        led_turn_off(LED_INPUT_POWER_STATUS);
+        led_turn_off(LED_DOLOS_READY);
+        led_turn_off(LED_DOLOS_POWERING);
+        led_turn_on(LED_DOLOS_PROGRAMMED);
 
-	dsb_init();
+        dsb_init();
 
-	while (1) {
-		pac_refresh();
-		delay_cycles(ONE_SECOND_DELAY);
-	}
+        while (1) {
+                pac_refresh();
+                delay_cycles(ONE_SECOND_DELAY);
+        }
 }
