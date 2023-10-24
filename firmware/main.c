@@ -9,6 +9,8 @@
 #include "led.h"
 #include "dolos_smbus.h"
 #include "pac.h"
+#include "dolos_gpio.h"
+#include "dolos_timers.h"
 #include "stats.h"
 #include "time.h"
 #include "buck_boost.h"
@@ -25,7 +27,9 @@ int main(void)
         led_turn_on(LED_DOLOS_PROGRAMMED);
 
         dsb_init();
+        dtimers_init();
         bb_init();
+        dgpio_init();
 
         while (1) {
                 pac_refresh();
