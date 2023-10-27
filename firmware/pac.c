@@ -15,7 +15,12 @@
 
 #define PAC_REFRESH_DELAY 640000
 
-static double voltage, current;
+static double voltage_mv, current_ma;
+
+static inline uint16_t swap(uint16_t data)
+{
+        return (data >> 8) | ((data & 0xff) << 8);
+}
 
 int pac_init(void)
 {
@@ -41,25 +46,25 @@ int pac_refresh(void)
                 DEBUG("Failed to read voltage from PAC %d", ret);
                 return DOLOS_ERROR_PAC;
         }
-        voltage = ((double)data / ((1 << 16) - 1)) * 32;
+        voltage_mv = (double)swap(data) * 0.488288701f;
 
         ret = dsb_controller_read_word(PAC_SMBUS_ADDRESS, PAC_CURRENT_REGISTER, (uint8_t *)&data);
         if (ret) {
                 DEBUG("Failed to read current from PAC %d", ret);
                 return DOLOS_ERROR_PAC;
         }
-        current = ((double)data / ((1 << 16) - 1)) * 1000;
+        current_ma = (double)swap(data) * 15.259021896696423f;
 
-        DEBUG("Voltage :%f Current :%f", voltage, current);
+        DEBUG("Voltage :%5.0fmv Current :%5.0fma", voltage_mv, current_ma);
         return DOLOS_SUCCESS;
 }
 
 uint32_t pac_read_voltage_mv(void)
 {
-        return voltage * 1000;
+        return voltage_mv;
 }
 
-uint32_t pac_read_current_mv(void)
+uint32_t pac_read_current_ma(void)
 {
-        return current * 1000;
+        return current_ma;
 }
