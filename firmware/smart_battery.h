@@ -67,4 +67,8 @@ struct sb_register {
  */
 int sb_read_register(enum sb_register_address address, uint8_t *buffer, uint8_t *buf_size);
 
+/** Update smart battery registers based on PAC, temp data.
+ */
+void sb_update_registers(void);
+
 #endif /* SMART_BATTERY_H_ */

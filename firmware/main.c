@@ -14,6 +14,7 @@
 #include "stats.h"
 #include "time.h"
 #include "buck_boost.h"
+#include "smart_battery.h"
 
 int main(void)
 {
@@ -33,6 +34,7 @@ int main(void)
 
         while (1) {
                 pac_refresh();
+                sb_update_registers();
                 print_stats();
                 sleep(1);
         }

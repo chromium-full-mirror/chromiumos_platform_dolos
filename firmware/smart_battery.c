@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "pac.h"
 #include "dolos_smbus.h"
@@ -58,30 +59,59 @@ static struct sb_register sb_registers[] = {
 
 };
 
+/** Find smart_battery register in sb_registers array for given register address.
+ *
+ */
+static struct sb_register *sb_find_register_index(enum sb_register_address address)
+{
+        struct sb_register *reg;
+        int i;
+
+        if (address >= SB_REG_LAST) {
+                return NULL;
+        }
+
+        for (i = 0; i < sizeof(sb_registers) / sizeof(sb_registers[0]); i++) {
+                reg = &sb_registers[i];
+                if (reg->address == address) {
+                        return reg;
+                }
+        }
+        return NULL;
+}
+
 /** Return a smart battery register value.
  *
  */
 int sb_read_register(enum sb_register_address address, uint8_t *buffer, uint8_t *buf_size)
 {
         struct sb_register *reg;
-        int i;
 
-        if (address >= SB_REG_LAST) {
+        reg = sb_find_register_index(address);
+        if (reg == NULL) {
                 return DOLOS_ERROR_OVERFLOW;
         }
+        memcpy(buffer, reg->data, reg->length);
 
-        for (i = 0; i < sizeof(sb_registers) / sizeof(sb_registers[0]); i++) {
-                reg = &sb_registers[i];
-                if (reg->address != address) {
-                        continue;
-                }
+        return DOLOS_SUCCESS;
+}
 
-                for (int j = 0; j < reg->length; j++) {
-                        buffer[j] = reg->data[j];
-                }
-                *buf_size = reg->length;
-                return DOLOS_SUCCESS;
+static int sb_write_register(enum sb_register_address address, uint8_t *buffer, size_t buf_size)
+{
+        struct sb_register *reg;
+
+        reg = sb_find_register_index(address);
+        if (reg == NULL) {
+                return DOLOS_ERROR_OVERFLOW;
         }
+        memcpy(reg->data, buffer, buf_size);
+        return DOLOS_SUCCESS;
+}
 
-        return DOLOS_ERROR_UNIMPLEMENTED;
+void sb_update_registers(void)
+{
+        uint16_t voltage_mv = pac_read_voltage_mv();
+        uint16_t current_ma = pac_read_current_ma();
+        sb_write_register(SB_REG_VOLTAGE, (uint8_t *)&voltage_mv, sizeof(voltage_mv));
+        sb_write_register(SB_REG_CURRENT, (uint8_t *)&current_ma, sizeof(current_ma));
 }
