@@ -13,7 +13,13 @@ struct stats stats = { 0 };
 
 void print_stats(void)
 {
-        /* SMBUS */
+        print_smbus_stats();
+        print_gpio_stats();
+        print_uart_stats();
+}
+
+void print_smbus_stats(void)
+{
         DEBUG("Host:");
         DEBUG("   SMBus Int count               : %6d", stats.smbus_target_int_count);
         DEBUG("   SMBus Read bytes              : %6d", stats.smbus_target_reg_read_bytes);
@@ -35,10 +41,19 @@ void print_stats(void)
         DEBUG("   SMBus Int state:Unknown       : %6d", stats.smbus_target_state_count[SMBus_State_Unknown]);
         DEBUG("   SMBus Read success            : %6d", stats.smbus_target_reg_read_success);
         DEBUG("   Smart Battery Read fail       : %6d", stats.smbus_target_reg_read_failures);
+}
 
-        /* GPIO */
+void print_gpio_stats(void)
+{
         DEBUG("GPIO:");
         DEBUG("   GPIO BQ_CHRG_OK int count     : %6d", stats.dgpio_gpioa_bq_chrg_ok_int_count);
         DEBUG("   GPIO SYSTEM_PRESENT int count : %6d", stats.dgpio_gpioa_system_present_int_count);
         DEBUG("   GPIO EFUSE_PG                 : %6d", stats.dgpio_gpiob_efuse_pg_int_count);
+}
+
+void print_uart_stats(void)
+{
+        DEBUG("UART0:");
+        DEBUG("   RX int count                  : %6d", stats.uart_rx_int_count);
+        DEBUG("   TX int count                  : %6d", stats.uart_tx_int_count);
 }

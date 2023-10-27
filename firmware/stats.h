@@ -16,12 +16,26 @@ struct stats {
         uint32_t dgpio_gpioa_bq_chrg_ok_int_count;
         uint32_t dgpio_gpioa_system_present_int_count;
         uint32_t dgpio_gpiob_efuse_pg_int_count;
+        uint32_t uart_rx_int_count;
+        uint32_t uart_tx_int_count;
 };
 
 extern struct stats stats;
 
-/** Print statistics on the UART.
+/** Print all statistics.
  */
 void print_stats(void);
+
+/** Print SMBUS statistics.
+ */
+void print_smbus_stats(void);
+
+/** Print GPIO statistics.
+ */
+void print_gpio_stats(void);
+
+/** Print UART statistics.
+ */
+void print_uart_stats(void);
 
 #endif /* STATS_H_ */

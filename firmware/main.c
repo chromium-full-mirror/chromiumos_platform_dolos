@@ -15,6 +15,8 @@
 #include "time.h"
 #include "buck_boost.h"
 #include "smart_battery.h"
+#include "command.h"
+#include "uart.h"
 
 int main(void)
 {
@@ -31,11 +33,12 @@ int main(void)
         dtimers_init();
         bb_init();
         dgpio_init();
+        duart_init();
 
         while (1) {
                 pac_refresh();
                 sb_update_registers();
-                print_stats();
+                cmd_handle();
                 sleep(1);
         }
 }
