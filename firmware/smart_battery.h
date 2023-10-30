@@ -95,4 +95,7 @@ bool sb_write_to_dflash(enum sb_register_address address);
  */
 bool sb_read_from_dflash(enum sb_register_address address);
 
+/* Handles the sbreg command from UART */
+void sb_sbreg_command_handler(uint8_t *cmd_data);
+
 #endif /* SMART_BATTERY_H_ */

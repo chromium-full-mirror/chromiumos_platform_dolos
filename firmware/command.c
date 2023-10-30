@@ -11,11 +11,13 @@
 #include "uart.h"
 #include "printf.h"
 #include "stats.h"
+#include "smart_battery.h"
 
 #define CMD_PRINT_STATS "print-stats"
 #define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
 #define CMD_PRINT_GPIO_STATS "print-gpio-stats"
 #define CMD_PRINT_UART_STATS "print-uart-stats"
+#define CMD_SBREG "sbreg"
 
 void cmd_handle(void)
 {
@@ -35,6 +37,8 @@ void cmd_handle(void)
                 print_gpio_stats();
         } else if (!strncmp(cmd_line, CMD_PRINT_UART_STATS, sizeof(CMD_PRINT_UART_STATS) - 1)) {
                 print_uart_stats();
+        } else if (!strncmp(cmd_line, CMD_SBREG, sizeof(CMD_SBREG) - 1)) {
+                sb_sbreg_command_handler((uint8_t *)(cmd_line + sizeof(CMD_SBREG) - 1));
         } else {
                 printf("unknown command");
         }
