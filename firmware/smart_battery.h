@@ -7,6 +7,7 @@
 #define SMART_BATTERY_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define SB_REG_DATA_MAX_SIZE 32
 
@@ -70,5 +71,28 @@ int sb_read_register(enum sb_register_address address, uint8_t *buffer, uint8_t 
 /** Update smart battery registers based on PAC, temp data.
  */
 void sb_update_registers(void);
+
+/* Writes the data of the sb_register to the flash
+ * EEPROM Emulation Type B uses a 2 bytes key to address 4 bytes of data
+ * The MSB of the key will contain the address of the register and the LSB of the key will contain the offset of the
+ * data. When the LSB of the key is n = 0, the data will represent the length of sb_register->data. When the LSB of the
+ * key is n > 0, the data will represent the concatenation of sb_register->data[2^n]...sb_reigster->data[2^n + 3]. For
+ * example, if we have the register SB_REG_DEVICE NAME = { address = 0x21, length = 5, data = { 0x44, 0x6F, 0x6C, 0x6F,
+ * 0x73 } }:
+ * +-------------------+------------------+---------------------------------+
+ * | Key MSB (Address) | Key LSB (offset) | 4 Bytes of Data (Concatenation) |
+ * +-------------------+------------------+---------------------------------+
+ * | 0x21              |                0 | 5                               |
+ * | 0x21              |                1 | 0x6F6C6F44                      |
+ * | 0x21              |                2 | 0xXXXXXX73                      |
+ * +-------------------+------------------+---------------------------------+
+ * Returns true if write was successful
+ */
+bool sb_write_to_dflash(enum sb_register_address address);
+
+/* Reads sb_register data stored by sb_write_to_dflash
+ * Returns true if read was successful
+ */
+bool sb_read_from_dflash(enum sb_register_address address);
 
 #endif /* SMART_BATTERY_H_ */

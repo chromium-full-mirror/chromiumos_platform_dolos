@@ -29,7 +29,9 @@ enum dolos_error_list {
         /* Failed to read/write SMBus */
         DOLOS_ERROR_SMBUS = 9,
         /* Failed to read/write PAC */
-        DOLOS_ERROR_PAC = 9,
+        DOLOS_ERROR_PAC = 10,
+        /* Failed to write to Flash */
+        DOLOS_ERROR_FLASH = 11,
 };
 
 #endif /* ERROR_H_ */

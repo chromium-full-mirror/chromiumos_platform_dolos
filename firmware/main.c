@@ -17,6 +17,7 @@
 #include "smart_battery.h"
 #include "command.h"
 #include "uart.h"
+#include "dolos_flash.h"
 
 int main(void)
 {
@@ -34,6 +35,7 @@ int main(void)
         bb_init();
         dgpio_init();
         duart_init();
+        dflash_init();
 
         while (1) {
                 pac_refresh();

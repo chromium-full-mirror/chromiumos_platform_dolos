@@ -16,6 +16,7 @@ void print_stats(void)
         print_smbus_stats();
         print_gpio_stats();
         print_uart_stats();
+        print_flash_stats();
 }
 
 void print_smbus_stats(void)
@@ -56,4 +57,11 @@ void print_uart_stats(void)
         DEBUG("UART0:");
         DEBUG("   RX int count                  : %6d", stats.uart_rx_int_count);
         DEBUG("   TX int count                  : %6d", stats.uart_tx_int_count);
+}
+
+void print_flash_stats(void)
+{
+        DEBUG("FLASH:");
+        DEBUG("   Write successful              : %6d", stats.dflash_write_success);
+        DEBUG("   Write failure                 : %6d", stats.dflash_write_failure);
 }

@@ -18,6 +18,10 @@ struct stats {
         uint32_t dgpio_gpiob_efuse_pg_int_count;
         uint32_t uart_rx_int_count;
         uint32_t uart_tx_int_count;
+        uint32_t dflash_write_success;
+        uint32_t dflash_write_failure;
+        uint32_t dflash_read_failure;
+        uint32_t dflash_read_success;
 };
 
 extern struct stats stats;
@@ -37,5 +41,9 @@ void print_gpio_stats(void);
 /** Print UART statistics.
  */
 void print_uart_stats(void);
+
+/** Print Flash statistics.
+ */
+void print_flash_stats(void);
 
 #endif /* STATS_H_ */
