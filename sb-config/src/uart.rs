@@ -18,7 +18,7 @@ const UART_BAUD_RATE: u32 = 9600;
 const UART_TIMEOUT_MS: u64 = 2000;
 
 const UART_SBREG_CMD: &str = "sbreg";
-const UART_CMD_END_SIG: &str = "$\r";
+const UART_CMD_END_SIG: &str = "$\n";
 
 fn open_serial_port(uart_path: &String) -> Result<TTYPort> {
     let mut serial_port = match serialport::new(uart_path, UART_BAUD_RATE)
