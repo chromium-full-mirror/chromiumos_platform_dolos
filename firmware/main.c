@@ -39,6 +39,7 @@ int main(void)
 
         while (1) {
                 pac_refresh();
+                dgpio_read_temp();
                 sb_update_registers();
                 cmd_handle();
                 sleep(1);

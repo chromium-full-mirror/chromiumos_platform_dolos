@@ -6,9 +6,24 @@
 #include "dolos_gpio.h"
 #include "ti_msp_dl_config.h"
 #include <ti/driverlib/driverlib.h>
+#include <math.h>
 #include "printf.h"
 #include "led.h"
 #include "stats.h"
+#include "error.h"
+#include "smart_battery.h"
+
+#define BIAS_VOLTAGE 3.3
+#define ADC_RESOLUTION 4096
+#define THRM_A0 -4.232811E+02
+#define THRM_A1 4.728797E+02
+#define THRM_A2 -1.988841E+02
+#define THRM_A3 4.869521E+01
+#define THRM_A4 -1.158754E+00
+#define KELVIN_ADDITION_FACTOR 273.15
+
+static double dtemp_c;
+static double dtemp_k;
 
 /* Returns true if system is present */
 bool dgpio_get_system_present_signal(void)
@@ -36,6 +51,10 @@ void dgpio_init(void)
         /* Enable NVIC interrupts for GPIOB */
         NVIC_ClearPendingIRQ(GPIOB_INT_IRQn);
         NVIC_EnableIRQ(GPIOB_INT_IRQn);
+
+        /* Enable NVIC interrupts for TEMP_ADC12 */
+        NVIC_ClearPendingIRQ(TEMP_ADC12_INST_INT_IRQN);
+        NVIC_EnableIRQ(TEMP_ADC12_INST_INT_IRQN);
 
         /* Update DOLOS_OUTPUT_ENABLE if initially SYSTEM_PRESENT and BQ_CHRG_OK were good */
         dgpio_output_update_with_efuse_pg_operation();
@@ -106,6 +125,22 @@ void dgpio_output_update_with_efuse_pg_operation(void)
         } else {
                 dgpio_efuse_pg_operation_disable();
         }
+}
+
+void dgpio_read_temp(void)
+{
+        DL_ADC12_enableConversions(TEMP_ADC12_INST);
+        DL_ADC12_startConversion(TEMP_ADC12_INST);
+}
+
+double dgpio_get_temp_k(void)
+{
+        return dtemp_k;
+}
+
+double dgpio_get_temp_c(void)
+{
+        return dtemp_c;
 }
 
 /* GPIOA interrupt handler
@@ -183,6 +218,27 @@ void GROUP1_IRQHandler(void)
         }
         case DL_INTERRUPT_GROUP1_IIDX_GPIOB: {
                 group1_gpiob_interrupt_handler();
+                break;
+        }
+        default: {
+                break;
+        }
+        }
+}
+
+/* TEMP_ADC12 interrupt handler */
+void TEMP_ADC12_INST_IRQHandler(void)
+{
+        switch (DL_ADC12_getPendingInterrupt(TEMP_ADC12_INST)) {
+        case DL_ADC12_IIDX_MEM0_RESULT_LOADED: {
+                /* Read the ADC value from the TEMP_SENSOR */
+                double dtemp_adc_code = (double)DL_ADC12_getMemResult(TEMP_ADC12_INST, DL_ADC12_MEM_IDX_0);
+
+                /* Calculate temperature using 4th order polynomial regression */
+                double dtemp_voltage = (BIAS_VOLTAGE / ADC_RESOLUTION) * dtemp_adc_code;
+                dtemp_c = (THRM_A4 * pow(dtemp_voltage, 4)) + (THRM_A3 * pow(dtemp_voltage, 3)) +
+                          (THRM_A2 * pow(dtemp_voltage, 2)) + (THRM_A1 * dtemp_voltage) + THRM_A0;
+                dtemp_k = dtemp_c + KELVIN_ADDITION_FACTOR;
                 break;
         }
         default: {

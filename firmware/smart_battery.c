@@ -15,6 +15,7 @@
 #include "dolos_flash.h"
 #include "utils.h"
 #include "ti_msp_dl_config.h"
+#include "dolos_gpio.h"
 
 #define BYTE 8
 
@@ -120,8 +121,10 @@ void sb_update_registers(void)
 {
         uint16_t voltage_mv = pac_read_voltage_mv();
         uint16_t current_ma = pac_read_current_ma();
+        uint32_t temp = dgpio_get_temp_k() * 10;
         sb_write_register(SB_REG_VOLTAGE, (uint8_t *)&voltage_mv, sizeof(voltage_mv));
         sb_write_register(SB_REG_CURRENT, (uint8_t *)&current_ma, sizeof(current_ma));
+        sb_write_register(SB_REG_TEMPERATURE, (uint8_t *)&temp, sizeof(temp));
 }
 
 bool sb_write_to_dflash(enum sb_register_address address)
