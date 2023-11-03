@@ -9,7 +9,7 @@
 
 #include "pac.h"
 #include "dolos_smbus.h"
-#include "printf.h"
+#include "log.h"
 #include "error.h"
 #include "smart_battery.h"
 #include "dolos_flash.h"

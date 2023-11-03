@@ -36,16 +36,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define DEBUG(_fmt, ...)                                                         \
-        do {                                                                     \
-                printf("%s:%d " _fmt "\r\n", __func__, __LINE__, ##__VA_ARGS__); \
-        } while (0)
-
-#define ERROR(_fmt, ...)                                                                \
-        do {                                                                            \
-                printf("ERROR: %s:%d " _fmt "\r\n", __func__, __LINE__, ##__VA_ARGS__); \
-        } while (0)
-
 #ifdef __cplusplus
 extern "C" {
 #endif

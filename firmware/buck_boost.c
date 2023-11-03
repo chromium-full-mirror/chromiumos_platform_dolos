@@ -8,7 +8,7 @@
 #include "dolos_smbus.h"
 #include "error.h"
 #include "time.h"
-#include "printf.h"
+#include "log.h"
 
 #define BQ_I2C_ADDRESS 0x6b
 

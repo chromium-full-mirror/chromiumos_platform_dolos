@@ -7,7 +7,7 @@
 #include "ti_msp_dl_config.h"
 #include <ti/driverlib/driverlib.h>
 #include <math.h>
-#include "printf.h"
+#include "log.h"
 #include "led.h"
 #include "stats.h"
 #include "error.h"

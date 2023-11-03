@@ -5,7 +5,7 @@
 
 #include "ti_msp_dl_config.h"
 
-#include "printf.h"
+#include "log.h"
 #include "led.h"
 #include "dolos_smbus.h"
 #include "pac.h"

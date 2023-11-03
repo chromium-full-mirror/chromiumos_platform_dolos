@@ -7,7 +7,7 @@
 
 #include "dolos_flash.h"
 #include "ti/eeprom/emulation_type_b/eeprom_emulation_type_b.h"
-#include "printf.h"
+#include "log.h"
 #include "stats.h"
 #include "error.h"
 

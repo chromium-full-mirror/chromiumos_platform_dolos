@@ -18,6 +18,11 @@ struct stats {
         uint32_t dgpio_gpiob_efuse_pg_int_count;
         uint32_t uart_rx_int_count;
         uint32_t uart_tx_int_count;
+        uint32_t uart_rx_char_count;
+        uint32_t uart_rx_scan_count;
+        uint32_t uart_rx_eof_count;
+        uint32_t cmd_rx_count;
+        uint32_t cmd_inval_count;
         uint32_t dflash_write_success;
         uint32_t dflash_write_failure;
         uint32_t dflash_read_failure;
@@ -41,6 +46,10 @@ void print_gpio_stats(void);
 /** Print UART statistics.
  */
 void print_uart_stats(void);
+
+/** Print command handling statistics.
+ */
+void print_cmd_stats(void);
 
 /** Print Flash statistics.
  */

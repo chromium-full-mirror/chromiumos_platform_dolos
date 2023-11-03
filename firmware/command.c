@@ -12,12 +12,16 @@
 #include "printf.h"
 #include "stats.h"
 #include "smart_battery.h"
+#include "log.h"
 
 #define CMD_PRINT_STATS "print-stats"
 #define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
 #define CMD_PRINT_GPIO_STATS "print-gpio-stats"
 #define CMD_PRINT_UART_STATS "print-uart-stats"
 #define CMD_SBREG "sbreg"
+#define CMD_LOG_LEVEL_DEBUG "log-level-debug"
+#define CMD_LOG_LEVEL_INFO "log-level-info"
+#define CMD_LOG_LEVEL_ERROR "log-level-error"
 
 void cmd_handle(void)
 {
@@ -28,6 +32,7 @@ void cmd_handle(void)
         if (cmd_line == NULL) {
                 return;
         }
+        stats.cmd_rx_count++;
 
         if (!strncmp(cmd_line, CMD_PRINT_STATS, sizeof(CMD_PRINT_STATS) - 1)) {
                 print_stats();
@@ -39,8 +44,15 @@ void cmd_handle(void)
                 print_uart_stats();
         } else if (!strncmp(cmd_line, CMD_SBREG, sizeof(CMD_SBREG) - 1)) {
                 sb_sbreg_command_handler((uint8_t *)(cmd_line + sizeof(CMD_SBREG) - 1));
+        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_DEBUG, sizeof(CMD_LOG_LEVEL_DEBUG) - 1)) {
+                log_set_level(LOG_LEVEL_DEBUG);
+        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_INFO, sizeof(CMD_LOG_LEVEL_INFO) - 1)) {
+                log_set_level(LOG_LEVEL_INFO);
+        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_ERROR, sizeof(CMD_LOG_LEVEL_ERROR) - 1)) {
+                log_set_level(LOG_LEVEL_ERROR);
         } else {
-                printf("unknown command");
+                stats.cmd_inval_count++;
+                printf("unknown command %s\n", cmd_line);
         }
 
         uart_mark_data_processed();

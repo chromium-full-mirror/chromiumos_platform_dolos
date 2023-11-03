@@ -9,13 +9,16 @@
 #include <string.h>
 
 #include "ti_msp_dl_config.h"
+#include "log.h"
 
 #include "stats.h"
 
 #define UART_MAX_BUFFER 1000
 static uint32_t uart_data_index;
 static uint8_t uart_data[UART_MAX_BUFFER];
-static bool uart_rx_processing_pending;
+static bool uart_rx_processing_pending = false;
+
+#define CMD_END 13
 
 void duart_init(void)
 {
@@ -49,12 +52,14 @@ void UART_0_INST_IRQHandler(void)
         /* Receive data */
         remaining_buf_size = UART_MAX_BUFFER - uart_data_index;
         new_data_count = DL_UART_Main_drainRXFIFO(UART_0_INST, &uart_data[uart_data_index], remaining_buf_size);
-
+        stats.uart_rx_char_count += new_data_count;
         /* If end of data is received mark processing is required. */
         for (uint16_t i = uart_data_index; i < uart_data_index + new_data_count; i++) {
-                if (uart_data[i] == '\n') {
+                stats.uart_rx_scan_count++;
+                if (uart_data[i] == CMD_END) {
                         uart_data[i] = '\0';
                         uart_rx_processing_pending = true;
+                        stats.uart_rx_eof_count++;
                         break;
                 } else {
                         uart_rx_processing_pending = false;

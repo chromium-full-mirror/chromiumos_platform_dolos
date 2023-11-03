@@ -6,7 +6,7 @@
 #include "dolos_timers.h"
 #include "ti_msp_dl_config.h"
 #include "dolos_gpio.h"
-#include "printf.h"
+#include "log.h"
 
 void dtimers_init(void)
 {
