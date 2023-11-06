@@ -9,6 +9,7 @@
 #include "error.h"
 #include "time.h"
 #include "log.h"
+#include "smart_battery.h"
 
 #define BQ_I2C_ADDRESS 0x6b
 
@@ -25,6 +26,9 @@ enum bq_reg_space {
 #define BQ_REG_CHARGE_VOLTAGE_VALUE 0x20d0
 #define BQ_REG_CHARGE_OPTION_1_VALUE 0x3700
 #define BQ_REG_CHARGE_OPTION_2_VALUE 0x0037
+
+#define BQ_REG_CHARGE_CURRENT_MASK
+#define BQ_REG_CHARGE_VOLTAGE_MASK
 
 struct bq_reg_config {
         enum bq_reg_space reg_address;
@@ -52,6 +56,22 @@ static int bb_write_config(enum bq_reg_space reg_address, uint16_t value)
         return 0;
 }
 
+/* Update BQ register from Smart Battery register */
+static int bb_update_register_from_sb(enum bq_reg_space bq_address, enum sb_register_address sb_address)
+{
+        uint16_t buff;
+        uint8_t buff_len;
+        int ret;
+
+        ret = sb_read_register(sb_address, (uint8_t *)&buff, &buff_len);
+        if (ret)
+                return ret;
+
+        bb_write_config(bq_address, buff);
+
+        return 0;
+}
+
 /* Initialize the buckboost option registers to the following:
  * Update the BIT3 RSNS_RAC bit to use 10m ohm in the ChargeOption1 Register
  * Disable the  EN_EXTILIM bit in ChargeOption2 register to allow current output more than 1.5A since the default Input
@@ -63,9 +83,7 @@ int bb_init(void)
         uint8_t rx_buf[2];
         struct bq_reg_config config[] = { { BQ_REG_CHARGE_OPTION_0, BQ_REG_CHARGE_OPTION_0_VALUE },
                                           { BQ_REG_CHARGE_OPTION_1, BQ_REG_CHARGE_OPTION_1_VALUE },
-                                          { BQ_REG_CHARGE_OPTION_2, BQ_REG_CHARGE_OPTION_2_VALUE },
-                                          { BQ_REG_CHARGE_CURRENT, BQ_REG_CHARGE_CURRENT_VALUE },
-                                          { BQ_REG_CHARGE_VOLTAGE, BQ_REG_CHARGE_VOLTAGE_VALUE } };
+                                          { BQ_REG_CHARGE_OPTION_2, BQ_REG_CHARGE_OPTION_2_VALUE } };
 
         DEBUG("Initializing buck boost");
 
@@ -76,6 +94,9 @@ int bb_init(void)
                 if (ret)
                         return ret;
         }
+
+        bb_update_register_from_sb(BQ_REG_CHARGE_VOLTAGE, SB_REG_DESIGN_VOLTAGE);
+        bb_update_register_from_sb(BQ_REG_CHARGE_CURRENT, SB_REG_DESIGN_CAPACITY);
 
         DEBUG("Buck boost init successfully done");
 
