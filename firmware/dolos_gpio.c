@@ -99,7 +99,7 @@ void dgpio_output_enable(void)
 /* Disables Dolos output */
 void dgpio_output_disable(void)
 {
-        DL_GPIO_setPins(DOLOS_CONTROL_PINS_DOLOS_OUTPUT_ENABLE_PORT, DOLOS_CONTROL_PINS_DOLOS_OUTPUT_ENABLE_PIN);
+        DL_GPIO_clearPins(DOLOS_CONTROL_PINS_DOLOS_OUTPUT_ENABLE_PORT, DOLOS_CONTROL_PINS_DOLOS_OUTPUT_ENABLE_PIN);
 
         led_turn_off(LED_DOLOS_POWERING);
 }
