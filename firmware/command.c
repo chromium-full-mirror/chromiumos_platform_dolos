@@ -14,6 +14,7 @@
 #include "smart_battery.h"
 #include "log.h"
 #include "pac.h"
+#include "dolos_gpio.h"
 
 #define CMD_PRINT_STATS "print-stats"
 #define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
@@ -24,6 +25,7 @@
 #define CMD_LOG_LEVEL_INFO "log-level-info"
 #define CMD_LOG_LEVEL_ERROR "log-level-error"
 #define CMD_PRINT_PAC_READINGS "print-pac-readings"
+#define CMD_PRINT_TEMP_READINGS "print-temp-readings"
 
 void cmd_handle(void)
 {
@@ -54,6 +56,8 @@ void cmd_handle(void)
                 log_set_level(LOG_LEVEL_ERROR);
         } else if (!strncmp(cmd_line, CMD_PRINT_PAC_READINGS, sizeof(CMD_PRINT_PAC_READINGS) - 1)) {
                 pac_print_readings();
+        } else if (!strncmp(cmd_line, CMD_PRINT_TEMP_READINGS, sizeof(CMD_PRINT_TEMP_READINGS) - 1)) {
+                dgpio_print_temp_readings();
         } else {
                 stats.cmd_inval_count++;
                 printf("unknown command %s\n", cmd_line);

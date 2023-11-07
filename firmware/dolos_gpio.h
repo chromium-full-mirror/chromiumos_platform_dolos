@@ -32,4 +32,7 @@ double dgpio_get_temp_k(void);
 /* Reads Dolos temperature in Celsius */
 double dgpio_get_temp_c(void);
 
+/* Prints temperature data to UART interface */
+void dgpio_print_temp_readings(void);
+
 #endif /* DOLOS_GPIO_H_ */

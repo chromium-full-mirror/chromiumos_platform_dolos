@@ -22,6 +22,7 @@
 #define THRM_A4 -1.158754E+00
 #define KELVIN_ADDITION_FACTOR 273.15
 
+static uint16_t dtemp_adc_code;
 static double dtemp_c;
 static double dtemp_k;
 
@@ -143,6 +144,16 @@ double dgpio_get_temp_c(void)
         return dtemp_c;
 }
 
+void dgpio_print_temp_readings(void)
+{
+        double dtemp_f = dtemp_c * (9.0 / 5.0) + 32;
+        printf("TEMP_ADC12:\r\n");
+        printf("   Raw ADC Temperature value    : %7d\r\n", dtemp_adc_code);
+        printf("   Temperature in Celsius (C)   : %7.2f\r\n", dtemp_c);
+        printf("   Temperature in Kelvin (K)    : %7.2f\r\n", dtemp_k);
+        printf("   Temperature in Fahrenheit (F): %7.2f\r\n", dtemp_f);
+}
+
 /* GPIOA interrupt handler
  * Includes interrupts for BQ25731_GROUP_CHRG_OK_PIN and SYSTEM_PRESENT_PIN
  */
@@ -232,10 +243,10 @@ void TEMP_ADC12_INST_IRQHandler(void)
         switch (DL_ADC12_getPendingInterrupt(TEMP_ADC12_INST)) {
         case DL_ADC12_IIDX_MEM0_RESULT_LOADED: {
                 /* Read the ADC value from the TEMP_SENSOR */
-                double dtemp_adc_code = (double)DL_ADC12_getMemResult(TEMP_ADC12_INST, DL_ADC12_MEM_IDX_0);
+                dtemp_adc_code = (double)DL_ADC12_getMemResult(TEMP_ADC12_INST, DL_ADC12_MEM_IDX_0);
 
                 /* Calculate temperature using 4th order polynomial regression */
-                double dtemp_voltage = (BIAS_VOLTAGE / ADC_RESOLUTION) * dtemp_adc_code;
+                double dtemp_voltage = (BIAS_VOLTAGE / ADC_RESOLUTION) * (double)dtemp_adc_code;
                 dtemp_c = (THRM_A4 * pow(dtemp_voltage, 4)) + (THRM_A3 * pow(dtemp_voltage, 3)) +
                           (THRM_A2 * pow(dtemp_voltage, 2)) + (THRM_A1 * dtemp_voltage) + THRM_A0;
                 dtemp_k = dtemp_c + KELVIN_ADDITION_FACTOR;
