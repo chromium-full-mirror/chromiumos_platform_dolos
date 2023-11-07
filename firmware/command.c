@@ -15,6 +15,7 @@
 #include "log.h"
 #include "pac.h"
 #include "dolos_gpio.h"
+#include "dconfig.h"
 
 #define CMD_PRINT_STATS "print-stats"
 #define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
@@ -27,6 +28,7 @@
 #define CMD_PRINT_PAC_READINGS "print-pac-readings"
 #define CMD_PRINT_TEMP_READINGS "print-temp-readings"
 #define CMD_PRINT_REGISTER_FROM_FLASH "print-register-from-flash"
+#define CMD_UPDATE_SYSTEM_PRESENT_POLARITY "update-system-present-polarity"
 
 void cmd_handle(void)
 {
@@ -61,6 +63,10 @@ void cmd_handle(void)
                 dgpio_print_temp_readings();
         } else if (!strncmp(cmd_line, CMD_PRINT_REGISTER_FROM_FLASH, sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1)) {
                 sb_print_register_from_dflash((uint8_t *)(cmd_line + sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1));
+        } else if (!strncmp(cmd_line, CMD_UPDATE_SYSTEM_PRESENT_POLARITY,
+                            sizeof(CMD_UPDATE_SYSTEM_PRESENT_POLARITY) - 1)) {
+                dconfig_handle_update_system_present_polarity_cmd(
+                        (uint8_t *)(cmd_line + sizeof(CMD_UPDATE_SYSTEM_PRESENT_POLARITY) - 1));
         } else {
                 stats.cmd_inval_count++;
                 printf("unknown command %s\n", cmd_line);

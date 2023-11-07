@@ -18,6 +18,7 @@
 #include "command.h"
 #include "uart.h"
 #include "dolos_flash.h"
+#include "dconfig.h"
 
 int main(void)
 {
@@ -30,12 +31,13 @@ int main(void)
         led_turn_off(LED_DOLOS_POWERING);
         led_turn_on(LED_DOLOS_PROGRAMMED);
 
+        dflash_init();
+        dconfig_load();
         dsb_init();
         dtimers_init();
         bb_init();
         dgpio_init();
         duart_init();
-        dflash_init();
 
         while (1) {
                 pac_refresh();

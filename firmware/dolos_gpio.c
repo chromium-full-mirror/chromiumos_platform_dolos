@@ -3,15 +3,20 @@
  * found in the LICENSE file.
  */
 
+#include <math.h>
+#include <ti/driverlib/driverlib.h>
+
 #include "dolos_gpio.h"
 #include "ti_msp_dl_config.h"
-#include <ti/driverlib/driverlib.h>
-#include <math.h>
 #include "log.h"
 #include "led.h"
 #include "stats.h"
 #include "error.h"
 #include "smart_battery.h"
+#include "utils.h"
+#include "dolos_flash.h"
+#include "string.h"
+#include "dconfig.h"
 
 #define BIAS_VOLTAGE 3.3
 #define ADC_RESOLUTION 4096
@@ -29,7 +34,11 @@ static double dtemp_k;
 /* Returns true if system is present */
 bool dgpio_get_system_present_signal(void)
 {
-        return !DL_GPIO_readPins(DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PORT, DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PIN);
+        if (dconfig_get_system_present_polarity()) {
+                return DL_GPIO_readPins(DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PORT, DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PIN);
+        } else {
+                return !DL_GPIO_readPins(DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PORT, DOLOS_CONTROL_PINS_SYSTEM_PRESENT_PIN);
+        }
 }
 
 /* Returns true if buck-boost charge ok is good */
@@ -56,9 +65,6 @@ void dgpio_init(void)
         /* Enable NVIC interrupts for TEMP_ADC12 */
         NVIC_ClearPendingIRQ(TEMP_ADC12_INST_INT_IRQN);
         NVIC_EnableIRQ(TEMP_ADC12_INST_INT_IRQN);
-
-        /* Update DOLOS_OUTPUT_ENABLE if initially SYSTEM_PRESENT and BQ_CHRG_OK were good */
-        dgpio_output_update_with_efuse_pg_operation();
 
         /* Enable LED_DOLOS_READY if BQ_CHRG_OK was good initially */
         const bool bq_chrg_ok = dgpio_get_bq_charge_ok_signal();
