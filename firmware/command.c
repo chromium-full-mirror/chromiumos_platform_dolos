@@ -13,6 +13,7 @@
 #include "stats.h"
 #include "smart_battery.h"
 #include "log.h"
+#include "pac.h"
 
 #define CMD_PRINT_STATS "print-stats"
 #define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
@@ -22,6 +23,7 @@
 #define CMD_LOG_LEVEL_DEBUG "log-level-debug"
 #define CMD_LOG_LEVEL_INFO "log-level-info"
 #define CMD_LOG_LEVEL_ERROR "log-level-error"
+#define CMD_PRINT_PAC_READINGS "print-pac-readings"
 
 void cmd_handle(void)
 {
@@ -50,6 +52,8 @@ void cmd_handle(void)
                 log_set_level(LOG_LEVEL_INFO);
         } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_ERROR, sizeof(CMD_LOG_LEVEL_ERROR) - 1)) {
                 log_set_level(LOG_LEVEL_ERROR);
+        } else if (!strncmp(cmd_line, CMD_PRINT_PAC_READINGS, sizeof(CMD_PRINT_PAC_READINGS) - 1)) {
+                pac_print_readings();
         } else {
                 stats.cmd_inval_count++;
                 printf("unknown command %s\n", cmd_line);

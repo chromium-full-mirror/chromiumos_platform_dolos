@@ -68,3 +68,10 @@ uint32_t pac_read_current_ma(void)
 {
         return current_ma;
 }
+
+void pac_print_readings(void)
+{
+        printf("PAC:\r\n");
+        printf("   Voltage:%5.0fmV\r\n", voltage_mv);
+        printf("   Current:%5.0fmA\r\n", current_ma);
+}

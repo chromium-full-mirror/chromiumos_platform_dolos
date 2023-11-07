@@ -24,4 +24,7 @@ uint32_t pac_read_voltage_mv(void);
  */
 uint32_t pac_read_current_ma(void);
 
+/* Prints PAC readings to the UART interface */
+void pac_print_readings(void);
+
 #endif /* PAC_H_ */
