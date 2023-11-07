@@ -88,12 +88,18 @@ void sb_update_registers(void);
  * +-------------------+------------------+---------------------------------+
  * Returns true if write was successful
  */
-bool sb_write_to_dflash(enum sb_register_address address);
+bool sb_write_register_data_to_dflash(enum sb_register_address address, uint8_t *data, uint32_t length);
 
-/* Reads sb_register data stored by sb_write_to_dflash
+/* Writes the smart battery register to the flash */
+bool sb_write_register_to_dflash(enum sb_register_address address);
+
+/* Reads sb_register data stored by sb_write_register_data_to_dflash
  * Returns true if read was successful
  */
-bool sb_read_from_dflash(enum sb_register_address address);
+bool sb_read_register_data_from_dflash(enum sb_register_address address, uint8_t *data, uint32_t *length);
+
+/* Reads the smart battery register from the flash */
+bool sb_read_register_from_dflash(enum sb_register_address address);
 
 /* Handles the sbreg command from UART */
 void sb_sbreg_command_handler(uint8_t *cmd_data);

@@ -62,7 +62,7 @@ bool dflash_read_data(uint16_t key, uint32_t *data)
                 return false;
         }
 
-        DEBUG("Reading successful: data = %#x", data);
+        DEBUG("Reading successful: data = %#x", *data);
         stats.dflash_read_success++;
         return true;
 }

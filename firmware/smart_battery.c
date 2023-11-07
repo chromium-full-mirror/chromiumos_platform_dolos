@@ -127,16 +127,9 @@ void sb_update_registers(void)
         sb_write_register(SB_REG_TEMPERATURE, (uint8_t *)&temp, sizeof(temp));
 }
 
-bool sb_write_to_dflash(enum sb_register_address address)
+bool sb_write_register_data_to_dflash(enum sb_register_address address, uint8_t *data, uint32_t length)
 {
         DEBUG("Writing sb register data to flash: address = %#x", address);
-        uint8_t data[SB_REG_DATA_MAX_SIZE];
-        uint32_t length;
-        int err_code = sb_read_register(address, data, (uint8_t *)&length);
-        if (err_code != DOLOS_SUCCESS) {
-                DEBUG("Failed to read data from sb register: error code = %d", err_code);
-                return false;
-        }
 
         /* Load register address into MSB byte of key and offset = 0 into LSB of key to store the length */
         uint16_t key = address << BYTE;
@@ -157,30 +150,44 @@ bool sb_write_to_dflash(enum sb_register_address address)
 
                 data_segment = 0;
                 for (size_t i = 0; i < sizeof(uint32_t); i++) {
-                        data_segment |= (uint32_t)(data[length - remaining_length + i] << (BYTE * i));
+                        data_segment |= (uint32_t)(data[length - remaining_length] << (BYTE * i));
+                        remaining_length--;
+                        if (remaining_length <= 0) {
+                                break;
+                        }
                 }
 
                 if (dflash_write_data(key, data_segment) != 0) {
                         DEBUG("Failed to write sb register data to flash");
                         return false;
                 }
-
-                remaining_length -= sizeof(uint32_t);
         }
 
         return true;
 }
 
-bool sb_read_from_dflash(enum sb_register_address address)
+bool sb_write_register_to_dflash(enum sb_register_address address)
+{
+        DEBUG("Writing sb register to flash: register = %#x", address);
+
+        /* Check if register address is correct */
+        struct sb_register *sb_register = sb_find_register_index(address);
+        if (sb_register == NULL) {
+                DEBUG("Failed to find register with address %#x", address);
+                return false;
+        }
+
+        return sb_write_register_data_to_dflash(address, sb_register->data, sb_register->length);
+}
+
+bool sb_read_register_data_from_dflash(enum sb_register_address address, uint8_t *data, uint32_t *length)
 {
         DEBUG("Reading sb register data from flash: address = %#x", address);
-        uint8_t data[SB_REG_DATA_MAX_SIZE];
-        uint32_t length;
 
         /* Load register address into MSB byte of key and offset = 0 into LSB of key to read the length */
         uint16_t key = address << BYTE;
 
-        if (!dflash_read_data(key, &length)) {
+        if (!dflash_read_data(key, length)) {
                 DEBUG("Failed to read sb register data from flash");
                 return false;
         }
@@ -190,7 +197,7 @@ bool sb_read_from_dflash(enum sb_register_address address)
         uint32_t data_segment;
         uint32_t remaining_length = 0;
 
-        while (remaining_length < length) {
+        while (remaining_length < *length) {
                 /* Offset += 1 */
                 ++key;
 
@@ -206,13 +213,26 @@ bool sb_read_from_dflash(enum sb_register_address address)
                 remaining_length += sizeof(uint32_t);
         }
 
-        int err_code = sb_write_register(address, data, (uint8_t)length);
-        if (err_code != DOLOS_SUCCESS) {
-                DEBUG("Failed to write data to sb register: error code = %d", err_code);
+        return true;
+}
+
+bool sb_read_register_from_dflash(enum sb_register_address address)
+{
+        /* Check if register address is correct */
+        struct sb_register *sb_register = sb_find_register_index(address);
+        if (sb_register == NULL) {
+                DEBUG("Failed to find register with address %#x", address);
                 return false;
         }
 
-        return true;
+        /* Read the data from the flash */
+        uint32_t length;
+        if (sb_read_register_data_from_dflash(address, sb_register->data, &length)) {
+                sb_register->length = length;
+                return true;
+        }
+
+        return false;
 }
 
 void sb_sbreg_command_handler(uint8_t *cmd_data)
@@ -277,7 +297,7 @@ void sb_sbreg_command_handler(uint8_t *cmd_data)
         sb_write_register(address, data, length);
 
         /* Write data to the flash */
-        sb_write_to_dflash(address);
+        sb_write_register_to_dflash(address);
 
         free(data);
         printf("\n");
