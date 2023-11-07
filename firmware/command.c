@@ -26,6 +26,7 @@
 #define CMD_LOG_LEVEL_ERROR "log-level-error"
 #define CMD_PRINT_PAC_READINGS "print-pac-readings"
 #define CMD_PRINT_TEMP_READINGS "print-temp-readings"
+#define CMD_PRINT_REGISTER_FROM_FLASH "print-register-from-flash"
 
 void cmd_handle(void)
 {
@@ -58,6 +59,8 @@ void cmd_handle(void)
                 pac_print_readings();
         } else if (!strncmp(cmd_line, CMD_PRINT_TEMP_READINGS, sizeof(CMD_PRINT_TEMP_READINGS) - 1)) {
                 dgpio_print_temp_readings();
+        } else if (!strncmp(cmd_line, CMD_PRINT_REGISTER_FROM_FLASH, sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1)) {
+                sb_print_register_from_dflash((uint8_t *)(cmd_line + sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1));
         } else {
                 stats.cmd_inval_count++;
                 printf("unknown command %s\n", cmd_line);

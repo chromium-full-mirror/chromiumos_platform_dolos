@@ -302,3 +302,35 @@ void sb_sbreg_command_handler(uint8_t *cmd_data)
         free(data);
         printf("\n");
 }
+
+void sb_print_register_from_dflash(uint8_t *cmd_data)
+{
+        DEBUG("Handling print-register-from-flash command: cmd data = %s", cmd_data);
+
+        uint8_t address;
+        uint32_t length;
+        uint8_t data[SB_REG_DATA_MAX_SIZE];
+        enum parse_status parse_status;
+        char *token;
+
+        /* Read the register number and read it from flash */
+        token = strtok((char *)cmd_data, " ");
+        parse_status = parse_int(token, (int *)&address);
+        if (parse_status != PARSE_SUCCESS) {
+                printf("print-register-from-flash invalid syntax\r\n");
+                return;
+        }
+
+        if (!sb_read_register_data_from_dflash(address, data, &length)) {
+                printf("Failed to read register data from flash\r\n");
+                return;
+        }
+
+        printf("Smart Battery Register %#x in flash:\r\n", address);
+        printf("   Data Length: %d\r\n", length);
+        printf("   Data:");
+        for (size_t i = 0; i < length; i++) {
+                printf(" %02x", data[i]);
+        }
+        printf("\r\n");
+}
