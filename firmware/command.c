@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "uart.h"
 #include "printf.h"
@@ -17,60 +18,142 @@
 #include "dolos_gpio.h"
 #include "dconfig.h"
 
-#define CMD_PRINT_STATS "print-stats"
-#define CMD_PRINT_SMBUS_STATS "print-smbus-stats"
-#define CMD_PRINT_GPIO_STATS "print-gpio-stats"
-#define CMD_PRINT_UART_STATS "print-uart-stats"
-#define CMD_SBREG "sbreg"
-#define CMD_LOG_LEVEL_DEBUG "log-level-debug"
-#define CMD_LOG_LEVEL_INFO "log-level-info"
-#define CMD_LOG_LEVEL_ERROR "log-level-error"
-#define CMD_PRINT_PAC_READINGS "print-pac-readings"
-#define CMD_PRINT_TEMP_READINGS "print-temp-readings"
-#define CMD_PRINT_REGISTER_FROM_FLASH "print-register-from-flash"
-#define CMD_UPDATE_SYSTEM_PRESENT_POLARITY "update-system-present-polarity"
+#include "cli.h"
 
-void cmd_handle(void)
+cli_t cli;
+static cli_status_t cmd_help_func(int argc, char **argv);
+
+static cli_status_t cmd_stats_func(int argc, char **argv)
 {
-        uint16_t cmd_len;
-        char *cmd_line;
-
-        cmd_line = (char *)uart_get_pending_data(&cmd_len);
-        if (cmd_line == NULL) {
-                return;
-        }
-        stats.cmd_rx_count++;
-
-        if (!strncmp(cmd_line, CMD_PRINT_STATS, sizeof(CMD_PRINT_STATS) - 1)) {
+        if (argc <= 1) {
                 print_stats();
-        } else if (!strncmp(cmd_line, CMD_PRINT_SMBUS_STATS, sizeof(CMD_PRINT_SMBUS_STATS) - 1)) {
-                print_smbus_stats();
-        } else if (!strncmp(cmd_line, CMD_PRINT_GPIO_STATS, sizeof(CMD_PRINT_GPIO_STATS) - 1)) {
-                print_gpio_stats();
-        } else if (!strncmp(cmd_line, CMD_PRINT_UART_STATS, sizeof(CMD_PRINT_UART_STATS) - 1)) {
-                print_uart_stats();
-        } else if (!strncmp(cmd_line, CMD_SBREG, sizeof(CMD_SBREG) - 1)) {
-                sb_sbreg_command_handler((uint8_t *)(cmd_line + sizeof(CMD_SBREG) - 1));
-        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_DEBUG, sizeof(CMD_LOG_LEVEL_DEBUG) - 1)) {
-                log_set_level(LOG_LEVEL_DEBUG);
-        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_INFO, sizeof(CMD_LOG_LEVEL_INFO) - 1)) {
-                log_set_level(LOG_LEVEL_INFO);
-        } else if (!strncmp(cmd_line, CMD_LOG_LEVEL_ERROR, sizeof(CMD_LOG_LEVEL_ERROR) - 1)) {
-                log_set_level(LOG_LEVEL_ERROR);
-        } else if (!strncmp(cmd_line, CMD_PRINT_PAC_READINGS, sizeof(CMD_PRINT_PAC_READINGS) - 1)) {
-                pac_print_readings();
-        } else if (!strncmp(cmd_line, CMD_PRINT_TEMP_READINGS, sizeof(CMD_PRINT_TEMP_READINGS) - 1)) {
-                dgpio_print_temp_readings();
-        } else if (!strncmp(cmd_line, CMD_PRINT_REGISTER_FROM_FLASH, sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1)) {
-                sb_print_register_from_dflash((uint8_t *)(cmd_line + sizeof(CMD_PRINT_REGISTER_FROM_FLASH) - 1));
-        } else if (!strncmp(cmd_line, CMD_UPDATE_SYSTEM_PRESENT_POLARITY,
-                            sizeof(CMD_UPDATE_SYSTEM_PRESENT_POLARITY) - 1)) {
-                dconfig_handle_update_system_present_polarity_cmd(
-                        (uint8_t *)(cmd_line + sizeof(CMD_UPDATE_SYSTEM_PRESENT_POLARITY) - 1));
-        } else {
-                stats.cmd_inval_count++;
-                printf("unknown command %s\n", cmd_line);
+                return CLI_OK;
         }
 
-        uart_mark_data_processed();
+        if (!strcasecmp(argv[1], "gpio")) {
+                print_gpio_stats();
+                return CLI_OK;
+        }
+
+        if (!strcasecmp(argv[1], "uart")) {
+                print_uart_stats();
+                return CLI_OK;
+        }
+
+        if (!strcasecmp(argv[1], "smbus")) {
+                print_smbus_stats();
+                return CLI_OK;
+        }
+
+        return CLI_E_INVALID_ARGS;
+}
+
+static cli_status_t cmd_pac_func(int argc, char **argv)
+{
+        pac_print_readings();
+        return CLI_OK;
+}
+
+static cli_status_t cmd_temp_func(int argc, char **argv)
+{
+        dgpio_print_temp_readings();
+        return CLI_OK;
+}
+
+static cli_status_t cmd_log_level_func(int argc, char **argv)
+{
+        if (argc != 2) {
+                printf("set-log-level requires one of the following as argument - debug, info, error");
+                return CLI_E_INVALID_ARGS;
+        }
+        if (!strcasecmp(argv[1], "debug")) {
+                log_set_level(LOG_LEVEL_DEBUG);
+        } else if (!strcasecmp(argv[1], "info")) {
+                log_set_level(LOG_LEVEL_INFO);
+        } else if (!strcasecmp(argv[1], "error")) {
+                log_set_level(LOG_LEVEL_ERROR);
+        } else {
+                printf("set-log-level requires one of the following as argument - debug, info, error");
+                return CLI_E_INVALID_ARGS;
+        }
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_system_present_func(int argc, char **argv)
+{
+        bool polarity;
+        if (argc == 1) {
+                polarity = dconfig_get_system_present_polarity();
+                if (polarity) {
+                        printf("Current SYSTEM_PRESENT polarity: Active HIGH with pull-down resistor\r\n");
+                } else {
+                        printf("Current SYSTEM_PRESENT polarity: Active LOW with pull-up resistor\r\n");
+                }
+                return CLI_OK;
+        }
+        if (!strcmp(argv[1], "0")) {
+                polarity = false;
+        } else {
+                polarity = true;
+        }
+        if (polarity) {
+                printf("Setting SYSTEM_PRESENT to Active HIGH \r\n");
+        } else {
+                printf("Setting SYSTEM_PRESENT to Active LOW \r\n");
+        }
+
+        dconfig_set_system_present_polarity(polarity);
+        return CLI_OK;
+}
+
+static cli_status_t cmd_read_flash_func(int argc, char **argv)
+{
+        printf("Not implemented\n");
+        return CLI_OK;
+}
+
+static cli_status_t cmd_sbreg_func(int argc, char **argv)
+{
+        printf("Not implemented\n");
+        return CLI_OK;
+}
+
+cmd_t cmd_tbl[] = {
+        { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
+        { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
+        { .cmd = "pac", .help = "Print PAC readings.", .func = cmd_pac_func },
+        { .cmd = "temp", .help = "Print temperature readings.", .func = cmd_temp_func },
+        { .cmd = "log-level", .help = "Set log level(error, info, debug).", .func = cmd_log_level_func },
+        { .cmd = "system-present", .help = "Change SYSTEM PRESENT polarity.", .func = cmd_system_present_func },
+        { .cmd = "read-flash", .help = "Read from flash register values.", .func = cmd_read_flash_func },
+        { .cmd = "sbreg", .help = "Set Smart battery register values.", .func = cmd_sbreg_func },
+};
+
+static cli_status_t cmd_help_func(int argc, char **argv)
+{
+        int i;
+        printf("Supported Commands:\n\r");
+        for (i = 0; i < sizeof(cmd_tbl) / sizeof(cmd_tbl[0]); i++) {
+                printf("%20s - %s\r\n", cmd_tbl[i].cmd, cmd_tbl[i].help);
+        }
+
+        return CLI_OK;
+}
+
+void cmd_init(void)
+{
+        cli.cmd_tbl = cmd_tbl;
+        cli.cmd_cnt = sizeof(cmd_tbl) / sizeof(cmd_t);
+        cli_init(&cli);
+}
+
+void cmd_putc(char data)
+{
+        cli_put(&cli, data);
+}
+
+void cmd_process(void)
+{
+        cli_process(&cli);
 }

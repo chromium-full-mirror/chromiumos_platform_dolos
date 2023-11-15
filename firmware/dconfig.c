@@ -55,32 +55,6 @@ bool dconfig_get_system_present_polarity(void)
         return system_present_polarity;
 }
 
-/* Handles SYSTEM_PRESENT polarity update command (1 for HIGH with pull-down and 0 for LOW with pull-up) */
-void dconfig_handle_update_system_present_polarity_cmd(uint8_t *cmd_data)
-{
-        DEBUG("Updating SYSTEM_PRESENT polarity");
-
-        char *token;
-        enum parse_status parse_status;
-        int polarity;
-
-        /* Read the register number and read it from flash */
-        token = strtok((char *)cmd_data, " ");
-        parse_status = parse_int(token, &polarity);
-        if (parse_status != PARSE_SUCCESS) {
-                printf("update-system-present-polarity invalid syntax\r\n");
-                return;
-        }
-
-        dconfig_set_system_present_polarity(polarity);
-
-        if (system_present_polarity) {
-                printf("Current SYSTEM_PRESENT polarity: Active HIGH\r\n");
-        } else {
-                printf("Current SYSTEM_PRESENT polarity: Active LOW\r\n");
-        }
-}
-
 void dconfig_load(void)
 {
         DEBUG("Loading SYSTEM_PRESENT polarity from flash");

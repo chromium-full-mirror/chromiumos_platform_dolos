@@ -38,12 +38,13 @@ int main(void)
         bb_init();
         dgpio_init();
         duart_init();
+        cmd_init();
 
         while (1) {
                 pac_refresh();
                 dgpio_read_temp();
                 sb_update_registers();
-                cmd_handle();
+                cmd_process();
                 sleep(1);
         }
 }

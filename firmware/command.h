@@ -6,7 +6,17 @@
 #ifndef DOLOS_CMD_H_
 #define DOLOS_CMD_H_
 
-/* When called, handles pending UART command and allows receiving more commands */
-void cmd_handle(void);
+/** Initializes command modules
+ */
+void cmd_init(void);
+
+/** Adds a character received in the input stream(UART) to command stream.
+ *
+ */
+void cmd_putc(char data);
+
+/** Process the characters in the command stream.
+ */
+void cmd_process(void);
 
 #endif

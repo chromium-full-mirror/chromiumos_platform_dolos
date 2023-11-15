@@ -10,15 +10,12 @@
 
 #include "ti_msp_dl_config.h"
 #include "log.h"
-
+#include "printf.h"
 #include "stats.h"
+#include "command.h"
 
-#define UART_MAX_BUFFER 1000
-static uint32_t uart_data_index;
+#define UART_MAX_BUFFER 128
 static uint8_t uart_data[UART_MAX_BUFFER];
-static bool uart_rx_processing_pending = false;
-
-#define CMD_END 13
 
 void duart_init(void)
 {
@@ -38,48 +35,12 @@ void UART_0_INST_IRQHandler(void)
         }
         stats.uart_rx_int_count++;
 
-        /* Wrap around if too much data is received (old data is discarded) */
-        if (uart_data_index >= UART_MAX_BUFFER - 1) {
-                uart_data_index = 0;
-                return;
-        }
-
-        /* Discard the new data if waiting for processing to be done. */
-        if (uart_rx_processing_pending) {
-                return;
-        }
-
         /* Receive data */
-        remaining_buf_size = UART_MAX_BUFFER - uart_data_index;
-        new_data_count = DL_UART_Main_drainRXFIFO(UART_0_INST, &uart_data[uart_data_index], remaining_buf_size);
+        new_data_count = DL_UART_Main_drainRXFIFO(UART_0_INST, uart_data, UART_MAX_BUFFER);
         stats.uart_rx_char_count += new_data_count;
         /* If end of data is received mark processing is required. */
-        for (uint16_t i = uart_data_index; i < uart_data_index + new_data_count; i++) {
+        for (uint16_t i = 0; i < new_data_count; i++) {
                 stats.uart_rx_scan_count++;
-                if (uart_data[i] == CMD_END) {
-                        uart_data[i] = '\0';
-                        uart_rx_processing_pending = true;
-                        stats.uart_rx_eof_count++;
-                        break;
-                } else {
-                        uart_rx_processing_pending = false;
-                }
+                cmd_putc(uart_data[i]);
         }
-
-        uart_data_index += new_data_count;
-}
-
-uint8_t *uart_get_pending_data(uint16_t *size)
-{
-        if (uart_rx_processing_pending) {
-                *size = uart_data_index;
-                return uart_data;
-        }
-        return NULL;
-}
-
-void uart_mark_data_processed()
-{
-        uart_data_index = 0;
-        uart_rx_processing_pending = false;
 }

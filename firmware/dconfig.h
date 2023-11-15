@@ -17,7 +17,4 @@ void dconfig_set_system_present_polarity(bool polarity);
 /* Returns SYSTEM_PRESENT polarity, true for HIGH and false for LOW. */
 bool dconfig_get_system_present_polarity(void);
 
-/* Handles SYSTEM_PRESENT polarity update command (1 for HIGH and 0 for LOW). */
-void dconfig_handle_update_system_present_polarity_cmd(uint8_t *cmd_data);
-
 #endif /* DCONFIG_H_ */
