@@ -19,6 +19,7 @@
 #include "uart.h"
 #include "dolos_flash.h"
 #include "dconfig.h"
+#include "temperature.h"
 
 int main(void)
 {
@@ -42,7 +43,7 @@ int main(void)
 
         while (1) {
                 pac_refresh();
-                dgpio_read_temp();
+                temp_start_reading();
                 sb_update_registers();
                 cmd_process();
                 sleep(1);

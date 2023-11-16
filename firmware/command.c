@@ -17,6 +17,7 @@
 #include "pac.h"
 #include "dolos_gpio.h"
 #include "dconfig.h"
+#include "temperature.h"
 
 #include "cli.h"
 
@@ -56,7 +57,7 @@ static cli_status_t cmd_pac_func(int argc, char **argv)
 
 static cli_status_t cmd_temp_func(int argc, char **argv)
 {
-        dgpio_print_temp_readings();
+        temp_print_readings();
         return CLI_OK;
 }
 

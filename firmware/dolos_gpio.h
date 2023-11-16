@@ -23,16 +23,4 @@ void dgpio_output_disable(void);
 /* Attempts to enable Dolos output and resets the EFUSE_PG signal operation if output was enabled */
 void dgpio_output_update_with_efuse_pg_operation(void);
 
-/* Reads the temperature of the Dolos from the thermistor */
-void dgpio_read_temp(void);
-
-/* Reads Dolos temperature in Kelvin */
-double dgpio_get_temp_k(void);
-
-/* Reads Dolos temperature in Celsius */
-double dgpio_get_temp_c(void);
-
-/* Prints temperature data to UART interface */
-void dgpio_print_temp_readings(void);
-
 #endif /* DOLOS_GPIO_H_ */
