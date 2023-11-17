@@ -16,7 +16,7 @@
 #define SYSTEM_PRESENT_POLARITY_KEY 0x5000
 
 /* True for HIGH and False for LOW */
-static bool system_present_polarity = 0;
+static bool system_present_polarity = 1;
 
 /* Saves SYSTEM_PRESENT polarity to flash */
 static void dconfig_store_system_present_polarity_to_dflash(void)

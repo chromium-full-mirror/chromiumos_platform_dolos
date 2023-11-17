@@ -18,7 +18,7 @@
 #include "dolos_gpio.h"
 #include "dconfig.h"
 #include "temperature.h"
-
+#include "bms.h"
 #include "cli.h"
 
 cli_t cli;
@@ -120,15 +120,38 @@ static cli_status_t cmd_sbreg_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_signal_func(int argc, char **argv)
+{
+        bms_print_state_trackers();
+        return CLI_OK;
+}
+
+static cli_status_t cmd_output_func(int argc, char **argv)
+{
+        if (argc != 2) {
+                printf("Argument required on or off\n\r");
+                return CLI_E_INVALID_ARGS;
+        }
+        if (!strcasecmp(argv[1], "on")) {
+                bms_force_output(true);
+        } else {
+                bms_force_output(false);
+        }
+
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
+        { .cmd = "signals", .help = "Prints signal states", .func = cmd_signal_func },
         { .cmd = "pac", .help = "Print PAC readings.", .func = cmd_pac_func },
         { .cmd = "temp", .help = "Print temperature readings.", .func = cmd_temp_func },
         { .cmd = "log-level", .help = "Set log level(error, info, debug).", .func = cmd_log_level_func },
         { .cmd = "system-present", .help = "Change SYSTEM PRESENT polarity.", .func = cmd_system_present_func },
         { .cmd = "read-flash", .help = "Read from flash register values.", .func = cmd_read_flash_func },
         { .cmd = "sbreg", .help = "Set Smart battery register values.", .func = cmd_sbreg_func },
+        { .cmd = "output", .help = "Force turnon the output.", .func = cmd_output_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

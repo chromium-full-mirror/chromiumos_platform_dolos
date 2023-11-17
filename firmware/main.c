@@ -20,6 +20,7 @@
 #include "dolos_flash.h"
 #include "dconfig.h"
 #include "temperature.h"
+#include "bms.h"
 
 int main(void)
 {
@@ -46,6 +47,7 @@ int main(void)
                 temp_start_reading();
                 sb_update_registers();
                 cmd_process();
+                bms_tick_handler();
                 sleep(1);
         }
 }
