@@ -42,6 +42,8 @@ int main(void)
         duart_init();
         cmd_init();
 
+        sb_load_registers_from_dflash();
+
         while (1) {
                 pac_refresh();
                 temp_start_reading();

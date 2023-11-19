@@ -77,6 +77,7 @@ static struct sb_register sb_registers[] = {
           false,
           false }
 };
+
 /** Find smart_battery register in sb_registers array for given register address.
  *
  */
@@ -334,5 +335,12 @@ void sb_print_sb_registers(void)
 {
         for (size_t i = 0; i < sizeof(sb_registers) / sizeof(sb_registers[0]); i++) {
                 sb_print_sb_register_data(&sb_registers[i]);
+        }
+}
+
+void sb_load_registers_from_dflash(void)
+{
+        for (int i = 0; i < sizeof(sb_registers) / sizeof(sb_registers[0]); i++) {
+                sb_read_register_from_dflash(sb_registers[i].address);
         }
 }

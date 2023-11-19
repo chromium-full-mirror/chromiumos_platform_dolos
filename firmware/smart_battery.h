@@ -129,4 +129,7 @@ void sb_print_sb_register(enum sb_register_address address);
 /* Prints the data of the smart battery registers */
 void sb_print_sb_registers(void);
 
+/* Loads All the Smart Battery register data stored into the flash */
+void sb_load_registers_from_dflash(void);
+
 #endif /* SMART_BATTERY_H_ */
