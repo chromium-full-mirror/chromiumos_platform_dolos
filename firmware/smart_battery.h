@@ -62,11 +62,19 @@ struct sb_register {
         uint8_t length;
         /* Data. */
         uint8_t data[SB_REG_DATA_MAX_SIZE];
+        /* Is the register read only */
+        bool is_read_only;
+        /* Is the register a word/block*/
+        bool is_word;
 };
 
 /** Read a register value of a smart battery
  */
 int sb_read_register(enum sb_register_address address, uint8_t *buffer, uint8_t *buf_size);
+
+/** Write register value of a smart battery
+ */
+int sb_write_register(enum sb_register_address address, uint8_t *buffer, size_t buf_size);
 
 /** Update smart battery registers based on PAC, temp data.
  */
@@ -106,5 +114,11 @@ void sb_sbreg_command_handler(uint8_t *cmd_data);
 
 /* Prints the Smart Battery register data stored in flash */
 void sb_print_register_from_dflash(uint8_t *cmd_data);
+
+/* Returns true if register is read only */
+bool sb_is_register_read_only(enum sb_register_address address);
+
+/* Returns true if register size is word */
+bool sb_is_register_word(enum sb_register_address address);
 
 #endif /* SMART_BATTERY_H_ */

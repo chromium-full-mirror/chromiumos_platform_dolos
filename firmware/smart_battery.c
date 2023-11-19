@@ -21,49 +21,54 @@
 #define BYTE 8
 
 static struct sb_register sb_registers[] = {
-        { SB_REG_MANUFACTURER_ACCESS, 2, { 0x83, 0x43 } },
-        { SB_REG_REMAINING_CAPACITY_ALARM, 2, { 0x67, 0x02 } },
-        { SB_REG_REMAINING_TIME_ALARM, 2, { 0x0a, 0x00 } },
-        { SB_REG_BATTERY_MODE, 2, { 0x01, 0x60 } },
-        { SB_REG_AT_RATE, 2, { 0x0, 0x0 } },
-        { SB_REG_AT_RATE_TIME_TO_FULL, 2, { 0xff, 0xff } },
-        { SB_REG_AT_RATE_TIME_TO_EMPTY, 2, { 0xff, 0xff } },
-        { SB_REG_AT_RATE_OK, 2, { 0x01, 0x00 } },
-        { SB_REG_TEMPERATURE, 2, { 0x24, 0x0c } },
-        { SB_REG_VOLTAGE, 2, { 0xd4, 0x20 } },
-        { SB_REG_CURRENT, 2, { 0x83, 0x0f } },
-        { SB_REG_AVERAGE_CURRENT, 2, { 0xf1, 0x09 } },
-        { SB_REG_MAX_ERROR, 2, { 0x01, 0x00 } },
-        { SB_REG_RELATIVE_STATE_OF_CHARGE, 2, { 0x63, 0x00 } },
-        { SB_REG_ABSOLUTE_STATE_OF_CHARGE, 2, { 0x58, 0x00 } },
-        { SB_REG_REMAINING_CAPACITY, 2, { 0x16, 0x11 } },
-        { SB_REG_FULL_CHARGE_CAPACITY, 2, { 0x2c, 0x15 } },
-        { SB_REG_RUN_TIME_TO_EMPTY, 2, { 0xff, 0xff } },
-        { SB_REG_AVERAGE_TIME_TO_EMPTY, 2, { 0xff, 0xff } },
-        { SB_REG_AVERAGE_TIME_TO_FULL, 2, { 0xff, 0xff } },
-        { SB_REG_CHARGING_CURRENT, 2, { 0x00, 0x00 } },
-        { SB_REG_CHARGING_VOLTAGE, 2, { 0x00, 0x00 } },
-        { SB_REG_BATTERY_STATUS, 2, { 0xe0, 0x00 } },
-        { SB_REG_CYCLE_COUNT, 2, { 0x21, 0x00 } },
-        { SB_REG_DESIGN_CAPACITY, 2, { 0x06, 0x18 } },
-        { SB_REG_DESIGN_VOLTAGE, 2, { 0x14, 0x1e } },
-        { SB_REG_SPECIFICATION_INFO, 2, { 0x31, 0x00 } },
-        { SB_REG_MANUFACTURE_DATE, 2, { 0x5b, 0x52 } },
-        { SB_REG_SERIAL_NUMBER, 2, { 0x9b, 0x00 } },
-        { SB_REG_MANUFACTURER_NAME, 12, { 0x0b, 0x33, 0x33, 0x33, 0x2d, 0x41, 0x43, 0x2d, 0x44, 0x41, 0x2D, 0x41 } },
-        { SB_REG_DEVICE_NAME, 0xa, { 0x09, 0x47, 0x48, 0x30, 0x32, 0x30, 0x34, 0x37, 0x58, 0x4c } },
-        { SB_REG_DEVICE_CHEMISTRY, 5, { 0x04, 0x4c, 0x49, 0x4f, 0x4e } },
+        { SB_REG_MANUFACTURER_ACCESS, 2, { 0x83, 0x43 }, false, true },
+        { SB_REG_REMAINING_CAPACITY_ALARM, 2, { 0x67, 0x02 }, false, true },
+        { SB_REG_REMAINING_TIME_ALARM, 2, { 0x0a, 0x00 }, false, true },
+        { SB_REG_BATTERY_MODE, 2, { 0x01, 0x60 }, false, true },
+        { SB_REG_AT_RATE, 2, { 0x0, 0x0 }, false, true },
+        { SB_REG_AT_RATE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
+        { SB_REG_AT_RATE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { SB_REG_AT_RATE_OK, 2, { 0x01, 0x00 }, true, true },
+        { SB_REG_TEMPERATURE, 2, { 0x24, 0x0c }, true, true },
+        { SB_REG_VOLTAGE, 2, { 0xd4, 0x20 }, true, true },
+        { SB_REG_CURRENT, 2, { 0x83, 0x0f }, true, true },
+        { SB_REG_AVERAGE_CURRENT, 2, { 0xf1, 0x09 }, true, true },
+        { SB_REG_MAX_ERROR, 2, { 0x01, 0x00 }, true, true },
+        { SB_REG_RELATIVE_STATE_OF_CHARGE, 2, { 0x63, 0x00 }, true, true },
+        { SB_REG_ABSOLUTE_STATE_OF_CHARGE, 2, { 0x58, 0x00 }, true, true },
+        { SB_REG_REMAINING_CAPACITY, 2, { 0x16, 0x11 }, true, true },
+        { SB_REG_FULL_CHARGE_CAPACITY, 2, { 0x2c, 0x15 }, true, true },
+        { SB_REG_RUN_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { SB_REG_AVERAGE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { SB_REG_AVERAGE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
+        { SB_REG_CHARGING_CURRENT, 2, { 0x00, 0x00 }, false, true },
+        { SB_REG_CHARGING_VOLTAGE, 2, { 0x00, 0x00 }, false, true },
+        { SB_REG_BATTERY_STATUS, 2, { 0xe0, 0x00 }, true, true },
+        { SB_REG_CYCLE_COUNT, 2, { 0x21, 0x00 }, true, true },
+        { SB_REG_DESIGN_CAPACITY, 2, { 0x06, 0x18 }, true, true },
+        { SB_REG_DESIGN_VOLTAGE, 2, { 0x14, 0x1e }, true, true },
+        { SB_REG_SPECIFICATION_INFO, 2, { 0x31, 0x00 }, true, true },
+        { SB_REG_MANUFACTURE_DATE, 2, { 0x5b, 0x52 }, true, true },
+        { SB_REG_SERIAL_NUMBER, 2, { 0x9b, 0x00 }, true, true },
+        { SB_REG_MANUFACTURER_NAME,
+          11,
+          { 0x33, 0x33, 0x33, 0x2d, 0x41, 0x43, 0x2d, 0x44, 0x41, 0x2D, 0x41 },
+          true,
+          false },
+        { SB_REG_DEVICE_NAME, 9, { 0x47, 0x48, 0x30, 0x32, 0x30, 0x34, 0x37, 0x58, 0x4c }, false, false },
+        { SB_REG_DEVICE_CHEMISTRY, 4, { 0x4c, 0x49, 0x4f, 0x4e }, true, false },
         { SB_REG_MANUFACTURER_DATA,
-          0x11,
-          { 0x10, 0x36, 0x4B, 0x51, 0x44, 0x43, 0x30, 0x41, 0x38, 0x31, 0x45, 0x56, 0x4B, 0x5A, 0x4A, 0x00, 0x01 } },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_5, 2, { 0x00 } },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_4, 2, { 0x00 } },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_3, 2, { 0x00 } },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_2, 2, { 0x10, 0x83 } },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_1, 2, { 0x10, 0x84 } },
-        { SB_REG_SB_PACK_STATUS, 2, { 0x1 } },
-        { SB_REG_SB_ALT_MANUFACTURER_ACCESS, 6, { 0x06, 0x54, 0x00, 0x87, 0x03, 0x00 } }
-
+          10,
+          { 0x36, 0x4B, 0x51, 0x44, 0x43, 0x30, 0x41, 0x38, 0x31, 0x45, 0x56, 0x4B, 0x5A, 0x4A, 0x00, 0x01 },
+          true,
+          false },
+        { SB_REG_OPTIONAL_MFG_FUNCTION_5, 2, { 0x00, 0x00 }, false, true },
+        { SB_REG_OPTIONAL_MFG_FUNCTION_4, 2, { 0x00, 0x00 }, false, true },
+        { SB_REG_OPTIONAL_MFG_FUNCTION_3, 2, { 0x00, 0x00 }, false, true },
+        { SB_REG_OPTIONAL_MFG_FUNCTION_2, 2, { 0x10, 0x83 }, false, true },
+        { SB_REG_OPTIONAL_MFG_FUNCTION_1, 2, { 0x10, 0x84 }, false, true },
+        { SB_REG_SB_PACK_STATUS, 2, { 0x01, 0x00 }, false, true },
+        { SB_REG_SB_ALT_MANUFACTURER_ACCESS, 6, { 0x54, 0x00, 0x87, 0x03, 0x00, 0x00 }, false, false }
 };
 
 /** Find smart_battery register in sb_registers array for given register address.
@@ -104,7 +109,7 @@ int sb_read_register(enum sb_register_address address, uint8_t *buffer, uint8_t 
         return DOLOS_SUCCESS;
 }
 
-static int sb_write_register(enum sb_register_address address, uint8_t *buffer, size_t buf_size)
+int sb_write_register(enum sb_register_address address, uint8_t *buffer, size_t buf_size)
 {
         struct sb_register *reg;
 
@@ -334,4 +339,16 @@ void sb_print_register_from_dflash(uint8_t *cmd_data)
                 printf(" %02x", data[i]);
         }
         printf("\r\n");
+}
+
+bool sb_is_register_read_only(enum sb_register_address address)
+{
+        struct sb_register *sb_register = sb_find_register_index(address);
+        return sb_register->is_read_only;
+}
+
+bool sb_is_register_word(enum sb_register_address address)
+{
+        struct sb_register *sb_register = sb_find_register_index(address);
+        return sb_register->is_word;
 }

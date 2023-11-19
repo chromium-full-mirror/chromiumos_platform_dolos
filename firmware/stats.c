@@ -25,6 +25,7 @@ void print_smbus_stats(void)
         printf("Host:\r\n");
         printf("   SMBus Int count               : %6d\r\n", stats.smbus_target_int_count);
         printf("   SMBus Read bytes              : %6d\r\n", stats.smbus_target_reg_read_bytes);
+        printf("   SMBus Write bytes             : %6d\r\n", stats.smbus_target_reg_write_bytes);
         printf("   SMBus Int state:Ok            : %6d\r\n", stats.smbus_target_state_count[SMBus_State_OK]);
         printf("   SMBus Int state:DataSizeError : %6d\r\n", stats.smbus_target_state_count[SMBus_State_DataSizeError]);
         printf("   SMBus Int state:PECError      : %6d\r\n", stats.smbus_target_state_count[SMBus_State_PECError]);
@@ -49,6 +50,8 @@ void print_smbus_stats(void)
         printf("   SMBus Int state:Unknown       : %6d\r\n", stats.smbus_target_state_count[SMBus_State_Unknown]);
         printf("   SMBus Read success            : %6d\r\n", stats.smbus_target_reg_read_success);
         printf("   Smart Battery Read fail       : %6d\r\n", stats.smbus_target_reg_read_failures);
+        printf("   SMBus Write success           : %6d\r\n", stats.smbus_target_reg_write_success);
+        printf("   Smart Battery Write fail      : %6d\r\n", stats.smbus_target_reg_write_failures);
 }
 
 void print_gpio_stats(void)

@@ -150,12 +150,51 @@ static void dsb_handle_sb_smbus_read(SMBus *smbus, uint8_t cmd)
                 stats.smbus_target_reg_read_failures++;
                 return;
         }
-        smbus->nwk.txLen = buf_size;
-        for (i = 0; i < buf_size; i++) {
-                smbus->nwk.txBuffPtr[i] = buffer[i];
+
+        /* We don't send the data length if the register size is a word */
+        if (sb_is_register_word(cmd)) {
+                smbus->nwk.txLen = buf_size;
+                for (i = 0; i < buf_size; i++) {
+                        smbus->nwk.txBuffPtr[i] = buffer[i];
+                }
+        } else {
+                smbus->nwk.txLen = buf_size + 1;
+                smbus->nwk.txBuffPtr[0] = buf_size;
+                for (i = 0; i < buf_size; i++) {
+                        smbus->nwk.txBuffPtr[i + 1] = buffer[i];
+                }
         }
+
         stats.smbus_target_reg_read_success++;
         stats.smbus_target_reg_read_bytes += buf_size;
+}
+
+static void dsb_handle_sb_smbus_write(SMBus *smbus, uint8_t cmd)
+{
+        uint8_t buffer[SB_REG_DATA_MAX_SIZE];
+        uint8_t buf_size;
+        int i, ret;
+
+        /* If the register size is a word there will be no length sent in the first byte of the packet */
+        if (sb_is_register_word(cmd)) {
+                buf_size = 2;
+                for (i = 0; i < buf_size; i++) {
+                        buffer[i] = smbus->nwk.rxBuffPtr[i + 1];
+                }
+        } else {
+                buf_size = smbus->nwk.rxBuffPtr[1];
+                for (i = 0; i < buf_size; i++) {
+                        buffer[i] = smbus->nwk.rxBuffPtr[i + 2];
+                }
+        }
+
+        ret = sb_write_register(cmd, buffer, buf_size);
+        if (ret != DOLOS_SUCCESS) {
+                stats.smbus_target_reg_write_failures++;
+                return;
+        }
+        stats.smbus_target_reg_write_success++;
+        stats.smbus_target_reg_write_bytes += buf_size;
 }
 
 static uint8_t last_rx_cmd;
@@ -178,7 +217,14 @@ void DOLOS_SMBUS_TARGET_INST_IRQHandler(void)
                 last_rx_cmd = SMBus_targetGetCommand(&smbus_target_inst);
                 break;
         case SMBus_State_Target_CmdComplete:
-                dsb_handle_sb_smbus_read(&smbus_target_inst, last_rx_cmd);
+                if (smbus_target_inst.nwk.eState == SMBus_NwkState_TX_Resp) {
+                        dsb_handle_sb_smbus_read(&smbus_target_inst, last_rx_cmd);
+                } else {
+                        if (sb_is_register_read_only(last_rx_cmd)) {
+                                break;
+                        }
+                        dsb_handle_sb_smbus_write(&smbus_target_inst, last_rx_cmd);
+                }
                 break;
         default:
                 break;
