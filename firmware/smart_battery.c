@@ -241,72 +241,24 @@ bool sb_read_register_from_dflash(enum sb_register_address address)
         return false;
 }
 
-void sb_sbreg_command_handler(uint8_t *cmd_data)
+bool sb_sbreg_command_handler(uint8_t address, char register_type, size_t length, uint8_t *data)
 {
-        DEBUG("Handling sbreg command: cmd data = %s", cmd_data);
-        uint8_t address;
-        char register_type;
-        size_t length;
-        uint8_t *data;
-
-        enum parse_status parse_status;
-        char *token;
-
-        /* Read address byte */
-        token = strtok((char *)cmd_data, " ");
-        parse_status = parse_int(token, (int *)&address);
-        if (parse_status != PARSE_SUCCESS) {
-                DEBUG("sbreg invalid syntax");
-                return;
-        }
-
-        /* Read command type, skip if  type = 'R' | 'r' (Reserved) */
-        token = strtok(NULL, " ");
-        if (!strcmp(token, "R") | !strcmp(token, "r")) {
-                DEBUG("Skipping register %#x (Reserved)", address);
-                return;
-        }
-
-        /* Read command length */
-        token = strtok(NULL, " ");
-        parse_status = parse_int(token, (int *)&length);
-        if (parse_status != PARSE_SUCCESS) {
-                DEBUG("sbreg invalid syntax");
-                return;
-        }
-
-        /* Read the rest of data */
-        data = malloc(sizeof(uint8_t) * length);
-        size_t i = 0;
-        uint8_t current_byte;
-
-        token = strtok(NULL, " ");
-
-        while (token != NULL && i < length) {
-                parse_status = parse_int(token, (int *)&current_byte);
-                if (parse_status != PARSE_SUCCESS) {
-                        DEBUG("sbreg invalid syntax");
-                        return;
-                }
-                data[i++] = current_byte;
-                token = strtok(NULL, " ");
-        }
-
-        /* If there's data left, fail the command*/
-        if (token != NULL || i < length) {
-                free(data);
-                DEBUG("sbreg invalid syntax");
-                return;
+        /* Skip register if it is a reserved register */
+        if (register_type == 'r' | register_type == 'R') {
+                return true;
         }
 
         /* Write the data to the sb register */
-        sb_write_register(address, data, length);
+        if (sb_write_register(address, data, length) != DOLOS_SUCCESS) {
+                return false;
+        }
 
         /* Write data to the flash */
-        sb_write_register_to_dflash(address);
+        if (!sb_write_register_to_dflash(address)) {
+                return false;
+        }
 
-        free(data);
-        printf("\n");
+        return true;
 }
 
 void sb_print_register_from_dflash(uint8_t *cmd_data)

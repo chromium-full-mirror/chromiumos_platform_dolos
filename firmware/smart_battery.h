@@ -109,8 +109,8 @@ bool sb_read_register_data_from_dflash(enum sb_register_address address, uint8_t
 /* Reads the smart battery register from the flash */
 bool sb_read_register_from_dflash(enum sb_register_address address);
 
-/* Handles the sbreg command from UART */
-void sb_sbreg_command_handler(uint8_t *cmd_data);
+/* Handles the sbreg command from UART, returns true if succeeds */
+bool sb_sbreg_command_handler(uint8_t address, char register_type, size_t length, uint8_t *data);
 
 /* Prints the Smart Battery register data stored in flash */
 void sb_print_register_from_dflash(uint8_t *cmd_data);

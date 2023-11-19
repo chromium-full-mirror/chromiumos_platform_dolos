@@ -20,6 +20,7 @@
 #include "temperature.h"
 #include "bms.h"
 #include "cli.h"
+#include "utils.h"
 
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
@@ -116,7 +117,66 @@ static cli_status_t cmd_read_flash_func(int argc, char **argv)
 
 static cli_status_t cmd_sbreg_func(int argc, char **argv)
 {
-        printf("Not implemented\n");
+        uint8_t address;
+        char register_type;
+        size_t length;
+        uint8_t data[SB_REG_DATA_MAX_SIZE];
+        enum parse_status parse_status;
+
+        if (argc < 4) {
+                printf("Invalid arguments, usage: sbreg <address> {w|b|r} <length> <data...>\r\n");
+                return CLI_E_INVALID_ARGS;
+        }
+
+        /* Read address byte */
+        parse_status = parse_int(argv[1], (int *)&address);
+        if (parse_status != PARSE_SUCCESS) {
+                printf("Invalid address, must be 1 byte in integer format\r\n");
+                return CLI_E_INVALID_ARGS;
+        }
+
+        /* Read command type */
+        if (strcasecmp(argv[2], "w") && strcasecmp(argv[2], "b") && strcasecmp(argv[2], "r")) {
+                printf("Register type should be w/b/r (word/block/reserved)\r\n");
+                return CLI_E_INVALID_ARGS;
+        }
+        register_type = argv[2][0];
+
+        /* Read command length */
+        parse_status = parse_int(argv[3], (int *)&length);
+        if (parse_status != PARSE_SUCCESS) {
+                printf("Invalid length, must be an integer\r\n");
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (length < 0 || length > SB_REG_DATA_MAX_SIZE) {
+                printf("Invalid length, length should be between 0 and %d\r\n", SB_REG_DATA_MAX_SIZE);
+        }
+
+        if (argc != length + 4) {
+                printf("Data length mismatch, should be equal to specified length\r\n");
+                return CLI_E_INVALID_ARGS;
+        }
+
+        /* Read the rest of data */
+        size_t i = 0;
+        uint8_t current_byte;
+
+        while (i < length) {
+                parse_status = parse_int(argv[i + 4], (int *)&current_byte);
+                if (parse_status != PARSE_SUCCESS) {
+                        printf("Invalid data format, should be 1 byte in integer format\r\n");
+                        return CLI_E_INVALID_ARGS;
+                }
+                data[i++] = current_byte;
+        }
+
+        /* Call sbreg handler in Smart Battery */
+        if (!sb_sbreg_command_handler(address, register_type, length, data)) {
+                printf("Failed to execute sbreg\r\n");
+                return CLI_E_IO;
+        }
+
         return CLI_OK;
 }
 
