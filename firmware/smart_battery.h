@@ -56,6 +56,8 @@ enum sb_register_address {
 };
 
 struct sb_register {
+        /* Register name */
+        char name[32];
         /* Address of the register. */
         enum sb_register_address address;
         /* Length of the data. */
@@ -120,5 +122,11 @@ bool sb_is_register_read_only(enum sb_register_address address);
 
 /* Returns true if register size is word */
 bool sb_is_register_word(enum sb_register_address address);
+
+/* Prints the data of a specific smart battery register */
+void sb_print_sb_register(enum sb_register_address address);
+
+/* Prints the data of the smart battery registers */
+void sb_print_sb_registers(void);
 
 #endif /* SMART_BATTERY_H_ */

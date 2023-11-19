@@ -21,56 +21,62 @@
 #define BYTE 8
 
 static struct sb_register sb_registers[] = {
-        { SB_REG_MANUFACTURER_ACCESS, 2, { 0x83, 0x43 }, false, true },
-        { SB_REG_REMAINING_CAPACITY_ALARM, 2, { 0x67, 0x02 }, false, true },
-        { SB_REG_REMAINING_TIME_ALARM, 2, { 0x0a, 0x00 }, false, true },
-        { SB_REG_BATTERY_MODE, 2, { 0x01, 0x60 }, false, true },
-        { SB_REG_AT_RATE, 2, { 0x0, 0x0 }, false, true },
-        { SB_REG_AT_RATE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
-        { SB_REG_AT_RATE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
-        { SB_REG_AT_RATE_OK, 2, { 0x01, 0x00 }, true, true },
-        { SB_REG_TEMPERATURE, 2, { 0x24, 0x0c }, true, true },
-        { SB_REG_VOLTAGE, 2, { 0xd4, 0x20 }, true, true },
-        { SB_REG_CURRENT, 2, { 0x83, 0x0f }, true, true },
-        { SB_REG_AVERAGE_CURRENT, 2, { 0xf1, 0x09 }, true, true },
-        { SB_REG_MAX_ERROR, 2, { 0x01, 0x00 }, true, true },
-        { SB_REG_RELATIVE_STATE_OF_CHARGE, 2, { 0x63, 0x00 }, true, true },
-        { SB_REG_ABSOLUTE_STATE_OF_CHARGE, 2, { 0x58, 0x00 }, true, true },
-        { SB_REG_REMAINING_CAPACITY, 2, { 0x16, 0x11 }, true, true },
-        { SB_REG_FULL_CHARGE_CAPACITY, 2, { 0x2c, 0x15 }, true, true },
-        { SB_REG_RUN_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
-        { SB_REG_AVERAGE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
-        { SB_REG_AVERAGE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
-        { SB_REG_CHARGING_CURRENT, 2, { 0x00, 0x00 }, false, true },
-        { SB_REG_CHARGING_VOLTAGE, 2, { 0x00, 0x00 }, false, true },
-        { SB_REG_BATTERY_STATUS, 2, { 0xe0, 0x00 }, true, true },
-        { SB_REG_CYCLE_COUNT, 2, { 0x21, 0x00 }, true, true },
-        { SB_REG_DESIGN_CAPACITY, 2, { 0x06, 0x18 }, true, true },
-        { SB_REG_DESIGN_VOLTAGE, 2, { 0x14, 0x1e }, true, true },
-        { SB_REG_SPECIFICATION_INFO, 2, { 0x31, 0x00 }, true, true },
-        { SB_REG_MANUFACTURE_DATE, 2, { 0x5b, 0x52 }, true, true },
-        { SB_REG_SERIAL_NUMBER, 2, { 0x9b, 0x00 }, true, true },
-        { SB_REG_MANUFACTURER_NAME,
+        { "MANUFACTURER_ACCESS", SB_REG_MANUFACTURER_ACCESS, 2, { 0x83, 0x43 }, false, true },
+        { "REMAINING_CAPACITY_ALARM", SB_REG_REMAINING_CAPACITY_ALARM, 2, { 0x67, 0x02 }, false, true },
+        { "REMAINING_TIME_ALARM", SB_REG_REMAINING_TIME_ALARM, 2, { 0x0a, 0x00 }, false, true },
+        { "BATTERY_MODE", SB_REG_BATTERY_MODE, 2, { 0x01, 0x60 }, false, true },
+        { "AT_RATE", SB_REG_AT_RATE, 2, { 0x0, 0x0 }, false, true },
+        { "AT_RATE_TIME_TO_FULL", SB_REG_AT_RATE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
+        { "AT_RATE_TIME_TO_EMPTY", SB_REG_AT_RATE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { "AT_RATE_OK", SB_REG_AT_RATE_OK, 2, { 0x01, 0x00 }, true, true },
+        { "TEMPERATURE", SB_REG_TEMPERATURE, 2, { 0x24, 0x0c }, true, true },
+        { "VOLTAGE", SB_REG_VOLTAGE, 2, { 0xd4, 0x20 }, true, true },
+        { "CURRENT", SB_REG_CURRENT, 2, { 0x83, 0x0f }, true, true },
+        { "AVERAGE_CURRENT", SB_REG_AVERAGE_CURRENT, 2, { 0xf1, 0x09 }, true, true },
+        { "MAX_ERROR", SB_REG_MAX_ERROR, 2, { 0x01, 0x00 }, true, true },
+        { "RELATIVE_STATE_OF_CHARGE", SB_REG_RELATIVE_STATE_OF_CHARGE, 2, { 0x63, 0x00 }, true, true },
+        { "ABSOLUTE_STATE_OF_CHARGE", SB_REG_ABSOLUTE_STATE_OF_CHARGE, 2, { 0x58, 0x00 }, true, true },
+        { "REMAINING_CAPACITY", SB_REG_REMAINING_CAPACITY, 2, { 0x16, 0x11 }, true, true },
+        { "FULL_CHARGE_CAPACITY", SB_REG_FULL_CHARGE_CAPACITY, 2, { 0x2c, 0x15 }, true, true },
+        { "RUN_TIME_TO_EMPTY", SB_REG_RUN_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { "AVERAGE_TIME_TO_EMPTY", SB_REG_AVERAGE_TIME_TO_EMPTY, 2, { 0xff, 0xff }, true, true },
+        { "AVERAGE_TIME_TO_FULL", SB_REG_AVERAGE_TIME_TO_FULL, 2, { 0xff, 0xff }, true, true },
+        { "CHARGING_CURRENT", SB_REG_CHARGING_CURRENT, 2, { 0x00, 0x00 }, false, true },
+        { "CHARGING_VOLTAGE", SB_REG_CHARGING_VOLTAGE, 2, { 0x00, 0x00 }, false, true },
+        { "BATTERY_STATUS", SB_REG_BATTERY_STATUS, 2, { 0xe0, 0x00 }, true, true },
+        { "CYCLE_COUNT", SB_REG_CYCLE_COUNT, 2, { 0x21, 0x00 }, true, true },
+        { "DESIGN_CAPACITY", SB_REG_DESIGN_CAPACITY, 2, { 0x06, 0x18 }, true, true },
+        { "DESIGN_VOLTAGE", SB_REG_DESIGN_VOLTAGE, 2, { 0x14, 0x1e }, true, true },
+        { "SPECIFICATION_INFO", SB_REG_SPECIFICATION_INFO, 2, { 0x31, 0x00 }, true, true },
+        { "MANUFACTURE_DATE", SB_REG_MANUFACTURE_DATE, 2, { 0x5b, 0x52 }, true, true },
+        { "SERIAL_NUMBER", SB_REG_SERIAL_NUMBER, 2, { 0x9b, 0x00 }, true, true },
+        { "MANUFACTURER_NAME",
+          SB_REG_MANUFACTURER_NAME,
           11,
           { 0x33, 0x33, 0x33, 0x2d, 0x41, 0x43, 0x2d, 0x44, 0x41, 0x2D, 0x41 },
           true,
           false },
-        { SB_REG_DEVICE_NAME, 9, { 0x47, 0x48, 0x30, 0x32, 0x30, 0x34, 0x37, 0x58, 0x4c }, false, false },
-        { SB_REG_DEVICE_CHEMISTRY, 4, { 0x4c, 0x49, 0x4f, 0x4e }, true, false },
-        { SB_REG_MANUFACTURER_DATA,
+        { "DEVICE_NAME", SB_REG_DEVICE_NAME, 9, { 0x47, 0x48, 0x30, 0x32, 0x30, 0x34, 0x37, 0x58, 0x4c }, false, false },
+        { "DEVICE_CHEMISTRY", SB_REG_DEVICE_CHEMISTRY, 4, { 0x4c, 0x49, 0x4f, 0x4e }, true, false },
+        { "MANUFACTURER_DATA",
+          SB_REG_MANUFACTURER_DATA,
           10,
           { 0x36, 0x4B, 0x51, 0x44, 0x43, 0x30, 0x41, 0x38, 0x31, 0x45, 0x56, 0x4B, 0x5A, 0x4A, 0x00, 0x01 },
           true,
           false },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_5, 2, { 0x00, 0x00 }, false, true },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_4, 2, { 0x00, 0x00 }, false, true },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_3, 2, { 0x00, 0x00 }, false, true },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_2, 2, { 0x10, 0x83 }, false, true },
-        { SB_REG_OPTIONAL_MFG_FUNCTION_1, 2, { 0x10, 0x84 }, false, true },
-        { SB_REG_SB_PACK_STATUS, 2, { 0x01, 0x00 }, false, true },
-        { SB_REG_SB_ALT_MANUFACTURER_ACCESS, 6, { 0x54, 0x00, 0x87, 0x03, 0x00, 0x00 }, false, false }
+        { "OPTIONAL_MFG_FUNCTION_5", SB_REG_OPTIONAL_MFG_FUNCTION_5, 2, { 0x00, 0x00 }, false, true },
+        { "OPTIONAL_MFG_FUNCTION_4", SB_REG_OPTIONAL_MFG_FUNCTION_4, 2, { 0x00, 0x00 }, false, true },
+        { "OPTIONAL_MFG_FUNCTION_3", SB_REG_OPTIONAL_MFG_FUNCTION_3, 2, { 0x00, 0x00 }, false, true },
+        { "OPTIONAL_MFG_FUNCTION_2", SB_REG_OPTIONAL_MFG_FUNCTION_2, 2, { 0x10, 0x83 }, false, true },
+        { "OPTIONAL_MFG_FUNCTION_1", SB_REG_OPTIONAL_MFG_FUNCTION_1, 2, { 0x10, 0x84 }, false, true },
+        { "SB_PACK_STATUS", SB_REG_SB_PACK_STATUS, 2, { 0x01, 0x00 }, false, true },
+        { "SB_ALT_MANUFACTURER_ACCESS",
+          SB_REG_SB_ALT_MANUFACTURER_ACCESS,
+          6,
+          { 0x54, 0x00, 0x87, 0x03, 0x00, 0x00 },
+          false,
+          false }
 };
-
 /** Find smart_battery register in sb_registers array for given register address.
  *
  */
@@ -303,4 +309,30 @@ bool sb_is_register_word(enum sb_register_address address)
 {
         struct sb_register *sb_register = sb_find_register_index(address);
         return sb_register->is_word;
+}
+
+static void sb_print_sb_register_data(struct sb_register *sb_register)
+{
+        printf("name=%-32s address=0x%02x length=%02d word=%d read_only=%d data=", sb_register->name,
+               sb_register->address, sb_register->length, sb_register->is_word, sb_register->is_read_only);
+        for (size_t i = 0; i < sb_register->length; i++) {
+                printf("0x%02x ", sb_register->data[i]);
+        }
+        printf("\r\n");
+}
+
+void sb_print_sb_register(enum sb_register_address address)
+{
+        struct sb_register *sb_register = sb_find_register_index(address);
+        if (sb_register == NULL) {
+                printf("Register with given address was not found\r\n");
+        }
+        sb_print_sb_register_data(sb_register);
+}
+
+void sb_print_sb_registers(void)
+{
+        for (size_t i = 0; i < sizeof(sb_registers) / sizeof(sb_registers[0]); i++) {
+                sb_print_sb_register_data(&sb_registers[i]);
+        }
 }
