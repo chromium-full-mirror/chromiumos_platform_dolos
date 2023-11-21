@@ -21,6 +21,7 @@
 #include "bms.h"
 #include "cli.h"
 #include "utils.h"
+#include "bsl.h"
 
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
@@ -228,6 +229,14 @@ static cli_status_t cmd_cli_echo_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_bsl_invoke_func(int argc, char **argv)
+{
+        bsl_invoke();
+
+        /* It won't return */
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -240,6 +249,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "output", .help = "Force turnon the output.", .func = cmd_output_func },
         { .cmd = "sb-print", .help = "Prints smart battery register data", .func = cmd_sb_print_func },
         { .cmd = "echo", .help = "Enables CLI echo (echo is disabled by default)", .func = cmd_cli_echo_func },
+        { .cmd = "jump-to-bsl", .help = "Invokes BSL for Dolos updates", .func = cmd_bsl_invoke_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)
