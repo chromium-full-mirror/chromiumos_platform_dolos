@@ -222,6 +222,12 @@ static cli_status_t cmd_sb_print_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_cli_echo_func(int argc, char **argv)
+{
+        cli_toggle_echo();
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -233,6 +239,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "sbreg", .help = "Set Smart battery register values.", .func = cmd_sbreg_func },
         { .cmd = "output", .help = "Force turnon the output.", .func = cmd_output_func },
         { .cmd = "sb-print", .help = "Prints smart battery register data", .func = cmd_sb_print_func },
+        { .cmd = "echo", .help = "Enables CLI echo (echo is disabled by default)", .func = cmd_cli_echo_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

@@ -35,12 +35,15 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <stdbool.h>
 
 static volatile uint8_t buf[MAX_BUF_SIZE]; /* CLI Rx byte-buffer */
 static volatile uint8_t *buf_ptr; /* Pointer to Rx byte-buffer */
 
 static uint8_t cmd_buf[MAX_BUF_SIZE]; /* CLI command buffer */
 static volatile uint8_t cmd_pending;
+
+static bool echo = false; /* Responsible for echoing user input and printing CLI prompt */
 
 const char cli_prompt[] = ">> "; /* CLI prompt displayed to the user */
 
@@ -55,7 +58,9 @@ cli_status_t cli_init(cli_t *cli)
         cmd_pending = 0;
 
         /* Print the CLI prompt. */
-        printf("%s", cli_prompt);
+        if (echo) {
+                printf("%s", cli_prompt);
+        }
 
         return CLI_OK;
 }
@@ -93,16 +98,21 @@ cli_status_t cli_process(cli_t *cli)
                 if (strcmp(argv[0], cli->cmd_tbl[i].cmd) == 0) {
                         /* Found a match, execute the associated function. */
                         cli_status_t return_value = cli->cmd_tbl[i].func(argc, argv);
-                        printf(cli_prompt); /* Print the CLI prompt to the user. */
+                        /* Print the CLI prompt to the user. */
+                        if (echo) {
+                                printf(cli_prompt);
+                        }
                         cmd_pending = 0;
                         return return_value;
                 }
         }
 
-        /* Command not found */
-        printf("[%s] - command not found\n\r", argv[0]);
+        if (echo) {
+                /* Command not found */
+                printf("[%s] - command not found\n\r", argv[0]);
 
-        printf(cli_prompt); /* Print the CLI prompt to the user. */
+                printf(cli_prompt); /* Print the CLI prompt to the user. */
+        }
 
         cmd_pending = 0;
         return CLI_E_CMD_NOT_FOUND;
@@ -122,19 +132,25 @@ cli_status_t cli_put(cli_t *cli, char c)
                         strcpy(cmd_buf, buf); /* Copy string to command buffer for processing. */
                         cmd_pending = 1;
                         buf_ptr = buf; /* Reset buf_ptr to beginning.                   */
-                        printf("\r\n");
+                        if (echo) {
+                                printf("\r\n");
+                        }
                 }
                 break;
 
         case '\b':
-                printf("\b \b");
+                if (echo) {
+                        printf("\b \b");
+                }
                 /* Backspace. Delete character. */
                 if (buf_ptr > buf)
                         buf_ptr--;
                 break;
 
         default:
-                printf("%c", c);
+                if (echo) {
+                        printf("%c", c);
+                }
                 /* Normal character received, add to buffer. */
                 if ((buf_ptr - buf) < MAX_BUF_SIZE)
                         *buf_ptr++ = c;
@@ -142,4 +158,9 @@ cli_status_t cli_put(cli_t *cli, char c)
                         return CLI_E_BUF_FULL;
                 break;
         }
+}
+
+void cli_toggle_echo(void)
+{
+        echo = !echo;
 }

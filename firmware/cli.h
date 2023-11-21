@@ -83,6 +83,9 @@ cli_status_t cli_process(cli_t *cli);
  */
 cli_status_t cli_put(cli_t *cli, char c);
 
+/* Toggles echo mode on CLI, echo is responsible for echoing user input and printing CLI prompt */
+void cli_toggle_echo(void);
+
 #ifdef __cplusplus
 }
 #endif /* End of CPP guard */
