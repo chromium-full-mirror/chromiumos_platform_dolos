@@ -141,60 +141,59 @@ void DOLOS_SMBUS_CONTROLLER_INST_IRQHandler(void)
  */
 static void dsb_handle_sb_smbus_read(SMBus *smbus, uint8_t cmd)
 {
-        uint8_t buffer[SB_REG_DATA_MAX_SIZE];
-        uint8_t buf_size;
-        int i, ret;
+        int written_bytes = 0;
 
-        ret = sb_read_register(cmd, buffer, &buf_size);
-        if (ret != DOLOS_SUCCESS) {
+        written_bytes = sb_register_smbus_read_handler(cmd);
+        if (written_bytes == 0) {
                 stats.smbus_target_reg_read_failures++;
                 return;
         }
 
-        /* We don't send the data length if the register size is a word */
-        if (sb_is_register_word(cmd)) {
-                smbus->nwk.txLen = buf_size;
-                for (i = 0; i < buf_size; i++) {
-                        smbus->nwk.txBuffPtr[i] = buffer[i];
-                }
-        } else {
-                smbus->nwk.txLen = buf_size + 1;
-                smbus->nwk.txBuffPtr[0] = buf_size;
-                for (i = 0; i < buf_size; i++) {
-                        smbus->nwk.txBuffPtr[i + 1] = buffer[i];
-                }
-        }
-
         stats.smbus_target_reg_read_success++;
-        stats.smbus_target_reg_read_bytes += buf_size;
+        stats.smbus_target_reg_read_bytes += written_bytes;
 }
 
 static void dsb_handle_sb_smbus_write(SMBus *smbus, uint8_t cmd)
 {
-        uint8_t buffer[SB_REG_DATA_MAX_SIZE];
-        uint8_t buf_size;
-        int i, ret;
+        int read_bytes = 0;
 
-        /* If the register size is a word there will be no length sent in the first byte of the packet */
-        if (sb_is_register_word(cmd)) {
-                buf_size = 2;
-                for (i = 0; i < buf_size; i++) {
-                        buffer[i] = smbus->nwk.rxBuffPtr[i + 1];
-                }
-        } else {
-                buf_size = smbus->nwk.rxBuffPtr[1];
-                for (i = 0; i < buf_size; i++) {
-                        buffer[i] = smbus->nwk.rxBuffPtr[i + 2];
-                }
-        }
-
-        ret = sb_write_register(cmd, buffer, buf_size);
-        if (ret != DOLOS_SUCCESS) {
+        read_bytes = sb_register_smbus_write_handler(cmd);
+        if (read_bytes == 0) {
                 stats.smbus_target_reg_write_failures++;
                 return;
         }
         stats.smbus_target_reg_write_success++;
-        stats.smbus_target_reg_write_bytes += buf_size;
+        stats.smbus_target_reg_write_bytes += read_bytes;
+}
+
+void dsb_target_write_word(const uint8_t *data)
+{
+        smbus_target_inst.nwk.txLen = 2;
+        smbus_target_inst.nwk.txBuffPtr[0] = data[0];
+        smbus_target_inst.nwk.txBuffPtr[1] = data[1];
+}
+
+void dsb_target_write_block(const uint8_t *data, const uint8_t length)
+{
+        smbus_target_inst.nwk.txLen = length + 1;
+        smbus_target_inst.nwk.txBuffPtr[0] = length;
+        for (size_t i = 0; i < length; i++) {
+                smbus_target_inst.nwk.txBuffPtr[i + 1] = data[i];
+        }
+}
+
+void dsb_target_read_word(uint8_t *data)
+{
+        data[0] = smbus_target_inst.nwk.rxBuffPtr[1];
+        data[1] = smbus_target_inst.nwk.rxBuffPtr[2];
+}
+
+void dsb_target_read_block(uint8_t *data, uint8_t *length)
+{
+        *length = smbus_target_inst.nwk.rxBuffPtr[1];
+        for (size_t i = 0; i < *length; i++) {
+                data[i] = smbus_target_inst.nwk.rxBuffPtr[i + 2];
+        }
 }
 
 static uint8_t last_rx_cmd;

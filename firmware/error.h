@@ -32,6 +32,8 @@ enum dolos_error_list {
         DOLOS_ERROR_PAC = 10,
         /* Failed to write to Flash */
         DOLOS_ERROR_FLASH = 11,
+        /* Invalid argument */
+        DOLOS_ERROR_INVALID = 11,
 };
 
 #endif /* ERROR_H_ */

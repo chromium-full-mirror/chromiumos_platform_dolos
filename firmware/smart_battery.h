@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #define SB_REG_DATA_MAX_SIZE 32
 
@@ -68,6 +69,14 @@ struct sb_register {
         bool is_read_only;
         /* Is the register a word/block*/
         bool is_word;
+        /* Register successful read count */
+        uint32_t successful_read_count;
+        /* Register failed read count */
+        uint32_t failed_read_count;
+        /* Register successful write count */
+        uint32_t successful_write_count;
+        /* Register failed write count */
+        uint32_t failed_write_count;
 };
 
 /** Read a register value of a smart battery
@@ -131,5 +140,11 @@ void sb_print_sb_registers(void);
 
 /* Loads All the Smart Battery register data stored into the flash */
 void sb_load_registers_from_dflash(void);
+
+/* Calls the register handler for the SMBus read commands, returns the number of bytes sent by SMBus target */
+int sb_register_smbus_read_handler(enum sb_register_address address);
+
+/* Calls the register handler for the SMBus write commands, returns the number of bytes read from SMBus target */
+int sb_register_smbus_write_handler(enum sb_register_address address);
 
 #endif /* SMART_BATTERY_H_ */

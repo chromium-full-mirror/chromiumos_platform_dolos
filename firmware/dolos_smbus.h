@@ -31,4 +31,20 @@ int dsb_controller_read_block(uint8_t target_address, uint8_t command_byte, uint
  */
 int dsb_controller_write(uint8_t target_address, uint8_t command_byte, uint8_t *tx_data, int tx_size);
 
+/** Writes word to the target SMBus instance
+ */
+void dsb_target_write_word(const uint8_t *data);
+
+/** Writes block to the target SMBus instance
+ */
+void dsb_target_write_block(const uint8_t *data, const uint8_t length);
+
+/** Reads word from the target SMBus instance
+ */
+void dsb_target_read_word(uint8_t *data);
+
+/** Reads block from the target SMBus instance
+ */
+void dsb_target_read_block(uint8_t *data, uint8_t *length);
+
 #endif /* DOLOS_SMBUS_H_ */
