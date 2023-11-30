@@ -47,6 +47,7 @@ int main(void)
         while (1) {
                 pac_refresh();
                 temp_start_reading();
+                temp_calculate();
                 sb_update_registers();
                 cmd_process();
                 bms_tick_handler();

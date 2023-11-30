@@ -5,6 +5,7 @@
 
 #include <math.h>
 #include <ti/driverlib/driverlib.h>
+#include <stdbool.h>
 
 #include "dolos_gpio.h"
 #include "ti_msp_dl_config.h"
@@ -29,6 +30,8 @@
 static uint16_t dtemp_adc_code;
 static double dtemp_c;
 static double dtemp_k;
+static bool pending_temp_calculation = false;
+static bool pending_temp_conversion = false;
 
 /* TEMP_ADC12 interrupt handler */
 void TEMP_ADC12_INST_IRQHandler(void)
@@ -38,12 +41,7 @@ void TEMP_ADC12_INST_IRQHandler(void)
                 /* Read the ADC value from the TEMP_SENSOR */
                 dtemp_adc_code = (double)DL_ADC12_getMemResult(TEMP_ADC12_INST, DL_ADC12_MEM_IDX_0);
 
-                /* Calculate temperature using 4th order polynomial regression */
-                double dtemp_voltage = (BIAS_VOLTAGE / ADC_RESOLUTION) * (double)dtemp_adc_code;
-                dtemp_c = (THRM_A4 * pow(dtemp_voltage, 4)) + (THRM_A3 * pow(dtemp_voltage, 3)) +
-                          (THRM_A2 * pow(dtemp_voltage, 2)) + (THRM_A1 * dtemp_voltage) + THRM_A0;
-                dtemp_k = dtemp_c + KELVIN_ADDITION_FACTOR;
-                break;
+                pending_temp_calculation = true;
         }
         default: {
                 break;
@@ -53,8 +51,25 @@ void TEMP_ADC12_INST_IRQHandler(void)
 
 void temp_start_reading(void)
 {
-        DL_ADC12_enableConversions(TEMP_ADC12_INST);
-        DL_ADC12_startConversion(TEMP_ADC12_INST);
+        if (!pending_temp_conversion) {
+                DL_ADC12_enableConversions(TEMP_ADC12_INST);
+                DL_ADC12_startConversion(TEMP_ADC12_INST);
+
+                pending_temp_conversion = true;
+        }
+}
+
+void temp_calculate(void)
+{
+        if (pending_temp_calculation) {
+                double dtemp_voltage = (BIAS_VOLTAGE / ADC_RESOLUTION) * (double)dtemp_adc_code;
+                dtemp_c = (THRM_A4 * pow(dtemp_voltage, 4)) + (THRM_A3 * pow(dtemp_voltage, 3)) +
+                          (THRM_A2 * pow(dtemp_voltage, 2)) + (THRM_A1 * dtemp_voltage) + THRM_A0;
+                dtemp_k = dtemp_c + KELVIN_ADDITION_FACTOR;
+
+                pending_temp_calculation = false;
+                pending_temp_conversion = false;
+        }
 }
 
 double temp_get_k(void)

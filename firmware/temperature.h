@@ -20,4 +20,7 @@ double temp_get_c(void);
 /* Prints temperature data to UART interface */
 void temp_print_readings(void);
 
+/* Calculate temperature using 4th order polynomial regression */
+void temp_calculate(void);
+
 #endif /* TEMPERATURE_H_ */
