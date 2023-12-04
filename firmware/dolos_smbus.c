@@ -11,6 +11,7 @@
 #include "stats.h"
 #include "dolos_smbus.h"
 #include "smart_battery.h"
+#include "perf.h"
 
 #define SMBUS_CONTROLLER_CLK 32000000
 #define SMBUS_CONTROLLER_TIMEOUT 10000
@@ -201,6 +202,8 @@ static uint8_t last_rx_cmd;
 /* smbus_target_inst interrupt handler */
 void DOLOS_SMBUS_TARGET_INST_IRQHandler(void)
 {
+        PERF_RECORD_START(irq_target_smbus);
+
         SMBus_State bus_state;
 
         stats.smbus_target_int_count++;
@@ -230,4 +233,6 @@ void DOLOS_SMBUS_TARGET_INST_IRQHandler(void)
         }
 
         SMBus_processDone(&smbus_target_inst);
+
+        PERF_RECORD_END(irq_target_smbus);
 }

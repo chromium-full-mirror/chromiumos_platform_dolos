@@ -22,6 +22,7 @@
 #include "cli.h"
 #include "utils.h"
 #include "bsl.h"
+#include "perf.h"
 
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
@@ -237,6 +238,13 @@ static cli_status_t cmd_bsl_invoke_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_perf_func(int argc, char **argv)
+{
+        print_perf_measurements();
+
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -250,6 +258,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "sb-print", .help = "Prints smart battery register data", .func = cmd_sb_print_func },
         { .cmd = "echo", .help = "Enables CLI echo (echo is disabled by default)", .func = cmd_cli_echo_func },
         { .cmd = "jump-to-bsl", .help = "Invokes BSL for Dolos updates", .func = cmd_bsl_invoke_func },
+        { .cmd = "performance", .help = "Prints performance for IRQ modules", .func = cmd_perf_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

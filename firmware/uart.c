@@ -13,6 +13,7 @@
 #include "printf.h"
 #include "stats.h"
 #include "command.h"
+#include "perf.h"
 
 #define UART_MAX_BUFFER 128
 static uint8_t uart_data[UART_MAX_BUFFER];
@@ -25,6 +26,8 @@ void duart_init(void)
 
 void UART_0_INST_IRQHandler(void)
 {
+        PERF_RECORD_START(irq_uart);
+
         int intr_type;
         uint32_t new_data_count;
         uint32_t remaining_buf_size;
@@ -43,4 +46,6 @@ void UART_0_INST_IRQHandler(void)
                 stats.uart_rx_scan_count++;
                 cmd_putc(uart_data[i]);
         }
+
+        PERF_RECORD_END(irq_uart);
 }

@@ -17,6 +17,7 @@
 #include "utils.h"
 #include "dolos_flash.h"
 #include "string.h"
+#include "perf.h"
 
 #define BIAS_VOLTAGE 3.3
 #define ADC_RESOLUTION 4096
@@ -36,6 +37,8 @@ static bool pending_temp_conversion = false;
 /* TEMP_ADC12 interrupt handler */
 void TEMP_ADC12_INST_IRQHandler(void)
 {
+        PERF_RECORD_START(irq_temp_adc);
+
         switch (DL_ADC12_getPendingInterrupt(TEMP_ADC12_INST)) {
         case DL_ADC12_IIDX_MEM0_RESULT_LOADED: {
                 /* Read the ADC value from the TEMP_SENSOR */
@@ -47,6 +50,8 @@ void TEMP_ADC12_INST_IRQHandler(void)
                 break;
         }
         }
+
+        PERF_RECORD_END(irq_temp_adc);
 }
 
 void temp_start_reading(void)

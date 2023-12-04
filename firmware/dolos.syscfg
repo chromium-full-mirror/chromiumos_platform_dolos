@@ -22,6 +22,7 @@ const GPIO6     = GPIO.addInstance();
 const GPIO7     = GPIO.addInstance();
 const GPIO8     = GPIO.addInstance();
 const SYSCTL    = scripting.addModule("/ti/driverlib/SYSCTL");
+const SYSTICK   = scripting.addModule("/ti/driverlib/SYSTICK");
 const TIMER     = scripting.addModule("/ti/driverlib/TIMER", {}, false);
 const TIMER1    = TIMER.addInstance();
 const UART      = scripting.addModule("/ti/driverlib/UART", {}, false);
@@ -155,6 +156,9 @@ GPIO8.associatedPins[0].assignedPin  = "26";
 SYSCTL.useHFCLK_Manual = true;
 SYSCTL.HFCLKSource     = "HFXT";
 SYSCTL.LFCLKSource     = "LFXT";
+
+SYSTICK.period       = 16777216;
+SYSTICK.periodEnable = true;
 
 TIMER1.$name              = "EFUSE_PG_TIMER";
 TIMER1.timerClkSrc        = "LFCLK";
