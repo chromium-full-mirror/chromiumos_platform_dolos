@@ -53,7 +53,7 @@ int pac_refresh(void)
                 DEBUG("Failed to read current from PAC %d", ret);
                 return DOLOS_ERROR_PAC;
         }
-        current_ma = (double)swap(data) * 15.259021896696423f;
+        current_ma = (double)swap(data) * 1.5259021896696423f;
 
         DEBUG("Voltage :%5.0fmv Current :%5.0fma", voltage_mv, current_ma);
         return DOLOS_SUCCESS;
