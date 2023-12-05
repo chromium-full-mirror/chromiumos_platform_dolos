@@ -47,4 +47,7 @@ void dsb_target_read_word(uint8_t *data);
  */
 void dsb_target_read_block(uint8_t *data, uint8_t *length);
 
+/* Rests Dolos target SMBus */
+void dsb_target_reset(void);
+
 #endif /* DOLOS_SMBUS_H_ */

@@ -245,6 +245,13 @@ static cli_status_t cmd_perf_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_reset_smbus_func(int argc, char **argv)
+{
+        dsb_target_reset();
+
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -259,6 +266,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "echo", .help = "Enables CLI echo (echo is disabled by default)", .func = cmd_cli_echo_func },
         { .cmd = "jump-to-bsl", .help = "Invokes BSL for Dolos updates", .func = cmd_bsl_invoke_func },
         { .cmd = "performance", .help = "Prints performance for IRQ modules", .func = cmd_perf_func },
+        { .cmd = "reset-smbus", .help = "Resets Dolos target SMBus", .func = cmd_reset_smbus_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

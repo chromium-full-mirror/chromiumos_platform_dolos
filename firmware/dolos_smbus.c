@@ -197,6 +197,15 @@ void dsb_target_read_block(uint8_t *data, uint8_t *length)
         }
 }
 
+void dsb_target_reset(void)
+{
+        DL_I2C_reset(DOLOS_SMBUS_TARGET_INST);
+        DL_I2C_disablePower(DOLOS_SMBUS_TARGET_INST);
+        DL_I2C_enablePower(DOLOS_SMBUS_TARGET_INST);
+        delay_cycles(POWER_STARTUP_DELAY);
+        SYSCFG_DL_DOLOS_SMBUS_TARGET_init();
+}
+
 static uint8_t last_rx_cmd;
 
 /* smbus_target_inst interrupt handler */
