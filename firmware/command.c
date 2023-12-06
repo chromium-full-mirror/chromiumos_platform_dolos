@@ -23,6 +23,8 @@
 #include "utils.h"
 #include "bsl.h"
 #include "perf.h"
+#include "eeprom.h"
+#include "error.h"
 
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
@@ -252,6 +254,118 @@ static cli_status_t cmd_reset_smbus_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_eeprom_read_func(int argc, char **argv)
+{
+        if (argc == 1) {
+                uint8_t data[EEPROM_MAX_SIZE];
+                int ret;
+
+                ret = eeprom_read_all(data);
+                if (ret != DOLOS_SUCCESS) {
+                        printf("Failed to read data from EEPROM, code: %d\r\n", ret);
+                        return CLI_E_IO;
+                }
+
+                printf("EEPROM data:\r\n");
+                for (size_t i = 0; i < sizeof(data) / sizeof(data[0]); i++) {
+                        printf("%02X ", data[i]);
+
+                        /* Print new line every 16 bytes */
+                        if (((i + 1) & 0xF) == 0) {
+                                printf("\r\n");
+                        }
+                }
+        } else if (argc == 2) {
+                int address;
+                uint8_t data;
+                int ret;
+
+                if (parse_int(argv[1], &address) != PARSE_SUCCESS || address < 0 || address >= EEPROM_MAX_SIZE) {
+                        printf("Incorrect address, must be a integer between 0 and %d\r\n", EEPROM_MAX_SIZE - 1);
+                        return CLI_E_INVALID_ARGS;
+                }
+
+                ret = eeprom_read((uint8_t)address, &data);
+                if (ret != DOLOS_SUCCESS) {
+                        printf("Failed to read data from EEPROM, code: %d\r\n", ret);
+                        return CLI_E_IO;
+                }
+
+                printf("Read EEPROM data at address %d = %02X\r\n", address, data);
+        } else {
+                printf("Usage: eeprom-read <address>\r\n");
+        }
+        return CLI_OK;
+}
+
+static cli_status_t cmd_eeprom_write_func(int argc, char **argv)
+{
+        if (argc == 3) {
+                int address;
+                int data;
+                int ret;
+
+                if (parse_int(argv[1], &address) != PARSE_SUCCESS || address < 0 || address >= EEPROM_MAX_SIZE) {
+                        printf("Incorrect address, must be an integer between 0 and %d\r\n", EEPROM_MAX_SIZE - 1);
+                        return CLI_E_INVALID_ARGS;
+                }
+
+                if (parse_int(argv[2], &data) != PARSE_SUCCESS || data < 0 || data > 255) {
+                        printf("Incorrect data, must be a byte between 0 and 255\r\n");
+                        return CLI_E_INVALID_ARGS;
+                }
+
+                ret = eeprom_write((uint8_t)address, (uint8_t)data);
+                if (ret != DOLOS_SUCCESS) {
+                        printf("Failed to write data from EEPROM, code: %d\r\n", ret);
+                        return CLI_E_IO;
+                }
+                printf("Wrote EEPROM data at address %d = %02X\r\n", address, data);
+        } else {
+                printf("Usage: eeprom-write <address> <data>\r\n");
+        }
+        return CLI_OK;
+}
+
+static cli_status_t cmd_get_serial_no_func(int argc, char **argv)
+{
+        char serial[EEPROM_SERIAL_SIZE + 1] = { 0 };
+        int ret;
+
+        ret = eeprom_serial_read(serial);
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to read serial from EEPROM, code: %d\r\n", ret);
+                return CLI_E_IO;
+        }
+
+        printf("%s\r\n", serial);
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_set_serial_no_func(int argc, char **argv)
+{
+        if (argc == 2) {
+                int ret;
+
+                if (!eeprom_serial_validate(argv[1])) {
+                        printf("Invalid serial, format is: %s\r\n", EEPROM_SERIAL_FORMAT);
+                        return CLI_E_INVALID_ARGS;
+                }
+
+                ret = eeprom_serial_write(argv[1]);
+                if (ret != DOLOS_SUCCESS) {
+                        printf("Failed to write serial to EEPROM, code: %d\r\n", ret);
+                        return CLI_E_IO;
+                }
+                printf("Wrote serial %s to EEPROM\r\n", argv[1]);
+        } else {
+                printf("Usage: serial-write %s\r\n", EEPROM_SERIAL_FORMAT);
+                return CLI_E_INVALID_ARGS;
+        }
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -267,6 +381,10 @@ cmd_t cmd_tbl[] = {
         { .cmd = "jump-to-bsl", .help = "Invokes BSL for Dolos updates", .func = cmd_bsl_invoke_func },
         { .cmd = "performance", .help = "Prints performance for IRQ modules", .func = cmd_perf_func },
         { .cmd = "reset-smbus", .help = "Resets Dolos target SMBus", .func = cmd_reset_smbus_func },
+        { .cmd = "eeprom-read", .help = "Reads data from connector EEPROM", .func = cmd_eeprom_read_func },
+        { .cmd = "eeprom-write", .help = "Writes data to connector EEPROM", .func = cmd_eeprom_write_func },
+        { .cmd = "get-serial-no", .help = "Reads serial from connector EEPROM", .func = cmd_get_serial_no_func },
+        { .cmd = "set-serial-no", .help = "Writes serial to connector EEPROM", .func = cmd_set_serial_no_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)
