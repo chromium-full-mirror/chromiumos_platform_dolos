@@ -63,6 +63,7 @@ static inline int dsb_controller_read_internal(uint8_t target_address, bool is_b
         }
         if (ret != SMBUS_RET_OK) {
                 ERROR("Failed to send command byte to target(%#x): %d", target_address, ret);
+                SMBus_controllerReset(&smbus_controller_inst);
                 return DOLOS_ERROR_SMBUS;
         }
 
@@ -77,11 +78,12 @@ static inline int dsb_controller_read_internal(uint8_t target_address, bool is_b
         /* If transfer is over, read available data on the SMBus line and store it in controller RX Buff */
         if (smbus_controller_bus_state != SMBus_State_OK) {
                 ERROR("Target(%#x) not in correct state: %d", target_address, smbus_controller_bus_state);
+                SMBus_controllerReset(&smbus_controller_inst);
                 return DOLOS_ERROR_SMBUS;
         }
 
         rx_len = SMBus_getRxPayloadAvailable(&smbus_controller_inst);
-        DEBUG("Successfully read %d bytes from target(%#x)", target_address, rx_len);
+        DEBUG("Successfully read %d bytes from target(%#x)", rx_len, target_address);
         return DOLOS_SUCCESS;
 }
 
@@ -115,6 +117,7 @@ int dsb_controller_write(uint8_t target_address, uint8_t command_byte, uint8_t *
         }
         if (ret != SMBUS_RET_OK) {
                 ERROR("Failed to send command byte to target(%#x): %d", target_address, ret);
+                SMBus_controllerReset(&smbus_controller_inst);
                 return DOLOS_ERROR_SMBUS;
         }
 
