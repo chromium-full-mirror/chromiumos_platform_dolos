@@ -4,8 +4,7 @@
  */
 
 #include "ti_msp_dl_config.h"
-#include <ti/smbus/smbus.h>
-
+#include "ti/smbus/smbus.h"
 #include "log.h"
 #include "error.h"
 #include "stats.h"

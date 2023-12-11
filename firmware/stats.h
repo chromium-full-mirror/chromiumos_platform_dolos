@@ -5,7 +5,7 @@
 #ifndef STATS_H_
 #define STATS_H_
 
-#include <ti/smbus/smbus.h>
+#include "ti/smbus/smbus.h"
 
 struct stats {
         uint32_t smbus_target_int_count;

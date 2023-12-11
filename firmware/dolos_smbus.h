@@ -6,8 +6,9 @@
 #ifndef DOLOS_SMBUS_H_
 #define DOLOS_SMBUS_H_
 
-#include <ti/smbus/smbus.h>
 #include <stdint.h>
+
+#include "ti/smbus/smbus.h"
 
 /** Initialize the SMBus on controller and target.
  */
