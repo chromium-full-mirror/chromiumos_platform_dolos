@@ -366,6 +366,13 @@ static cli_status_t cmd_set_serial_no_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_ver_func(int argc, char **argv)
+{
+        printf("version 0.1\n\r");
+
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -385,6 +392,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "eeprom-write", .help = "Writes data to connector EEPROM", .func = cmd_eeprom_write_func },
         { .cmd = "get-serial-no", .help = "Reads serial from connector EEPROM", .func = cmd_get_serial_no_func },
         { .cmd = "set-serial-no", .help = "Writes serial to connector EEPROM", .func = cmd_set_serial_no_func },
+        { .cmd = "version", .help = "Prints version", .func = cmd_ver_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)
