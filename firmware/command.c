@@ -25,6 +25,11 @@
 #include "perf.h"
 #include "eeprom.h"
 #include "error.h"
+#if __has_include("version.h")
+#include "version.h"
+#else
+#define DOLOS_VERSION "Invalid Build"
+#endif
 
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
@@ -368,7 +373,7 @@ static cli_status_t cmd_set_serial_no_func(int argc, char **argv)
 
 static cli_status_t cmd_ver_func(int argc, char **argv)
 {
-        printf("version 0.1\n\r");
+        printf("version %s\n\r", DOLOS_VERSION);
 
         return CLI_OK;
 }
