@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use clap::Parser;
-use log::{debug, info, trace, warn};
+use log::{debug, info, trace};
 
 use fw_updater::bsl;
 use fw_updater::titxt;
@@ -109,35 +109,15 @@ fn progress(total: u32, completed: u32) {
 pub fn program(uart: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()> {
     let uart = Uart::open(uart, baud_rate)?;
     let mut bsl = bsl::Bsl::open(uart)?;
-    loop {
-        match bsl.connect() {
-            Ok(_) => {}
-            Err(e) => {
-                warn!("Failed to connect: {e}");
-                continue;
-            }
-        }
 
-        match bsl.unlock_bootloader() {
-            Ok(_) => {
-                info!("Unlocked bootloader");
-            }
-            Err(e) => {
-                warn!("Failed to connect: {e}");
-                continue;
-            }
-        }
+    bsl.connect()?;
+    debug!("connected to BSL");
 
-        match bsl.get_device_info() {
-            Ok(device_info) => {
-                info!("Found: {device_info:?}");
-                break;
-            }
-            Err(e) => {
-                warn!("Failed to get device_info: {e}");
-            }
-        }
-    }
+    bsl.unlock_bootloader()?;
+    trace!("Unlocked bootloader");
+
+    let bsl_info = bsl.get_device_info()?;
+    info!("bsl_info: {bsl_info:?}");
 
     bsl.erase()?;
     debug!("Successfully erased flash");
