@@ -26,6 +26,9 @@ int main(void)
 {
         SYSCFG_DL_init();
 
+        /* A workaround for I2C CLK wedging issue */
+        DL_I2C_disableTargetWakeup(DOLOS_SMBUS_TARGET_INST);
+
         DEBUG("Starting Dolos");
 
         led_turn_off(LED_INPUT_POWER_STATUS);

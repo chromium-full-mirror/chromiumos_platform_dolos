@@ -206,6 +206,9 @@ void dsb_target_reset(void)
         DL_I2C_enablePower(DOLOS_SMBUS_TARGET_INST);
         delay_cycles(POWER_STARTUP_DELAY);
         SYSCFG_DL_DOLOS_SMBUS_TARGET_init();
+
+        /* A workaround for I2C CLK wedging issue */
+        DL_I2C_disableTargetWakeup(DOLOS_SMBUS_TARGET_INST);
 }
 
 static uint8_t last_rx_cmd;
