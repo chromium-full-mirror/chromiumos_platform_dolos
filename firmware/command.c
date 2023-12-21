@@ -699,6 +699,29 @@ static cli_status_t cmd_smbus_func(int argc, char **argv)
         }
 }
 
+static cli_status_t cmd_gpio_func(int argc, char **argv)
+{
+        const char usage[] = "Provide a valid pin name: efuse-pg, chrg-ok\r\n";
+        if (argc != 2) {
+                printf("%s", usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        bool state;
+
+        if (!strcmp(argv[1], "efuse-pg")) {
+                state = DL_GPIO_readPins(EFUSE_GROUP_PORT, EFUSE_GROUP_EFUSE_PG_PIN);
+                printf("EFSUE_PG pin state: %d\r\n", state);
+        } else if (!strcmp(argv[1], "chrg-ok")) {
+                state = DL_GPIO_readPins(BQ25731_GROUP_CHRG_OK_PORT, BQ25731_GROUP_CHRG_OK_PIN);
+                printf("CHRG_OK pin state: %d\r\n", state);
+        } else {
+                printf("%s", usage);
+                return CLI_E_INVALID_ARGS;
+        }
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -720,6 +743,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "set-serial-no", .help = "Writes serial to connector EEPROM", .func = cmd_set_serial_no_func },
         { .cmd = "version", .help = "Prints version", .func = cmd_ver_func },
         { .cmd = "smbus", .help = "Sends commands through the SMBus controller on Dolos", .func = cmd_smbus_func },
+        { .cmd = "gpio", .help = "Checks the state of the GPIO pins on Dolos", .func = cmd_gpio_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)
