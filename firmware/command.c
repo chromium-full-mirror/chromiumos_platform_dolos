@@ -31,6 +31,15 @@
 #define DOLOS_VERSION "Invalid Build"
 #endif
 
+#define CMD_SMBUS_HEADER_USAGE "Usage (All data except for <num_of_bytes> should be in hex format):\r\n"
+#define CMD_SMBUS_WRITE_BYTE_USAGE "   smbus <7_bit_target_address> w b <cmd> <byte>\r\n"
+#define CMD_SMBUS_WRITE_WORD_USAGE "   smbus <7_bit_target_address> w w <cmd> <first_byte> <second_byte>\r\n"
+#define CMD_SMBUS_WRITE_BLOCK_USAGE "   smbus <7_bit_target_address> w B <cmd> <num_of_bytes> <n_bytes...>\r\n"
+#define CMD_SMBUS_READ_USAGE "   smbus <7_bit_target_address> r {b|w|B} <cmd>\r\n"
+#define CMD_SMBUS_READ_BYTE_USAGE "   smbus <7_bit_target_address> r b <cmd>\r\n"
+#define CMD_SMBUS_READ_WORD_USAGE "   smbus <7_bit_target_address> r w <cmd>\r\n"
+#define CMD_SMBUS_READ_BLOCK_USAGE "   smbus <7_bit_target_address> r B <cmd>\r\n"
+
 cli_t cli;
 static cli_status_t cmd_help_func(int argc, char **argv);
 
@@ -378,6 +387,318 @@ static cli_status_t cmd_ver_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_smbus_write_byte_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_WRITE_BYTE_USAGE;
+
+        if (argc < 6) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+        int parsed_byte;
+        uint8_t byte;
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (parse_hex(argv[5], &parsed_byte) != PARSE_SUCCESS || parsed_byte < 0 || parsed_byte >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int ret;
+
+        byte = parsed_byte;
+
+        ret = dsb_controller_write(target_address, cmd, &byte, 1);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to write to target=0x%02X address=0x%02X byte=0x%02x, err_code=%d\r\n", target_address,
+                       cmd, byte, ret);
+                return CLI_E_IO;
+        }
+
+        printf("Wrote to target=0x%02X, address=0x%02X, byte=0x%02x\r\n", target_address, cmd, byte);
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_write_word_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_WRITE_WORD_USAGE;
+
+        if (argc < 7) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+        int parsed_byte[2];
+        uint8_t word[2];
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (parse_hex(argv[5], &parsed_byte[0]) != PARSE_SUCCESS || parsed_byte[0] < 0 || parsed_byte[0] >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (parse_hex(argv[6], &parsed_byte[1]) != PARSE_SUCCESS || parsed_byte[1] < 0 || parsed_byte[1] >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int ret;
+
+        word[0] = (uint8_t)parsed_byte[0];
+        word[1] = (uint8_t)parsed_byte[1];
+        ret = dsb_controller_write(target_address, cmd, &word[0], 2);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to write to target=0x%02X address=0x%02X word=0x%04x, err_code=%d\r\n", target_address,
+                       cmd, *((uint16_t *)&word[0]), ret);
+                return CLI_E_IO;
+        }
+
+        printf("Wrote to target=0x%02X, address=0x%02X, word=0x%04x\r\n", target_address, cmd, *((uint16_t *)&word[0]));
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_write_block_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_WRITE_BLOCK_USAGE;
+
+        if (argc < 6) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+        int parsed_byte;
+        size_t length;
+        uint8_t block[SMB_MAX_PACKET_SIZE];
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (parse_int(argv[5], (int *)&length) != PARSE_SUCCESS || length < 0 || length > SMB_MAX_PACKET_SIZE) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (argc < 5 + length) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        for (size_t i = 0; i < length; i++) {
+                if (parse_hex(argv[i + 6], &parsed_byte) != PARSE_SUCCESS || parsed_byte < 0 || parsed_byte >= 256) {
+                        printf("%s", cmd_usage);
+                        return CLI_E_INVALID_ARGS;
+                }
+                block[i] = (uint8_t)parsed_byte;
+        }
+
+        int ret;
+
+        ret = dsb_controller_write(target_address, cmd, &block[0], length);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to write block of data to target=0x%02X address=0x%02X, err_code=%d\r\n", target_address,
+                       cmd, ret);
+                return CLI_E_IO;
+        }
+
+        printf("Wrote block of data to target=0x%02X, address=0x%02X\r\n", target_address, cmd);
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_write_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] =
+                CMD_SMBUS_HEADER_USAGE CMD_SMBUS_WRITE_BYTE_USAGE CMD_SMBUS_WRITE_WORD_USAGE CMD_SMBUS_WRITE_BLOCK_USAGE;
+
+        if (argc < 4) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (!strcmp(argv[3], "b")) {
+                /* Handle SMBus write byte command */
+                return cmd_smbus_write_byte_func(argc, argv, target_address);
+        } else if (!strcmp(argv[3], "w")) {
+                /* Handle SMBus write word command */
+                return cmd_smbus_write_word_func(argc, argv, target_address);
+        } else if (!strcmp(argv[3], "B")) {
+                /* Handle SMBus write block command */
+                return cmd_smbus_write_block_func(argc, argv, target_address);
+        } else {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+}
+
+static cli_status_t cmd_smbus_read_byte_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_READ_BYTE_USAGE;
+
+        if (argc < 5) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int ret;
+        uint8_t byte;
+
+        ret = dsb_controller_read_byte(target_address, cmd, &byte);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to read from target=0x%02X address=0x%02X, err_code=%d\r\n", target_address, cmd, ret);
+                return CLI_E_IO;
+        }
+
+        printf("Read from target=0x%02X address=0x%02X byte=0x%02x\r\n", target_address, cmd, byte);
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_read_word_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_READ_WORD_USAGE;
+
+        if (argc < 5) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int ret;
+        uint8_t word[2];
+
+        ret = dsb_controller_read_word(target_address, cmd, &word[0]);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to read from target=0x%02X address=0x%02X, err_code=%d\r\n", target_address, cmd, ret);
+                return CLI_E_IO;
+        }
+
+        printf("Read from target=0x%02X address=0x%02X word=0x%04x\r\n", target_address, cmd, *((uint16_t *)&word[0]));
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_read_block_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_READ_BLOCK_USAGE;
+
+        if (argc < 5) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int cmd;
+
+        if (parse_hex(argv[4], &cmd) != PARSE_SUCCESS || cmd < 0 || cmd >= 256) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int ret;
+        uint8_t block[SMB_MAX_PACKET_SIZE];
+        size_t length = 0;
+
+        ret = dsb_controller_read_block(target_address, cmd, &block[0], &length);
+
+        if (ret != DOLOS_SUCCESS) {
+                printf("Failed to read from target=0x%02X address=0x%02X, err_code=%d\r\n", target_address, cmd, ret);
+                return CLI_E_IO;
+        }
+
+        printf("Read from target=0x%02X address=0x%02X length=%d\r\n", target_address, cmd, length);
+        for (size_t i = 0; i < length; i++) {
+                printf("%02X ", block[i]);
+                if ((i & 0xf) == 0) {
+                        printf("\r\n");
+                }
+        }
+
+        return CLI_OK;
+}
+
+static cli_status_t cmd_smbus_read_func(int argc, char **argv, uint8_t target_address)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_READ_USAGE;
+
+        if (argc < 4) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (!strcmp(argv[3], "b")) {
+                /* Handle SMBus read byte command */
+                return cmd_smbus_read_byte_func(argc, argv, target_address);
+        } else if (!strcmp(argv[3], "w")) {
+                /* Handle SMBus read word command */
+                return cmd_smbus_read_word_func(argc, argv, target_address);
+        } else if (!strcmp(argv[3], "B")) {
+                /* Handle SMBus read block command */
+                return cmd_smbus_read_block_func(argc, argv, target_address);
+        } else {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+}
+
+static cli_status_t cmd_smbus_func(int argc, char **argv)
+{
+        const char cmd_usage[] = CMD_SMBUS_HEADER_USAGE CMD_SMBUS_WRITE_BYTE_USAGE CMD_SMBUS_WRITE_WORD_USAGE
+                CMD_SMBUS_WRITE_BLOCK_USAGE CMD_SMBUS_READ_USAGE;
+        if (argc < 3) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        int target_address;
+
+        if (parse_hex(argv[1], &target_address) != PARSE_SUCCESS || target_address < 0 || target_address >= 128) {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+
+        if (!strcmp(argv[2], "w")) {
+                /* Handle SMBus write command */
+                return cmd_smbus_write_func(argc, argv, (uint8_t)target_address);
+        } else if (!strcmp(argv[2], "r")) {
+                /* Handle SMBus read command */
+                return cmd_smbus_read_func(argc, argv, (uint8_t)target_address);
+        } else {
+                printf("%s", cmd_usage);
+                return CLI_E_INVALID_ARGS;
+        }
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -398,6 +719,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "get-serial-no", .help = "Reads serial from connector EEPROM", .func = cmd_get_serial_no_func },
         { .cmd = "set-serial-no", .help = "Writes serial to connector EEPROM", .func = cmd_set_serial_no_func },
         { .cmd = "version", .help = "Prints version", .func = cmd_ver_func },
+        { .cmd = "smbus", .help = "Sends commands through the SMBus controller on Dolos", .func = cmd_smbus_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

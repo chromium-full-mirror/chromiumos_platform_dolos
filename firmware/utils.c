@@ -28,3 +28,8 @@ enum parse_status parse_int(char *buff, int *x)
 {
         return parse_num(buff, x, 10);
 }
+
+enum parse_status parse_hex(char *buff, int *x)
+{
+        return parse_num(buff, x, 16);
+}

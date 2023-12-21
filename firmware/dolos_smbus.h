@@ -26,7 +26,7 @@ int dsb_controller_read_word(uint8_t target_address, uint8_t command_byte, uint8
 
 /** Read response(one or byte byte) from the given target.
  */
-int dsb_controller_read_block(uint8_t target_address, uint8_t command_byte, uint8_t *rx_data);
+int dsb_controller_read_block(uint8_t target_address, uint8_t command_byte, uint8_t *rx_data, size_t *rx_len);
 
 /** Write zero or more byte to the given target.
  */

@@ -14,4 +14,7 @@ enum parse_status parse_num(char *buff, int *x, int base);
 /* Parses string to long (treats string as integer) */
 enum parse_status parse_int(char *buff, int *x);
 
+/* Parses string to long (treats string as hex) */
+enum parse_status parse_hex(char *buff, int *x);
+
 #endif /* UTILS_H_ */
