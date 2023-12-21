@@ -22,6 +22,7 @@ enum BslCoreCommandCode {
     Connection = 0x12,
     UnlockBootloader = 0x21,
     GetDeviceInfo = 0x19,
+    ChangeBaudRate = 0x52,
     FlashRangeErase = 0x23,
     ProgramData = 0x20,
     StartApplication = 0x40,
@@ -64,6 +65,22 @@ enum BslCoreResponseCode {
     StandaloneVerification = 0x32,
     Message = 0x3b,
     DetailedError = 0x3a,
+}
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum BslBaudRateOption {
+    ACK = 0x00,
+    BaudRate4800 = 1,
+    BaudRate9600 = 2,
+    BaudRate19200 = 3,
+    BaudRate38400 = 4,
+    BaudRate57600 = 5,
+    BaudRate115200 = 6,
+    BaudRate1000000 = 7,
+    BaudRate2000000 = 8,
+    BaudRate3000000 = 9,
+    InvalidValue = 0xff,
 }
 
 #[allow(dead_code)]
@@ -148,6 +165,36 @@ impl Bsl {
         Ok(())
     }
 
+    /// Change the baud rate to new value.
+    pub fn change_baud_rate(&mut self, baud_rate: u32) -> Result<()> {
+        debug!("ChangeBaudRate");
+        let baud_rate_enum = Self::baud_rate_to_enum(baud_rate);
+        let result = self.issue_command(
+            BslCoreCommandCode::ChangeBaudRate as _,
+            None,
+            Some(vec![baud_rate_enum as u8]),
+            false,
+            BSL_DEFAULT_CMD_WAIT_MS,
+        )?;
+
+        Ok(())
+    }
+
+    // helper function to map baud rate to enum variant
+    pub fn baud_rate_to_enum(baud_rate: u32) -> BslBaudRateOption {
+        match baud_rate {
+            4800 => BslBaudRateOption::BaudRate4800,
+            9600 => BslBaudRateOption::BaudRate9600,
+            19200 => BslBaudRateOption::BaudRate19200,
+            38400 => BslBaudRateOption::BaudRate38400,
+            57600 => BslBaudRateOption::BaudRate57600,
+            115200 => BslBaudRateOption::BaudRate115200,
+            1000000 => BslBaudRateOption::BaudRate1000000,
+            2000000 => BslBaudRateOption::BaudRate2000000,
+            3000000 => BslBaudRateOption::BaudRate3000000,
+            _ => BslBaudRateOption::InvalidValue,
+        }
+    }
     /// Erase the flash
     pub fn erase(&mut self) -> Result<()> {
         debug!("Erasing flash");

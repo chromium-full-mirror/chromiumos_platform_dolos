@@ -24,9 +24,14 @@ pub struct Args {
     #[clap(short, long, default_value = "/dev/ttyUSB0")]
     uart: String,
 
-    /// Dolos UART baudrate.
-    #[clap(short, long, default_value = "9600")]
-    baud_rate: u32,
+    /// FW UART baudrate.
+    #[clap(short, long, default_value = "115200")]
+    fw_baud_rate: u32,
+
+    /// BSL UART baudrate.
+    /// BSL always starts at 9600 but we can upgrade to new baud rate after connection.
+    #[clap(short, long, default_value = "115200")]
+    bsl_baud_rate: u32,
 
     /// Path to firmware image in Ti TXT format.
     #[clap()]
@@ -106,8 +111,9 @@ fn progress(total: u32, completed: u32) {
     println!("{:3.0} %", (completed as f32 / total as f32) * 100f32);
 }
 
-pub fn program(uart: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()> {
-    let uart = Uart::open(uart, baud_rate)?;
+pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()> {
+    //By default BSL starts with 9600 baudrate.
+    let uart = Uart::open(path, 9600)?;
     let mut bsl = bsl::Bsl::open(uart)?;
 
     bsl.connect()?;
@@ -118,6 +124,10 @@ pub fn program(uart: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
 
     let bsl_info = bsl.get_device_info()?;
     info!("bsl_info: {bsl_info:?}");
+
+    bsl.change_baud_rate(baud_rate)?;
+    let uart = Uart::open(path, baud_rate)?;
+    let mut bsl = bsl::Bsl::open(uart)?;
 
     bsl.erase()?;
     debug!("Successfully erased flash");
@@ -146,12 +156,12 @@ fn main() -> Result<()> {
 
     if !args.bsl_mode {
         info!("Jumping to BSL");
-        let mut uart = Uart::open(&args.uart, args.baud_rate)?;
+        let mut uart = Uart::open(&args.uart, args.fw_baud_rate)?;
         jump_to_bsl(&mut uart)?;
     }
 
     info!("Programming the device");
-    program(&args.uart, args.baud_rate, &image)?;
+    program(&args.uart, args.bsl_baud_rate, &image)?;
 
     info!("Completed successfully");
 
