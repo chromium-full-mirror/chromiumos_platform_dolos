@@ -22,6 +22,12 @@
 #include "temperature.h"
 #include "bms.h"
 
+/* The corresponding function will be called every (100 * n)ms */
+#define PAC_REFRESH_TIME 10
+#define TEMP_READ_TIME 10
+#define SB_UPDATE_REGISTERS_TIME 10
+#define BMS_TICK_HANDLER_TIME 10
+
 int main(void)
 {
         SYSCFG_DL_init();
@@ -47,13 +53,37 @@ int main(void)
 
         sb_load_registers_from_dflash();
 
+        uint32_t time_elapsed = 0;
+
+        uint32_t pac_refresh_last_call_time = 0;
+        uint32_t temp_read_last_call_time = 0;
+        uint32_t sb_update_registers_last_call_time = 0;
+        uint32_t bms_tick_handler_last_call_time = 0;
+
         while (1) {
-                pac_refresh();
-                temp_start_reading();
-                temp_calculate();
-                sb_update_registers();
+                time_elapsed = dtimers_get_op_timer_elapsed();
+
                 cmd_process();
-                bms_tick_handler();
-                sleep(1);
+
+                if (time_elapsed - pac_refresh_last_call_time >= PAC_REFRESH_TIME) {
+                        pac_refresh();
+                        pac_refresh_last_call_time = time_elapsed;
+                }
+
+                if (time_elapsed - temp_read_last_call_time >= TEMP_READ_TIME) {
+                        temp_start_reading();
+                        temp_calculate();
+                        temp_read_last_call_time = time_elapsed;
+                }
+
+                if (time_elapsed - sb_update_registers_last_call_time >= SB_UPDATE_REGISTERS_TIME) {
+                        sb_update_registers();
+                        sb_update_registers_last_call_time = time_elapsed;
+                }
+
+                if (time_elapsed - bms_tick_handler_last_call_time >= BMS_TICK_HANDLER_TIME) {
+                        bms_tick_handler();
+                        bms_tick_handler_last_call_time = time_elapsed;
+                }
         }
 }

@@ -25,6 +25,7 @@ const SYSCTL    = scripting.addModule("/ti/driverlib/SYSCTL");
 const SYSTICK   = scripting.addModule("/ti/driverlib/SYSTICK");
 const TIMER     = scripting.addModule("/ti/driverlib/TIMER", {}, false);
 const TIMER1    = TIMER.addInstance();
+const TIMER2    = TIMER.addInstance();
 const UART      = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART1     = UART.addInstance();
 const i2cSMBUS  = scripting.addModule("/ti/driverlib/i2cSMBUS", {}, false);
@@ -165,6 +166,14 @@ TIMER1.timerClkSrc        = "LFCLK";
 TIMER1.timerPeriod        = "5000 ms";
 TIMER1.timerClkDiv        = 7;
 TIMER1.peripheral.$assign = "TIMG0";
+
+TIMER2.timerClkSrc        = "LFCLK";
+TIMER2.timerMode          = "PERIODIC";
+TIMER2.timerStartTimer    = true;
+TIMER2.interrupts         = ["ZERO"];
+TIMER2.$name              = "DOLOS_OP_TIMER";
+TIMER2.timerPeriod        = "100 ms";
+TIMER2.peripheral.$assign = "TIMG8";
 
 UART1.$name                    = "UART_0";
 UART1.enabledInterrupts        = ["RX"];

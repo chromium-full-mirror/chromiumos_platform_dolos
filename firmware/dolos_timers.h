@@ -11,4 +11,7 @@
 /* Initializes Dolos timer modules */
 void dtimers_init(void);
 
+/* Returns time passed since boot in 100ms granularity */
+uint32_t dtimers_get_op_timer_elapsed(void);
+
 #endif /* DOLOS_TIMERS_H_ */
