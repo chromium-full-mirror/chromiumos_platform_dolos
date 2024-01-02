@@ -35,9 +35,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <ti/driverlib/driverlib.h>
 
-#include "ti_msp_dl_config.h"
+#include "uart.h"
 
 // define this globally (e.g. gcc -DPRINTF_INCLUDE_CONFIG_H ...) to include the
 // printf_config.h header file
@@ -120,7 +119,7 @@
 
 void _putchar(char c)
 {
-        DL_UART_transmitDataBlocking(UART_0_INST, c);
+        uart_async_send(c);
 }
 
 // output function type

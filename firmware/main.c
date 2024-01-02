@@ -63,6 +63,7 @@ int main(void)
         while (1) {
                 time_elapsed = dtimers_get_op_timer_elapsed();
 
+                uart_drain_tx();
                 cmd_process();
 
                 if (time_elapsed - pac_refresh_last_call_time >= PAC_REFRESH_TIME) {

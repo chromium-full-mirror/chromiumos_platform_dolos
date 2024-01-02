@@ -15,4 +15,10 @@ uint8_t *uart_get_pending_data(uint16_t *size);
 /* Marks UART command as processed to allow receiving additional commands */
 void uart_mark_data_processed();
 
+/* Adds character to UART TX buffer, characters can be sent by calling  uart_drain_tx() */
+void uart_async_send(uint8_t data);
+
+/* Sends all the data in the UART TX buffer to the UART Interface */
+void uart_drain_tx();
+
 #endif
