@@ -25,6 +25,7 @@
 #include "perf.h"
 #include "eeprom.h"
 #include "error.h"
+#include "dolos_timers.h"
 #if __has_include("version.h")
 #include "version.h"
 #else
@@ -722,6 +723,38 @@ static cli_status_t cmd_gpio_func(int argc, char **argv)
         return CLI_OK;
 }
 
+static cli_status_t cmd_status_func(int argc, char **argv)
+{
+        printf("Dolos Status:\r\n");
+
+        /* Print Up-time */
+        uint8_t seconds;
+        uint8_t minutes;
+        uint8_t hours;
+        uint32_t days;
+
+        dtimers_get_uptime(&seconds, &minutes, &hours, &days);
+        printf("   Uptime: %d Days and %02d:%02d:%02d seconds\r\n", days, hours, minutes, seconds);
+
+        /* Print charger if it was detected (BQ CHRG_OK signal)*/
+        printf("   Charger: %s\r\n", dgpio_get_bq_charge_ok_signal() ? "Detected" : "Not Detected");
+
+        /* Print system present polarity and if system is present */
+        bool is_present = dgpio_get_system_present_signal();
+        bool polarity = dconfig_get_system_present_polarity();
+        bool signal = !(polarity != is_present);
+        printf("   System present: %s (Polarity: %s) (Signal: %s)\r\n", (is_present ? "Present" : "Not Present"),
+               (polarity ? "High" : "Low"), (signal ? "High" : "Low"));
+
+        /* Prints SMBus communication state */
+        printf("   SMBus: Communication %s\r\n", (dsb_target_get_communication_state() ? "detected" : "not detected"));
+
+        /* Prints the PAC values: */
+        printf("   PAC: %dmV %dmA\r\n", pac_read_voltage_mv(), pac_read_current_ma());
+
+        return CLI_OK;
+}
+
 cmd_t cmd_tbl[] = {
         { .cmd = "help", .help = "Prints this help menu", .func = cmd_help_func },
         { .cmd = "stats", .help = "Print statistics. (options - gpio, uart, smbus)", .func = cmd_stats_func },
@@ -744,6 +777,7 @@ cmd_t cmd_tbl[] = {
         { .cmd = "version", .help = "Prints version", .func = cmd_ver_func },
         { .cmd = "smbus", .help = "Sends commands through the SMBus controller on Dolos", .func = cmd_smbus_func },
         { .cmd = "gpio", .help = "Checks the state of the GPIO pins on Dolos", .func = cmd_gpio_func },
+        { .cmd = "status", .help = "Shows general Dolos status", .func = cmd_status_func },
 };
 
 static cli_status_t cmd_help_func(int argc, char **argv)

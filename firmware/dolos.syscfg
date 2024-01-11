@@ -26,6 +26,7 @@ const SYSTICK   = scripting.addModule("/ti/driverlib/SYSTICK");
 const TIMER     = scripting.addModule("/ti/driverlib/TIMER", {}, false);
 const TIMER1    = TIMER.addInstance();
 const TIMER2    = TIMER.addInstance();
+const TIMER3    = TIMER.addInstance();
 const UART      = scripting.addModule("/ti/driverlib/UART", {}, false);
 const UART1     = UART.addInstance();
 const i2cSMBUS  = scripting.addModule("/ti/driverlib/i2cSMBUS", {}, false);
@@ -174,6 +175,15 @@ TIMER2.interrupts         = ["ZERO"];
 TIMER2.$name              = "DOLOS_OP_TIMER";
 TIMER2.timerPeriod        = "100 ms";
 TIMER2.peripheral.$assign = "TIMG8";
+
+TIMER3.$name              = "DOLOS_SMBUS_COMMUNICATION_TIMER";
+TIMER3.timerClkSrc        = "LFCLK";
+TIMER3.timerMode          = "ONE_SHOT_UP";
+TIMER3.timerClkPrescale   = 5;
+TIMER3.timerPeriod        = "10 s";
+TIMER3.timerStartTimer    = true;
+TIMER3.interrupts         = ["LOAD"];
+TIMER3.peripheral.$assign = "TIMA0";
 
 UART1.$name                    = "UART_0";
 UART1.enabledInterrupts        = ["RX"];

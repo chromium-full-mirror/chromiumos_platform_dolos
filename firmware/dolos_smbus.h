@@ -51,4 +51,10 @@ void dsb_target_read_block(uint8_t *data, uint8_t *length);
 /* Rests Dolos target SMBus */
 void dsb_target_reset(void);
 
+/* Sets the communication state on the SMBus target interface (Used by DOLOS_SMBUS_COMMUNICATION_TIMER) */
+void dsb_target_set_communication_state(bool state);
+
+/* Gets the communication state on the SMBus target interface */
+bool dsb_target_get_communication_state(void);
+
 #endif /* DOLOS_SMBUS_H_ */

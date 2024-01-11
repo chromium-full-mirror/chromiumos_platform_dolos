@@ -11,6 +11,7 @@
 #include "dolos_smbus.h"
 #include "smart_battery.h"
 #include "perf.h"
+#include "dolos_timers.h"
 
 #define SMBUS_CONTROLLER_CLK 32000000
 #define SMBUS_CONTROLLER_TIMEOUT 10000
@@ -22,6 +23,11 @@ static volatile SMBus_State smbus_controller_bus_state;
 
 static uint8_t smbus_target_rx_buffer[SMB_MAX_PACKET_SIZE];
 static uint8_t smbus_target_tx_buffer[SMB_MAX_PACKET_SIZE];
+
+/* Communication state for DOLOS_SMBUS_TARGET, should be cleared if there's no communication for 10 seconds by
+ * DOLOS_SMBUS_COMMUNICATION_TIMER and set immediately when we receive an interrupt on the DOLOS_SMBUS_TARGET interface
+ */
+static bool target_communication_state = false;
 
 void dsb_init(void)
 {
@@ -210,6 +216,16 @@ void dsb_target_reset(void)
         DL_I2C_disableTargetWakeup(DOLOS_SMBUS_TARGET_INST);
 }
 
+void dsb_target_set_communication_state(bool state)
+{
+        target_communication_state = state;
+}
+
+bool dsb_target_get_communication_state(void)
+{
+        return target_communication_state;
+}
+
 static uint8_t last_rx_cmd;
 
 /* smbus_target_inst interrupt handler */
@@ -217,6 +233,11 @@ void DOLOS_SMBUS_TARGET_INST_IRQHandler(void)
 {
         PERF_RECORD_START(irq_target_smbus);
 
+        /* Mark that communication was received on the target interface and reset the DOLOS_SMBUS_COMMUNICATON_TIMER */
+        target_communication_state = true;
+        dtimers_reset_smbus_communication_timer();
+
+        /* Handle target interrupts */
         SMBus_State bus_state;
 
         stats.smbus_target_int_count++;
