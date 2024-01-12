@@ -18,7 +18,7 @@ use fw_updater::uart::Uart;
 ///
 /// Program the Dolos firmware(in Ti TXT format) through UART.
 #[derive(Parser, Debug)]
-#[clap(author, verbatim_doc_comment)]
+#[clap(author, version=env!("VERSION"), verbatim_doc_comment)]
 pub struct Args {
     /// Dolos UART port through which the programming will be done.
     #[clap(short, long, default_value = "/dev/ttyUSB0")]

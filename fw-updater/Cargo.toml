@@ -15,3 +15,4 @@ termios = "0.3"
 
 [build-dependencies]
 anyhow = "1.0.56"
+chrono = "0.4"
