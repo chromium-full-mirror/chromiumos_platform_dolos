@@ -12,3 +12,10 @@ i2cdev = "0.5.1"
 log = "0.4.14"
 serde = { version = "1.0", features = ["derive"] }
 serialport = "4.2.1"
+zerocopy = "=0.7"
+zerocopy-derive = "0.7"
+
+[build-dependencies]
+anyhow = "1.0.56"
+bindgen = "0.59"
+chrono = "0.4.19"

@@ -10,6 +10,7 @@ extern crate i2cdev;
 use std::fmt;
 use std::fmt::Formatter;
 use std::fs::File;
+use std::io::{Read, Write};
 
 use anyhow::{bail, Result};
 use log::debug;
@@ -18,6 +19,11 @@ use serde::{Deserialize, Serialize};
 use crate::smart_battery::SBRegisterValue::{BlockData, Reserved, Word};
 use i2cdev::core::*;
 use i2cdev::linux::LinuxI2CDevice;
+use zerocopy::AsBytes;
+use zerocopy::FromBytes;
+
+use sb_config::eeprom_layout;
+use sb_config::eeprom_layout::eeprom_data;
 
 /// Smart Battery Register value types
 #[derive(Default, Debug, Serialize, Deserialize)]
@@ -143,7 +149,7 @@ pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
             sb_reserved_register(), // 0x2c
             sb_reserved_register(), // 0x2d
             sb_reserved_register(), // 0x2e
-            sb_string_register("OptionalMfgFunction5"),
+            sb_u16_register("OptionalMfgFunction5"),
             sb_reserved_register(), // 0x30
             sb_reserved_register(), // 0x31
             sb_reserved_register(), // 0x32
@@ -195,12 +201,50 @@ pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
 /// Save the config into a binary file.
 pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
     let mut f = File::create(file_name)?;
-    bincode::serialize_into(&mut f, sb_config)?;
+    let mut r: eeprom_layout::eeprom_data = eeprom_data {
+        version: 1,
+        polarity: 1,
+        manufactured_year: 24,
+        manufactured_month: 1,
+        serial_number: 1234,
+        reserved: Default::default(),
+        crc: 0,
+        block_registers: Default::default(),
+        word_register: [0; 36],
+    };
+    let mut block_reg_index = 0;
+    let mut word_reg_index = 0;
+    for (i, sb_reg) in sb_config.registers.iter().enumerate() {
+        match &sb_reg.value {
+            BlockData(v) => {
+                if i == 0x2f {
+                    continue;
+                }
+                assert!(i == 0x20 || i == 0x21 || i == 0x22 || i == 0x23 || i == 0x44);
+                for (j, value) in v.iter().enumerate() {
+                    r.block_registers[block_reg_index].data[j] = *value;
+                }
+                block_reg_index += 1;
+            }
+            Word(v) => {
+                r.word_register[word_reg_index] = *v;
+                word_reg_index += 1;
+            }
+            Reserved => {}
+        }
+    }
+    f.write_all(r.as_bytes())?;
     Ok(())
 }
 
 /// Open config stored in a file.
 pub fn load_config(file_name: &String) -> Result<SBConfig> {
     let mut f = File::open(file_name)?;
-    Ok(bincode::deserialize_from(&mut f)?)
+    let mut buf: [u8; 256] = [0; 256];
+    f.read(&mut buf)?;
+    let data: eeprom_layout::eeprom_data = FromBytes::read_from(buf.as_slice()).unwrap();
+    dbg!(data);
+    unimplemented!();
+    //let r = bincode::deserialize_from(&mut f)?;
+    //Ok(r)
 }
