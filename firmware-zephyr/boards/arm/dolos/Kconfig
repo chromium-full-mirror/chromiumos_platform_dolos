@@ -1,0 +1,12 @@
+# Copyright 2024 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Google DOLOS configuration
+
+if BOARD_DOLOS
+
+config MSPM0_IMAGE_OUTPUT_TI_TXT
+    bool "Generate TI_TXT file after build"
+
+endif # BOARD_DOLOS

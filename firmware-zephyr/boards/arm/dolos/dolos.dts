@@ -1,0 +1,62 @@
+/* Copyright 2024 The ChromiumOS Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/dts-v1/;
+
+#include <ti/mspm0g3507.dtsi>
+#include <ti/mspm0/mspm0g3507-pinctrl.dtsi>
+
+#include <freq.h>
+
+/ {
+	model = "Google DOLOS";
+	compatible = "google,dolos", "ti,mspm0g3507", "ti,mspm0g3xxx";
+
+	chosen {
+		zephyr,sram = &sram0;
+		zephyr,flash = &flash0;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		lederr: led_error {
+			gpios = <&gpiob 13 GPIO_ACTIVE_LOW>;
+			label = "Error LED";
+		};
+		ledprg: led_programmed {
+			gpios = <&gpiob 14 GPIO_ACTIVE_LOW>;
+			label = "Programmed LED";
+		};
+		ledrdy: led_ready {
+			gpios = <&gpiob 15 GPIO_ACTIVE_LOW>;
+			label = "Ready LED";
+		};
+		ledpwr: led_powering {
+			gpios = <&gpiob 16 GPIO_ACTIVE_LOW>;
+			label = "Powering LED";
+		};
+	};
+};
+
+&cpu0 {
+	clock-frequency = <DT_FREQ_M(32)>;
+};
+
+&gpioa {
+	status = "okay";
+};
+
+&gpiob {
+	status = "okay";
+};
+
+&uart0 {
+	status = "okay";
+	current-speed = <115200>;
+	pinctrl-0 = <&uart0_tx_pa10 &uart0_rx_pa11>;
+	pinctrl-names = "default";
+};
