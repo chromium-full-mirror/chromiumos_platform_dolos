@@ -21,6 +21,10 @@
 		zephyr,shell-uart = &uart0;
 	};
 
+	zephyr,user {
+		io-channels = <&adc0 1>;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		lederr: led_error {
@@ -70,4 +74,25 @@
 	current-speed = <115200>;
 	pinctrl-0 = <&uart0_tx_pa10 &uart0_rx_pa11>;
 	pinctrl-names = "default";
+};
+
+&adc0 {
+	status = "okay";
+	ti,clk-source = <MSP_ADC_CLOCK_SYSOSC>;
+	ti,clk-divider = <1>;
+	ti,clk-range = <MSP_ADC_CLOCK_RANGE_32TO40>;
+
+	pinctrl-0 = <&adc0_pa26>;
+	pinctrl-names = "default";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_VDD_1";
+		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 500)>;
+		zephyr,resolution = <12>;
+	};
 };
