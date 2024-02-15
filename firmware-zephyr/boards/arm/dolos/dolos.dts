@@ -55,6 +55,12 @@
 		compatible = "microship,pac1954";
 		reg = <0x10>;
 	};
+
+	eeprom: eeprom@50 {
+		compatible = "zephyr,i2c-target-eeprom";
+		reg = <0x50>;
+		size = <256>;
+	};
 };
 
 &cpu0 {
