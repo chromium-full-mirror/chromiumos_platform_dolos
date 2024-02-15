@@ -42,6 +42,17 @@
 	};
 };
 
+&i2c0 {
+	pinctrl-0 = <&i2c0_scl_pa1 &i2c0_sda_pa0>;
+	pinctrl-names = "default";
+	status = "okay";
+
+	pac1954: pac1954@10 {
+		compatible = "microship,pac1954";
+		reg = <0x10>;
+	};
+};
+
 &cpu0 {
 	clock-frequency = <DT_FREQ_M(32)>;
 };
