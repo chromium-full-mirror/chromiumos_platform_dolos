@@ -198,6 +198,18 @@ pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
     Ok(result)
 }
 
+/// Calculate CRC32 for given data bytes.
+fn calculate_crc(data: &[u8]) -> u32 {
+    const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_JAMCRC);
+    CRC.checksum(data)
+}
+
+/// Returns the starting offset of the SB registers in the EEPROM layout.
+fn offset_of_sb_register() -> usize {
+    12
+}
+
+
 /// Save the config into a binary file.
 pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
     let mut f = File::create(file_name)?;
@@ -233,7 +245,10 @@ pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
             Reserved => {}
         }
     }
+
+    r.crc = calculate_crc(&r.as_bytes()[offset_of_sb_register()..]);
     f.write_all(r.as_bytes())?;
+
     Ok(())
 }
 
