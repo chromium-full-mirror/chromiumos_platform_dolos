@@ -7,7 +7,7 @@
 use std::io::Write;
 use std::ptr::read_unaligned;
 
-mod smart_battery;
+mod eeprom;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -97,10 +97,10 @@ fn main() -> Result<()> {
             debug!(
                 "Parsed arguments: file:{file_name} i2c_dev_address:{usb_i2c_bridge_address:#x}"
             );
-            match smart_battery::read_config(*usb_i2c_bridge_address) {
+            match eeprom::read_sb_registers(*usb_i2c_bridge_address) {
                 Ok(config) => {
                     info!("{config}");
-                    smart_battery::save_config(file_name, &config)?;
+                    eeprom::write_eeprom_layout_to_file(file_name, &config)?;
                 }
                 Err(e) => {
                     error!("failed to read battery config - {e}")
@@ -110,7 +110,7 @@ fn main() -> Result<()> {
 
         Command::Print { file_name } => {
             debug!("Loading {file_name}");
-            let (raw_eeprom_data, config) = smart_battery::load_config(file_name)?;
+            let (raw_eeprom_data, config) = eeprom::read_sb_registers_set_from_file(file_name)?;
             println!("Version:     {}", raw_eeprom_data.version);
             println!(
                 "Date:        {}/{}",

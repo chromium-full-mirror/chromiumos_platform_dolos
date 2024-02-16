@@ -16,7 +16,7 @@ use anyhow::{bail, Result};
 use log::debug;
 use serde::{Deserialize, Serialize};
 
-use crate::smart_battery::SBRegisterValue::{BlockData, Reserved, Word};
+use crate::eeprom::SBRegisterValue::{BlockData, Reserved, Word};
 use i2cdev::core::*;
 use i2cdev::linux::LinuxI2CDevice;
 use zerocopy::AsBytes;
@@ -48,11 +48,11 @@ pub struct SBRegister {
 
 /// All the registers in the spec.
 #[derive(Default, Debug, Serialize, Deserialize)]
-pub struct SBConfig {
+pub struct SBRegisterSet {
     pub(crate) registers: Vec<SBRegister>,
 }
 
-impl fmt::Display for SBConfig {
+impl fmt::Display for SBRegisterSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         for (addr, reg) in self.registers.iter().enumerate() {
@@ -74,9 +74,9 @@ impl fmt::Display for SBConfig {
     }
 }
 
-impl SBConfig {
-    pub fn new() -> SBConfig {
-        SBConfig {
+impl SBRegisterSet {
+    pub fn new() -> SBRegisterSet {
+        SBRegisterSet {
             registers: vec![
                 sb_u16_register("ManufacturerAccess"),
                 sb_u16_register("RemainingCapacityAlarm"),
@@ -147,9 +147,9 @@ impl SBConfig {
         }
     }
 
-    /// Create a new SBConfig from eeprom_data
-    pub fn from_eeprom_data(eeprom_data: eeprom_layout::eeprom_data) -> SBConfig {
-        let mut sb_config: SBConfig = SBConfig::new();
+    /// Create a new SBRegisterSet from eeprom_data
+    pub fn from_eeprom_data(eeprom_data: eeprom_layout::eeprom_data) -> SBRegisterSet {
+        let mut sb_config: SBRegisterSet = SBRegisterSet::new();
         let mut block_reg_index = 0;
         let mut word_reg_index = 0;
         for (i, sb_reg) in sb_config.registers.iter_mut().enumerate() {
@@ -175,6 +175,17 @@ impl SBConfig {
     }
 }
 
+/// Calculate CRC32 for given data bytes.
+fn calculate_crc(data: &[u8]) -> u32 {
+    const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_JAMCRC);
+    CRC.checksum(data)
+}
+
+/// Returns the starting offset of the SB registers in the EEPROM layout.
+fn offset_of_sb_register() -> usize {
+    12
+}
+
 /// Helper to create word register.
 fn sb_u16_register(name: &str) -> SBRegister {
     SBRegister {
@@ -198,10 +209,10 @@ fn sb_reserved_register() -> SBRegister {
     }
 }
 
-/// Read config from SB
-pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
+/// Read Smart Battery Registers over I2c and create SBRegisterSet
+pub fn read_sb_registers(usb_i2c_bridge_address: u16) -> Result<SBRegisterSet> {
     let smbus_address: u16 = 0xb;
-    let mut result: SBConfig = SBConfig::new();
+    let mut result: SBRegisterSet = SBRegisterSet::new();
 
     let path = format!("/dev/i2c-{usb_i2c_bridge_address}");
     let mut dev = match LinuxI2CDevice::new(path.clone(), smbus_address) {
@@ -231,19 +242,8 @@ pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
     Ok(result)
 }
 
-/// Calculate CRC32 for given data bytes.
-fn calculate_crc(data: &[u8]) -> u32 {
-    const CRC: crc::Crc<u32> = crc::Crc::<u32>::new(&crc::CRC_32_JAMCRC);
-    CRC.checksum(data)
-}
-
-/// Returns the starting offset of the SB registers in the EEPROM layout.
-fn offset_of_sb_register() -> usize {
-    12
-}
-
-/// Save the config into a binary file.
-pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
+/// Save the SBRegisterSet into a file.
+pub fn write_eeprom_layout_to_file(file_name: &String, sb_config: &SBRegisterSet) -> Result<()> {
     let mut f = File::create(file_name)?;
     let mut r: eeprom_layout::eeprom_data = eeprom_data {
         version: 1,
@@ -285,13 +285,15 @@ pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
     Ok(())
 }
 
-/// Open config stored in a file.
-pub fn load_config(file_name: &String) -> Result<(eeprom_layout::eeprom_data, SBConfig)> {
+/// Read eeprom layout stroed in the given file and construct SBRegisterSet from it.
+pub fn read_sb_registers_set_from_file(
+    file_name: &String,
+) -> Result<(eeprom_layout::eeprom_data, SBRegisterSet)> {
     let mut f = File::open(file_name)?;
     let mut buf: [u8; 256] = [0; 256];
     f.read_exact(&mut buf)?;
     let data: eeprom_layout::eeprom_data = FromBytes::read_from(buf.as_slice()).unwrap();
-    let sb_config = SBConfig::from_eeprom_data(data);
+    let sb_config = SBRegisterSet::from_eeprom_data(data);
 
     Ok((data, sb_config))
 }
