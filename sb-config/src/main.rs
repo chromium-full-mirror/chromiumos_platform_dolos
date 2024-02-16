@@ -7,7 +7,6 @@
 use std::io::Write;
 
 mod smart_battery;
-mod uart;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -49,17 +48,6 @@ enum Command {
         /// Config file path which was extracted previously by extract command.
         #[clap(default_value=DEFAULT_CONFIG_FILE_NAME)]
         file_name: String,
-    },
-
-    /// Read Smart Battery config stored in a file and write to Dolos.
-    Program {
-        /// Config file path which should be written to the Dolos device.
-        #[clap(default_value=DEFAULT_CONFIG_FILE_NAME)]
-        file_name: String,
-
-        /// USB to UART device connected to the Dollos.
-        #[clap(long, default_value = "/dev/ttyACM0")]
-        usb_uart_path: String,
     },
 }
 
@@ -123,13 +111,6 @@ fn main() -> Result<()> {
             debug!("Loading {file_name}");
             let config = smart_battery::load_config(file_name)?;
             println!("{config}");
-        }
-
-        Command::Program {
-            file_name,
-            usb_uart_path,
-        } => {
-            uart::program_config(file_name, usb_uart_path)?;
         }
     }
     Ok(())
