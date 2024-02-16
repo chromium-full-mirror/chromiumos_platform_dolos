@@ -243,11 +243,15 @@ pub fn read_sb_registers(usb_i2c_bridge_address: u16) -> Result<SBRegisterSet> {
 }
 
 /// Save the SBRegisterSet into a file.
-pub fn write_eeprom_layout_to_file(file_name: &String, sb_config: &SBRegisterSet) -> Result<()> {
+pub fn write_eeprom_layout_to_file(
+    file_name: &String,
+    polarity: u8,
+    sb_config: &SBRegisterSet,
+) -> Result<()> {
     let mut f = File::create(file_name)?;
     let mut r: eeprom_layout::eeprom_data = eeprom_data {
         version: 1,
-        polarity: 1,
+        polarity,
         manufactured_year: 24,
         manufactured_month: 1,
         serial_number: 1234,

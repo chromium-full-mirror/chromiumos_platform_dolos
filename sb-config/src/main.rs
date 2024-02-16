@@ -42,6 +42,10 @@ enum Command {
         /// USB to i2c bridge address in /dev node. Run `i2cdetect -l` to find out.
         #[clap(long, default_value_t = 16)]
         usb_i2c_bridge_address: u16,
+
+        /// Polarity of the System Present Signal to be stored in the EEPROM.
+        #[clap(long, default_value_t = 1)]
+        polarity: u8,
     },
 
     /// Print Smart Battery config stored in a file.
@@ -92,6 +96,7 @@ fn main() -> Result<()> {
     match &cli.command {
         Command::Extract {
             file_name,
+            polarity,
             usb_i2c_bridge_address,
         } => {
             debug!(
@@ -100,7 +105,7 @@ fn main() -> Result<()> {
             match eeprom::read_sb_registers(*usb_i2c_bridge_address) {
                 Ok(config) => {
                     info!("{config}");
-                    eeprom::write_eeprom_layout_to_file(file_name, &config)?;
+                    eeprom::write_eeprom_layout_to_file(file_name, *polarity, &config)?;
                 }
                 Err(e) => {
                     error!("failed to read battery config - {e}")
