@@ -5,6 +5,7 @@
 //! Dolos config reader/programmer.
 
 use std::io::Write;
+use std::ptr::read_unaligned;
 
 mod smart_battery;
 
@@ -109,7 +110,26 @@ fn main() -> Result<()> {
 
         Command::Print { file_name } => {
             debug!("Loading {file_name}");
-            let config = smart_battery::load_config(file_name)?;
+            let (raw_eeprom_data, config) = smart_battery::load_config(file_name)?;
+            println!("Version:     {}", raw_eeprom_data.version);
+            println!(
+                "Date:        {}/{}",
+                raw_eeprom_data.manufactured_month, raw_eeprom_data.manufactured_year
+            );
+            println!("Polarity:    {}", raw_eeprom_data.polarity);
+            unsafe {
+                println!(
+                    "Serial:      {}",
+                    read_unaligned(std::ptr::addr_of!(raw_eeprom_data.serial_number))
+                );
+            }
+            unsafe {
+                println!(
+                    "CRC:         {:#x}",
+                    read_unaligned(std::ptr::addr_of!(raw_eeprom_data.crc))
+                );
+            }
+            print!("Smart Battery Registers:");
             println!("{config}");
         }
     }

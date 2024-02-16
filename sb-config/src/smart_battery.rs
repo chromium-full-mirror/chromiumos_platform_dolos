@@ -74,6 +74,107 @@ impl fmt::Display for SBConfig {
     }
 }
 
+impl SBConfig {
+    pub fn new() -> SBConfig {
+        SBConfig {
+            registers: vec![
+                sb_u16_register("ManufacturerAccess"),
+                sb_u16_register("RemainingCapacityAlarm"),
+                sb_u16_register("RemainingTimeAlarm"),
+                sb_u16_register("BatteryMode"),
+                sb_u16_register("AtRate"),
+                sb_u16_register("AtRateTimeToFull"),
+                sb_u16_register("AtRateTimeToEmpty"),
+                sb_u16_register("AtRateOK"),
+                sb_u16_register("Temperature"),
+                sb_u16_register("Voltage"),
+                sb_u16_register("Current"),
+                sb_u16_register("AverageCurrent"),
+                sb_u16_register("MaxError"),
+                sb_u16_register("RelativeStateOfCharge"),
+                sb_u16_register("AbsoluteStateOfCharge"),
+                sb_u16_register("RemainingCapacity"),
+                sb_u16_register("FullChargeCapacity"),
+                sb_u16_register("RunTimeToEmpty"),
+                sb_u16_register("AverageTimeToEmpty"),
+                sb_u16_register("AverageTimeToFull"),
+                sb_u16_register("ChargingCurrent"),
+                sb_u16_register("ChargingVoltage"),
+                sb_u16_register("BatteryStatus"),
+                sb_u16_register("CycleCount"),
+                sb_u16_register("DesignCapacity"),
+                sb_u16_register("DesignVoltage"),
+                sb_u16_register("SpecificationInfo"),
+                sb_u16_register("ManufactureDate"),
+                sb_u16_register("SerialNumber"),
+                sb_reserved_register(), // 0x1d
+                sb_reserved_register(), // 0x1e
+                sb_reserved_register(), // 0x1f
+                sb_string_register("ManufacturerName"),
+                sb_string_register("DeviceName"),
+                sb_string_register("DeviceChemistry"),
+                sb_string_register("ManufacturerData"),
+                sb_reserved_register(), // 0x24
+                sb_reserved_register(), // 0x25
+                sb_reserved_register(), // 0x26
+                sb_reserved_register(), // 0x27
+                sb_reserved_register(), // 0x28
+                sb_reserved_register(), // 0x29
+                sb_reserved_register(), // 0x2a
+                sb_reserved_register(), // 0x2b
+                sb_reserved_register(), // 0x2c
+                sb_reserved_register(), // 0x2d
+                sb_reserved_register(), // 0x2e
+                sb_u16_register("OptionalMfgFunction5"),
+                sb_reserved_register(), // 0x30
+                sb_reserved_register(), // 0x31
+                sb_reserved_register(), // 0x32
+                sb_reserved_register(), // 0x33
+                sb_reserved_register(), // 0x34
+                sb_reserved_register(), // 0x35
+                sb_reserved_register(), // 0x36
+                sb_reserved_register(), // 0x37
+                sb_reserved_register(), // 0x38
+                sb_reserved_register(), // 0x39
+                sb_reserved_register(), // 0x3a
+                sb_reserved_register(), // 0x3b
+                sb_u16_register("OptionalMfgFunction4"),
+                sb_u16_register("OptionalMfgFunction3"),
+                sb_u16_register("OptionalMfgFunction2"),
+                sb_u16_register("OptionalMfgFunction1"),
+                sb_u16_register("AlarmWarning"),
+            ],
+        }
+    }
+
+    /// Create a new SBConfig from eeprom_data
+    pub fn from_eeprom_data(eeprom_data: eeprom_layout::eeprom_data) -> SBConfig {
+        let mut sb_config: SBConfig = SBConfig::new();
+        let mut block_reg_index = 0;
+        let mut word_reg_index = 0;
+        for (i, sb_reg) in sb_config.registers.iter_mut().enumerate() {
+            match &mut sb_reg.value {
+                BlockData(v) => {
+                    if i == 0x2f {
+                        continue;
+                    }
+                    assert!(i == 0x20 || i == 0x21 || i == 0x22 || i == 0x23 || i == 0x44);
+                    for j in 0..eeprom_data.block_registers[block_reg_index].length as usize {
+                        v.push(eeprom_data.block_registers[block_reg_index].data[j]);
+                    }
+                    block_reg_index += 1;
+                }
+                Word(v) => {
+                    *v = eeprom_data.word_register[word_reg_index];
+                    word_reg_index += 1;
+                }
+                Reserved => {}
+            }
+        }
+        sb_config
+    }
+}
+
 /// Helper to create word register.
 fn sb_u16_register(name: &str) -> SBRegister {
     SBRegister {
@@ -100,75 +201,7 @@ fn sb_reserved_register() -> SBRegister {
 /// Read config from SB
 pub fn read_config(usb_i2c_bridge_address: u16) -> Result<SBConfig> {
     let smbus_address: u16 = 0xb;
-    let mut result: SBConfig = SBConfig {
-        registers: vec![
-            sb_u16_register("ManufacturerAccess"),
-            sb_u16_register("RemainingCapacityAlarm"),
-            sb_u16_register("RemainingTimeAlarm"),
-            sb_u16_register("BatteryMode"),
-            sb_u16_register("AtRate"),
-            sb_u16_register("AtRateTimeToFull"),
-            sb_u16_register("AtRateTimeToEmpty"),
-            sb_u16_register("AtRateOK"),
-            sb_u16_register("Temperature"),
-            sb_u16_register("Voltage"),
-            sb_u16_register("Current"),
-            sb_u16_register("AverageCurrent"),
-            sb_u16_register("MaxError"),
-            sb_u16_register("RelativeStateOfCharge"),
-            sb_u16_register("AbsoluteStateOfCharge"),
-            sb_u16_register("RemainingCapacity"),
-            sb_u16_register("FullChargeCapacity"),
-            sb_u16_register("RunTimeToEmpty"),
-            sb_u16_register("AverageTimeToEmpty"),
-            sb_u16_register("AverageTimeToFull"),
-            sb_u16_register("ChargingCurrent"),
-            sb_u16_register("ChargingVoltage"),
-            sb_u16_register("BatteryStatus"),
-            sb_u16_register("CycleCount"),
-            sb_u16_register("DesignCapacity"),
-            sb_u16_register("DesignVoltage"),
-            sb_u16_register("SpecificationInfo"),
-            sb_u16_register("ManufactureDate"),
-            sb_u16_register("SerialNumber"),
-            sb_reserved_register(), // 0x1d
-            sb_reserved_register(), // 0x1e
-            sb_reserved_register(), // 0x1f
-            sb_string_register("ManufacturerName"),
-            sb_string_register("DeviceName"),
-            sb_string_register("DeviceChemistry"),
-            sb_string_register("ManufacturerData"),
-            sb_reserved_register(), // 0x24
-            sb_reserved_register(), // 0x25
-            sb_reserved_register(), // 0x26
-            sb_reserved_register(), // 0x27
-            sb_reserved_register(), // 0x28
-            sb_reserved_register(), // 0x29
-            sb_reserved_register(), // 0x2a
-            sb_reserved_register(), // 0x2b
-            sb_reserved_register(), // 0x2c
-            sb_reserved_register(), // 0x2d
-            sb_reserved_register(), // 0x2e
-            sb_u16_register("OptionalMfgFunction5"),
-            sb_reserved_register(), // 0x30
-            sb_reserved_register(), // 0x31
-            sb_reserved_register(), // 0x32
-            sb_reserved_register(), // 0x33
-            sb_reserved_register(), // 0x34
-            sb_reserved_register(), // 0x35
-            sb_reserved_register(), // 0x36
-            sb_reserved_register(), // 0x37
-            sb_reserved_register(), // 0x38
-            sb_reserved_register(), // 0x39
-            sb_reserved_register(), // 0x3a
-            sb_reserved_register(), // 0x3b
-            sb_u16_register("OptionalMfgFunction4"),
-            sb_u16_register("OptionalMfgFunction3"),
-            sb_u16_register("OptionalMfgFunction2"),
-            sb_u16_register("OptionalMfgFunction1"),
-            sb_u16_register("AlarmWarning"),
-        ],
-    };
+    let mut result: SBConfig = SBConfig::new();
 
     let path = format!("/dev/i2c-{usb_i2c_bridge_address}");
     let mut dev = match LinuxI2CDevice::new(path.clone(), smbus_address) {
@@ -209,7 +242,6 @@ fn offset_of_sb_register() -> usize {
     12
 }
 
-
 /// Save the config into a binary file.
 pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
     let mut f = File::create(file_name)?;
@@ -236,6 +268,7 @@ pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
                 for (j, value) in v.iter().enumerate() {
                     r.block_registers[block_reg_index].data[j] = *value;
                 }
+                r.block_registers[block_reg_index].length = v.len() as u8;
                 block_reg_index += 1;
             }
             Word(v) => {
@@ -253,13 +286,12 @@ pub fn save_config(file_name: &String, sb_config: &SBConfig) -> Result<()> {
 }
 
 /// Open config stored in a file.
-pub fn load_config(file_name: &String) -> Result<SBConfig> {
+pub fn load_config(file_name: &String) -> Result<(eeprom_layout::eeprom_data, SBConfig)> {
     let mut f = File::open(file_name)?;
     let mut buf: [u8; 256] = [0; 256];
-    f.read(&mut buf)?;
+    f.read_exact(&mut buf)?;
     let data: eeprom_layout::eeprom_data = FromBytes::read_from(buf.as_slice()).unwrap();
-    dbg!(data);
-    unimplemented!();
-    //let r = bincode::deserialize_from(&mut f)?;
-    //Ok(r)
+    let sb_config = SBConfig::from_eeprom_data(data);
+
+    Ok((data, sb_config))
 }
