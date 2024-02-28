@@ -25,7 +25,7 @@
 		io-channels = <&adc0 1>;
 	};
 
-	leds {
+	leds: leds {
 		compatible = "gpio-leds";
 		lederr: led_error {
 			gpios = <&gpiob 13 GPIO_ACTIVE_LOW>;
@@ -42,6 +42,26 @@
 		ledpwr: led_powering {
 			gpios = <&gpiob 16 GPIO_ACTIVE_LOW>;
 			label = "Powering LED";
+		};
+	};
+
+	ctrl-pins {
+		compatible = "ctrl-pins";
+		output_enable: output_enable {
+			gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+			label = "Dolos output enable control pin";
+		};
+		system_present: system_present {
+			gpios = <&gpioa 13 GPIO_ACTIVE_HIGH>;
+			label = "System present input signal";
+		};
+		efuse_pg: efuse_pg {
+			gpios = <&gpiob 27 GPIO_ACTIVE_HIGH>;
+			label = "EFUSE power good input signal";
+		};
+		bq_charge_ok: bq_charge_ok {
+			gpios = <&gpioa 17 GPIO_ACTIVE_HIGH>;
+			label = "BQ Charge OK input signal";
 		};
 	};
 };
