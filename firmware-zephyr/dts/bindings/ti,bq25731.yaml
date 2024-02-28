@@ -1,0 +1,9 @@
+# Copyright 2024 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+description: BQ25731 I2C 1- to 5-Cell Buck-Boost Battery Charge Controller with USB-C PD 3.0OTG Output
+
+compatible: "ti,bq25731"
+
+include: i2c-device.yaml

@@ -71,6 +71,11 @@
 	pinctrl-names = "default";
 	status = "okay";
 
+	bq25731: bq25731@6b {
+		compatible = "ti,bq25731";
+		reg = <0x6b>;
+	};
+
 	pac1954: pac1954@10 {
 		compatible = "microship,pac1954";
 		reg = <0x10>;
