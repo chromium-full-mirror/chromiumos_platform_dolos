@@ -4,6 +4,7 @@
  */
 
 #include "eeprom.h"
+#include "smart_battery.h"
 
 #include <stdlib.h>
 
@@ -291,6 +292,11 @@ int eeprom_get_block_reg(uint8_t offset, uint8_t *len, uint8_t *reg_data)
 	if (ret != 0) {
 		LOG_WRN("Failed to read block register length, err=%d", ret);
 		return ret;
+	}
+
+	if (*len > SB_REG_DATA_MAX_SIZE) {
+		LOG_WRN("Invalid register data length length, err=%d", ret);
+		return -EOVERFLOW;
 	}
 
 	ret = eeprom_read_n(offset + 1, reg_data, *len);
