@@ -12,6 +12,7 @@
 #include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/shell/shell.h>
 #include <zephyr/smf.h>
 
 static const struct device *leds = DEVICE_DT_GET(DT_NODELABEL(leds));
@@ -33,12 +34,18 @@ static const struct gpio_dt_spec bq_chrg_ok =
 	GPIO_DT_SPEC_GET(DT_NODELABEL(bq_charge_ok), gpios);
 
 static bool sys_pres_pol = true;
+static bool force_sys_pres_flag;
+static bool force_sys_pres_value;
 
 /**
  * Gets the system present signal and takes polarity into condsideration
  */
 static bool gpio_get_sys_pres(void)
 {
+	if (force_sys_pres_flag) {
+		return force_sys_pres_value;
+	}
+
 	bool sys_pres_sig = gpio_pin_get_dt(&sys_pres_spec);
 	return (sys_pres_pol == sys_pres_sig);
 }
@@ -346,7 +353,7 @@ static int bms_init(void)
 
 	LOG_DBG("Getting System present polarity");
 
-	uint8_t eeprom_sys_pres_pol;
+	uint8_t eeprom_sys_pres_pol = 1;
 	ret = eeprom_get_sys_pres_pol(&eeprom_sys_pres_pol);
 
 	if (ret != 0) {
@@ -443,3 +450,44 @@ void bms_tick_handler_task_fn(void *p1, void *p2, void *p3)
 		k_sleep(K_SECONDS(1));
 	}
 }
+
+static int cmd_bms_sys_pres_force_handler(const struct shell *sh, size_t argc,
+					  char **argv, void *data)
+{
+	if (strcmp("on", (char *)data) == 0) {
+		force_sys_pres_flag = true;
+		force_sys_pres_value = true;
+
+		shell_print(sh, "Forcing system to be always present");
+	} else if (strcmp("off", (char *)data) == 0) {
+		force_sys_pres_flag = true;
+		force_sys_pres_value = false;
+
+		shell_print(sh, "Forcing system to be always absent");
+	} else {
+		force_sys_pres_flag = false;
+
+		shell_print(sh, "Disabling the forced system present signal");
+	}
+	return 0;
+}
+
+static int cmd_bms_sys_pres_handler(const struct shell *sh, size_t argc,
+				    char **argv)
+{
+	shell_print(sh, "System present polarity: %s",
+		    sys_pres_pol ? "HIGH" : "LOW");
+	shell_print(sh, "System present: %s %s",
+		    gpio_get_sys_pres() ? "Present" : "Not present",
+		    force_sys_pres_flag ? "(forced)" : "");
+	return 0;
+}
+
+SHELL_SUBCMD_DICT_SET_CREATE(sys_pres_sub_cmd, cmd_bms_sys_pres_force_handler,
+			     (on, "on", "Force system to be present"),
+			     (off, "off", "Force system to be absent"),
+			     (disable, "disable", "Disable the forced value"));
+
+SHELL_CMD_REGISTER(sys_pres, &sys_pres_sub_cmd,
+		   "Forces system present signal to set value (on/off/disable)",
+		   cmd_bms_sys_pres_handler);
