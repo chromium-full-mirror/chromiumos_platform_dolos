@@ -14,10 +14,10 @@ int main(void)
 {
 	printk("Starting Dolos\n");
 
-	bq25731_init();
-
 	sb_reg_load();
 	smbus_target_init();
+
+	bq25731_init();
 
 	while (true) {
 		k_sleep(K_FOREVER);

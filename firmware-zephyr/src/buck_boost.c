@@ -4,9 +4,11 @@
  */
 
 #include "buck_boost.h"
+#include "smart_battery.h"
 
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 
 #define DT_DRV_COMPAT ti_bq25731
 
@@ -22,8 +24,6 @@ enum bq_reg_space {
 };
 
 #define BQ_REG_CHARGE_OPTION_0_VALUE 0x010a
-#define BQ_REG_CHARGE_CURRENT_VALUE 0x1800
-#define BQ_REG_CHARGE_VOLTAGE_VALUE 0x20d0
 #define BQ_REG_CHARGE_OPTION_1_VALUE 0x3700
 #define BQ_REG_CHARGE_OPTION_2_VALUE 0x0037
 
@@ -54,6 +54,44 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
 	return ret;
 }
 
+/**
+ * @brief Writes BQ25731 configuration from a smart battery register
+ *
+ * @param bq_addr BQ25731 register address
+ * @param sb_addr Smart battery register address
+ *
+ * @retval 0 on succcess
+ * @retval Negative on failure
+ */
+static int bq25731_write_config_sb(enum bq_reg_space bq_addr,
+				   enum sb_reg_addr sb_addr)
+{
+	int ret;
+	const struct sb_reg *reg;
+	uint16_t conf_data;
+
+	ret = sb_reg_read(sb_addr, &reg);
+	if (ret != 0) {
+		LOG_ERR("Failed to read register addr=0x%02x from smart battery, err=%d",
+			sb_addr, ret);
+		return ret;
+	}
+
+	conf_data = sys_get_le16(reg->data);
+	ret = bq25731_write_config(bq_addr, conf_data);
+
+	if (ret != 0) {
+		LOG_ERR("Failed write BQ configuration from smart battery register, bq_addr=0x%02x, sb_reg_name=%s, data=0x%04x, err=%d",
+			bq_addr, reg->name, conf_data, ret);
+		return ret;
+	}
+
+	LOG_DBG("Wrote BQ configuration from smart battery register, bq_addr=0x%02x, sb_reg_name=%s, data=0x%04x",
+		bq_addr, reg->name, conf_data);
+
+	return 0;
+}
+
 /* Initialize the buckboost option registers to the following:
  * Update the BIT3 RSNS_RAC bit to use 10m ohm in the ChargeOption1 Register
  * Disable the  EN_EXTILIM bit in ChargeOption2 register to allow current output
@@ -67,8 +105,6 @@ int bq25731_init(void)
 		{ BQ_REG_CHARGE_OPTION_0, BQ_REG_CHARGE_OPTION_0_VALUE },
 		{ BQ_REG_CHARGE_OPTION_1, BQ_REG_CHARGE_OPTION_1_VALUE },
 		{ BQ_REG_CHARGE_OPTION_2, BQ_REG_CHARGE_OPTION_2_VALUE },
-		{ BQ_REG_CHARGE_CURRENT, BQ_REG_CHARGE_CURRENT_VALUE },
-		{ BQ_REG_CHARGE_VOLTAGE, BQ_REG_CHARGE_VOLTAGE_VALUE }
 	};
 
 	LOG_DBG("Initializing buck boost");
@@ -81,6 +117,11 @@ int bq25731_init(void)
 			return ret;
 		}
 	}
+
+	/* Initialize BQ ChargeVoltage and ChargeCurrent registers from smart
+	 * battery */
+	bq25731_write_config_sb(BQ_REG_CHARGE_VOLTAGE, SB_REG_DESIGN_VOLTAGE);
+	bq25731_write_config_sb(BQ_REG_CHARGE_CURRENT, SB_REG_DESIGN_CAPACITY);
 
 	LOG_DBG("Buck boost init successfully done");
 	return ret;
