@@ -5,10 +5,10 @@
 
 #include "app_version.h"
 
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/shell/shell.h>
 
 #include <ti/driverlib/m0p/dl_sysctl.h>
-
 /**
  * Handles the command that jumps from main code to BSL.
  */
@@ -72,5 +72,61 @@ static int cmd_version_handler(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
+static bool read_gpio_state(const struct shell *sh,
+			    const struct gpio_dt_spec *spec)
+{
+	int value = gpio_pin_get(spec->port, spec->pin);
+	if (value < 0) {
+		shell_print(sh, "Error reading GPIO pin\n");
+		return -1;
+	}
+
+	return (value != 0);
+}
+// Define a command handler function for GPIO pins
+static int gpio_cmd_handler(const struct shell *sh, size_t argc, char **argv)
+{
+	bool state;
+	if (argc == 1) {
+		const struct gpio_dt_spec spec_efuse_pg =
+			GPIO_DT_SPEC_GET(DT_NODELABEL(efuse_pg), gpios);
+		state = read_gpio_state(sh, &spec_efuse_pg);
+		shell_print(sh, "EFSUE_PG pin state: %d\r\n", state);
+		const struct gpio_dt_spec spec =
+			GPIO_DT_SPEC_GET(DT_NODELABEL(bq_charge_ok), gpios);
+		state = read_gpio_state(sh, &spec);
+		shell_print(sh, "CHRG_OK pin state: %d\r\n", state);
+	}
+	return 0;
+}
+
+// Define a command handler function for GPIO sub-command
+static int sub_gpio_cmd_handler(const struct shell *sh, size_t argc,
+				char **argv, void *data)
+{
+	bool state;
+	if (strcmp("efuse-pg", (char *)data) == 0) {
+		const struct gpio_dt_spec spec =
+			GPIO_DT_SPEC_GET(DT_NODELABEL(efuse_pg), gpios);
+		state = read_gpio_state(sh, &spec);
+		shell_print(sh, "EFSUE_PG pin state: %d\r\n", state);
+	} else if (strcmp("chrg-ok", (char *)data) == 0) {
+		const struct gpio_dt_spec spec =
+			GPIO_DT_SPEC_GET(DT_NODELABEL(bq_charge_ok), gpios);
+		state = read_gpio_state(sh, &spec);
+		shell_print(sh, "CHRG_OK pin state: %d\r\n", state);
+	}
+
+	return 0;
+}
+
 SHELL_CMD_REGISTER(version, NULL, "Prints Dolos version", cmd_version_handler);
 SHELL_CMD_REGISTER(bsl, NULL, "Invokes BSL", cmd_jump_to_bsl_handler);
+
+SHELL_SUBCMD_DICT_SET_CREATE(sub_gpio_cmds, sub_gpio_cmd_handler,
+			     (efuse_pg, "efuse-pg", "efuse-pg value"),
+			     (chrg_ok, "chrg-ok", "chrg-ok value"));
+
+SHELL_CMD_REGISTER(gpio, &sub_gpio_cmds,
+		   "Checks the state of the GPIO pins on Dolos",
+		   gpio_cmd_handler);
