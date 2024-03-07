@@ -9,4 +9,8 @@ if BOARD_DOLOS
 config MSPM0_IMAGE_OUTPUT_TI_TXT
     bool "Generate TI_TXT file after build"
 
+# Workaround for disabling the original UART driver
+select SERIAL_HAS_DRIVER
+select SERIAL_SUPPORT_INTERRUPT
+
 endif # BOARD_DOLOS

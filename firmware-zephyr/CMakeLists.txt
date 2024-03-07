@@ -12,5 +12,6 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(Dolos)
 
 FILE(GLOB src_c src/*.c)
+FILE(GLOB drivers_c drivers/*.c)
 
-target_sources(app PRIVATE ${src_c})
+target_sources(app PRIVATE ${src_c} ${drivers_c})
