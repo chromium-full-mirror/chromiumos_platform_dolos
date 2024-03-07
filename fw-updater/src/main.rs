@@ -51,6 +51,10 @@ pub struct Args {
     ///   -vvv       => Print `debug` messages too.
     #[clap(short, long, parse(from_occurrences), verbatim_doc_comment)]
     verbose: usize,
+
+    /// Specify whether Dolos has Zephyr code.
+    #[clap(long)]
+    zephyr: bool,
 }
 
 /// Convert given log level to name string.
@@ -93,11 +97,10 @@ fn init_logger(verbose: usize) {
 const APP_FIRMWARE_DELAY_SEC: u64 = 3;
 
 /// Jump to BSL from firmware.
-fn jump_to_bsl(uart: &mut Uart) -> Result<()> {
+fn jump_to_bsl(uart: &mut Uart, cmd: &str) -> Result<()> {
     // flush any command
     uart.write_all("\r".as_bytes())?;
     sleep(Duration::from_secs(APP_FIRMWARE_DELAY_SEC));
-    let cmd = "jump-to-bsl\r";
     let cmd_bytes = cmd.as_bytes();
     debug!("Sending firmware command to enter BSL");
     uart.write_all(cmd_bytes)?;
@@ -154,10 +157,23 @@ fn main() -> Result<()> {
     info!("Reading image: {}", args.firmware_image);
     let image = titxt::parse(&args.firmware_image)?;
 
+    if args.zephyr {
+        info!("Dolos has Zephyr code");
+    } else {
+        info!("Dolos has CCS or default code");
+    }
     if !args.bsl_mode {
         info!("Jumping to BSL");
         let mut uart = Uart::open(&args.uart, args.fw_baud_rate)?;
-        jump_to_bsl(&mut uart)?;
+        if args.zephyr {
+            info!("Dolos has Zephyr os");
+            jump_to_bsl(&mut uart, "bsl\n")?;
+
+
+        } else {
+            info!("Dolos doesn't has zephyr");
+            jump_to_bsl(&mut uart, "jump-to-bsl\r")?;            
+        }
     }
 
     info!("Programming the device");
