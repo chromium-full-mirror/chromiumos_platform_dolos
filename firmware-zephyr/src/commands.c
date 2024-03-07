@@ -3,6 +3,8 @@
  * found in the LICENSE file.
  */
 
+#include "app_version.h"
+
 #include <zephyr/shell/shell.h>
 
 #include <ti/driverlib/m0p/dl_sysctl.h>
@@ -65,7 +67,7 @@ static int cmd_version_handler(const struct shell *sh, size_t argc, char **argv)
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	shell_print(sh, "Dolos version 1.0.0");
+	shell_print(sh, "Dolos version %s", APP_VERSION_STRING);
 
 	return 0;
 }

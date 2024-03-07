@@ -8,3 +8,6 @@ build/
 
 # vscode settings
 .vscode/
+
+# VERSION file that tracks the firmware version
+VERSION
