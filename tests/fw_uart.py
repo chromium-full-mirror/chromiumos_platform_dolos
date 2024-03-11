@@ -6,7 +6,7 @@
 # found in the LICENSE file.
 
 import re
-
+import sys
 import serial
 
 
@@ -48,7 +48,10 @@ class FwUart:
         byte_value = "".join(
             [s.split("byte=")[-1].strip() for s in output if "byte=" in s]
         )
-        chrg_output = self.send_command("gpio chrg-ok")
+        if "--zephyr" in sys.argv:
+            chrg_output = self.send_command("gpio chrg_ok")
+        else:
+            chrg_output = self.send_command("gpio chrg-ok")
         chrg_ok_pin_value = int(
             [
                 s.split(":")[-1].strip()
@@ -64,7 +67,11 @@ class FwUart:
         Sends (gpio efuse-pg) command to firmware and
         returns EFSUE_PG pin state as integer.
         """
-        output = self.send_command("gpio efuse-pg")
+        if "--zephyr" in sys.argv:
+            output = self.send_command("gpio efuse_pg")
+        else:
+            output = self.send_command("gpio efuse-pg")
+
         efuse_pin = int(
             [
                 s.split(":")[-1].strip()

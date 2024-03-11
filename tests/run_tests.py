@@ -13,9 +13,11 @@ import time
 
 import pytest
 import serial.tools.list_ports
+import argparse
 
 
-def run_all_pytests(serial_port, baudrate):
+
+def run_all_pytests(serial_port, baudrate, is_zephyr=False):
     """Runs all the pytests with the given serial and baudrate"""
     args = [
         f"{os.path.dirname(os.path.abspath(__file__))}/test_factory.py",
@@ -25,10 +27,12 @@ def run_all_pytests(serial_port, baudrate):
         "--baudrate",
         str(baudrate),
     ]
+    if is_zephyr:
+        args.append("--zephyr")
     pytest.main(args)
 
 
-def run_pytests_without_eeprom(serial_port, baudrate):
+def run_pytests_without_eeprom(serial_port, baudrate, is_zephyr=False):
     """Runs all pytests except eeprom test with given serial and baudrate"""
     args = [
         "-k",
@@ -40,6 +44,8 @@ def run_pytests_without_eeprom(serial_port, baudrate):
         "--baudrate",
         str(baudrate),
     ]
+    if is_zephyr:
+        args.append("--zephyr")
     pytest.main(args)
 
 
@@ -120,11 +126,16 @@ def main():
     if there is any Dolos connected to run tests on it
     """
     baudrate: int = 115200
-    opts, args = getopt.getopt(sys.argv[1:], "baudrate", ["baudrate="])
-    for opt, arg in opts:
-        if opt == "--baudrate":
-            baudrate = int(arg)
-            print(f"baudrate is {baudrate}")
+    zephyr_mode = False
+    parser = argparse.ArgumentParser(description="Run factory tests on the connected Dolos")
+    parser.add_argument("--baudrate", type=int, default=115200, help="Set the baudrate")
+    parser.add_argument("--zephyr", action="store_true", help="Run Zephyr-specific tests")
+    args = parser.parse_args()
+
+    baudrate = args.baudrate
+    zephyr_mode = args.zephyr
+    print(f"baudrate is {baudrate}")
+    print("zephyr mode is:", zephyr_mode)
     ports = serial.tools.list_ports.comports()
     print("serial ports:-")
     for serial_port in ports:
@@ -137,7 +148,7 @@ def main():
     while True:
         for port in ports:
             if port.manufacturer == "FTDI":
-                print(f"New Dolose device detected: {port}")
+                print(f"New Dolos device detected: {port}")
                 try:
                     serial_port = serial.Serial(
                         port.device,
@@ -148,9 +159,9 @@ def main():
                     version = get_version(serial_port)
                     serial_no = get_serial_number(serial_port)
                     if serial_no == "ERROR":
-                        run_pytests_without_eeprom(port.device, baudrate)
+                        run_pytests_without_eeprom(port.device, baudrate,zephyr_mode)
                     else:
-                        run_all_pytests(port.device, baudrate)
+                        run_all_pytests(port.device, baudrate, zephyr_mode)
                         print(serial_no)
                     print(version)
                 except Exception as e:
