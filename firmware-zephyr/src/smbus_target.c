@@ -29,6 +29,12 @@ static int smbus_data_receive_cnt = 0;
 
 static int smbus_stop_callback(struct i2c_target_config *cfg)
 {
+	struct i2c_device_state *state = CONTAINER_OF(
+		smbus_target_dev->state, struct i2c_device_state, devstate);
+	if (state != NULL) {
+		STATS_INC(state->stats, transfer_call_count);
+	}
+
 	return 0;
 }
 
@@ -51,6 +57,12 @@ static int smbus_read_requested(struct i2c_target_config *cfg,
 		}
 	}
 
+	struct i2c_device_state *state = CONTAINER_OF(
+		smbus_target_dev->state, struct i2c_device_state, devstate);
+	if (state != NULL) {
+		STATS_INC(state->stats, message_count);
+	}
+
 	return ret;
 }
 
@@ -65,6 +77,12 @@ static int smbus_read_processed(struct i2c_target_config *cfg,
 		ret = -1;
 	}
 
+	struct i2c_device_state *state = CONTAINER_OF(
+		smbus_target_dev->state, struct i2c_device_state, devstate);
+	if (state != NULL) {
+		STATS_INC(state->stats, bytes_read);
+	}
+
 	return ret;
 }
 
@@ -76,6 +94,12 @@ static int smbus_write_requested(struct i2c_target_config *cfg)
 	k_timer_start(&communication_timer, K_SECONDS(10), K_NO_WAIT);
 
 	smbus_data_receive_cnt = 0;
+
+	struct i2c_device_state *state = CONTAINER_OF(
+		smbus_target_dev->state, struct i2c_device_state, devstate);
+	if (state != NULL) {
+		STATS_INC(state->stats, message_count);
+	}
 
 	return 0;
 }
@@ -109,6 +133,12 @@ static int smbus_write_received(struct i2c_target_config *cfg,
 		} else {
 			ret = -1;
 		}
+	}
+
+	struct i2c_device_state *state = CONTAINER_OF(
+		smbus_target_dev->state, struct i2c_device_state, devstate);
+	if (state != NULL) {
+		STATS_INC(state->stats, bytes_written);
 	}
 
 	return ret;
