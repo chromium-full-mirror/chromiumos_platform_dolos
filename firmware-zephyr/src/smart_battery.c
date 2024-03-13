@@ -262,7 +262,7 @@ int sb_reg_write(enum sb_reg_addr addr, uint8_t *buf, uint8_t buf_size)
 		return -EINVAL;
 	}
 
-	if (buf_size > SB_REG_DATA_MAX_SIZE) {
+	if (buf_size > SB_REG_DATA_MAX_SIZE && !reg->is_word) {
 		return -EOVERFLOW;
 	}
 
