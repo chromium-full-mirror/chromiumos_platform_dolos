@@ -1,24 +1,22 @@
 # Using TI Zephyr repo
-- Go through the Getting Started Guide to get Zephyr an build a sample project to verify that everything is working fine:
+- Go through the **Getting Started Guide**, it has steps for installing Zephyr SDK and Zephyr required libraries that will be needed. You should follow all the installtion steps except for **Get Zephyr and install Python dependencies: step 5**, we will use the steps below instead:
 
 https://docs.zephyrproject.org/latest/develop/getting_started/index.html
 
-- We need to clone the pull request from TI to include support for MSPM0 devices:
+- Instead of pulling the Zephyr repo, we need to clone the TI Zephyr repo, which contains the support for the MSPM0 devices:
 
-Go to Zephyr directory and pull the pull request:
 ```shell
-git fetch origin pull/68503/head:mspm0_support
-git checkout mspm0_support
+west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_cleanup ~/zephyrproject
 ```
 
-
-- Under Zephyr directory, open the west.yml file and update the hal_ti section. You need to add url to point to the hal_ti MSPM0 support pull request:
+- Under ``~/zephyrproject/zephyr`` directory, open the ``west.yml`` file and update the ``hal_ti`` section. You need to add ``url`` property to point to the **hal_ti** project (https://github.com/msp-ti/hal_ti) and change the revision to point to the branch ``mspm0_support``:
 
 It should look like this:
 
 ```yaml
     - name: hal_ti
-      revision: pull/51/head
+      revision: mspm0_support
+      url: https://github.com/msp-ti/hal_ti
       path: modules/hal/ti
       groups:
         - hal
@@ -39,19 +37,21 @@ This will update the modules (e.g. clones hal_ti and other modules)
 export ZEPHYR_BASE=~/zephyrproject/zephyr/
 ```
 
-# Building dolos zephyr PoC
+- Go back to the **Getting Started Guide** and continue with the steps
+
+# Building Dolos
 
 - Navigate to Dolos Zephyr firmware directory.
-- Build the project using the following command (if you are using a virtual environment make sure to enable it first):
+- To get the ``zephyr.txt`` file, you need to set the environment variable ``CCS_BASE`` to point to CCS directory. A Kconfig variable ``CONFIG_MSPM0_IMAGE_OUTPUT_TI_TXT`` will use it to generate the TI_TXT file once you build the project:
 
 ```shell
-west build -p
+export CCS_BASE=~/ti/ccs1250
 ```
 
-- Set the environment variable ``CCS_BASE`` to point to CCS directory. A Kconfig variable ``CONFIG_MSPM0_IMAGE_OUTPUT_TI_TXT`` will use it to generate the TI_TXT file:
+- Build the project using the provided build script under ``src/`` (if you are using a virtual environment make sure to enable it first):
 
 ```shell
-export CCS_BASE="~/ti/ccs1250"
+./build.sh
 ```
 
 - There's a known issue where the TI TXT file produced by the tool may not be 8-byte aligned, to fix the file:
@@ -59,4 +59,4 @@ export CCS_BASE="~/ti/ccs1250"
     - For each hex line before a new ``@address`` or ``q`` statement, make sure that the line contains either 8 or 16 hex characters.
     - If the hex characters are insufficient, add ``00`` until the file is 8 or 16 hex charaters long.
 
-- Flash the zephyr.txt
+- Flash the ``zephyr.txt``
