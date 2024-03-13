@@ -4,6 +4,7 @@
  */
 
 #include "buck_boost.h"
+#include "eeprom.h"
 #include "smart_battery.h"
 #include "smbus_target.h"
 
@@ -13,7 +14,9 @@
 #include <zephyr/sys/printk.h>
 
 #define LED_PRG_NODE DT_NODELABEL(ledprg)
+#define LED_ERR_NODE DT_NODELABEL(lederr)
 #define LED_PRG DT_NODE_CHILD_IDX(LED_PRG_NODE)
+#define LED_ERR DT_NODE_CHILD_IDX(LED_ERR_NODE)
 
 static const struct device *leds = DEVICE_DT_GET(DT_PARENT(LED_PRG_NODE));
 
@@ -22,6 +25,10 @@ int main(void)
 	printk("Starting Dolos\n");
 
 	led_on(leds, LED_PRG);
+
+	if (eeprom_crc32_check() != 0) {
+		led_on(leds, LED_ERR);
+	}
 
 	sb_reg_load();
 	smbus_target_init();
