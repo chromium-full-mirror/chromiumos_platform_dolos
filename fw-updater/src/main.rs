@@ -168,11 +168,9 @@ fn main() -> Result<()> {
         if args.zephyr {
             info!("Dolos has Zephyr os");
             jump_to_bsl(&mut uart, "bsl\n")?;
-
-
         } else {
             info!("Dolos doesn't has zephyr");
-            jump_to_bsl(&mut uart, "jump-to-bsl\r")?;            
+            jump_to_bsl(&mut uart, "jump-to-bsl\r")?;
         }
     }
 
