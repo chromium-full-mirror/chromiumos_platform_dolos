@@ -23,4 +23,5 @@ setuptools.setup(
             "run_dolos_tests = dolos_factory_tests.run_tests:main",
         ]
     },
+    package_data={"dolos_factory_tests": ["fw-updater", "dolos.txt"]},
 )

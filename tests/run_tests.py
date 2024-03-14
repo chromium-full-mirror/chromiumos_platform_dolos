@@ -7,6 +7,7 @@
 import getopt
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -84,7 +85,34 @@ def get_version(serial_port):
             return element
 
 
+def fw_update():
+    # Get the path to the directory containing this script
+    script_dir = os.path.dirname(os.path.realpath(__file__))
+    # Path to the Rust executable
+    updater_executable = os.path.join(script_dir, "fw-updater")
+
+    # Check if the executable exists
+    if not os.path.exists(updater_executable):
+        print("Error: fw-updater executable not found.")
+        return 1
+
+    # Get the path to the dolos.txt file in the package
+    dolos_txt_path = os.path.join(script_dir, "dolos.txt")
+
+    # Run the Rust executable with dolos.txt as parameter
+    try:
+        subprocess.run([updater_executable, dolos_txt_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print("Error running fw-updater:", e)
+        return 1
+
+
 def main():
+    # Running fw-updater to flash dolos.
+    print("===Start Flashing Dolos===")
+    fw_update()
+    print("===Flashing Dolos done successfully===")
+
     """Entry point of the script.
 
     Initializes the baudrate option with initial value = 115200,
