@@ -99,21 +99,19 @@ pub fn parse(path: &String) -> Result<TiTxt> {
                 "Section end reached for address {cur_address:#x} size {}",
                 cur_data.len()
             );
-            let post_pad_size =
-                (FLASH_ALIGN_SIZE - (cur_data.len() as u32 % FLASH_ALIGN_SIZE)) as usize;
-            if post_pad_size != 0 {
-                let mut zero_vec = vec![0u8; post_pad_size];
-                cur_data.append(&mut zero_vec);
-            }
             let pre_pad_count = cur_address % FLASH_ALIGN_SIZE;
             cur_address = cur_address - pre_pad_count;
             assert!(pre_pad_count < FLASH_ALIGN_SIZE);
             if pre_pad_count != 0 {
-                let mut zero_vec = vec![0u8; pre_pad_count as usize];
-                cur_data.append(&mut zero_vec);
+                let zero_vec = vec![0u8; pre_pad_count as usize];
+                cur_data.splice(0..0, zero_vec);
             }
             debug!("Adjusted address {cur_address:#x} size {}", cur_data.len());
-
+            let post_pad_size = (cur_data.len() as u32 % FLASH_ALIGN_SIZE) as usize;
+            if post_pad_size != 0 {
+                let mut zero_vec = vec![0u8; (FLASH_ALIGN_SIZE as usize - post_pad_size) as usize];
+                cur_data.append(&mut zero_vec);
+            }
             result.sections.push(TiSection {
                 address: cur_address,
                 data: cur_data.clone(),
