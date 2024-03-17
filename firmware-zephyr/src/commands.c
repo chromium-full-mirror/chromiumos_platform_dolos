@@ -9,6 +9,7 @@
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/shell/shell.h>
+#include <zephyr/sys/reboot.h>
 
 #include <ti/driverlib/m0p/dl_sysctl.h>
 /**
@@ -193,6 +194,23 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	return 0;
 }
 
+static int cmd_reset_handler(const struct shell *shell, size_t argc,
+			     char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	shell_print(shell, "Resetting device...\n");
+
+	// Delay to ensure the message is printed
+	k_sleep(K_SECONDS(1));
+
+	sys_reboot(SYS_REBOOT_COLD);
+
+	return 0;
+}
+
+SHELL_CMD_REGISTER(reset, NULL, "Reset the device", cmd_reset_handler);
 SHELL_CMD_REGISTER(version, NULL, "Prints Dolos version", cmd_version_handler);
 SHELL_CMD_REGISTER(bsl, NULL, "Invokes BSL", cmd_jump_to_bsl_handler);
 
