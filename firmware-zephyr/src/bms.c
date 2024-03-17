@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include "bms.h"
 #include "eeprom.h"
 
 #include <stdint.h>
@@ -137,16 +138,6 @@ K_TIMER_DEFINE(efuse_pg_timer, NULL, NULL);
 /**
  * State machine info
  */
-enum bms_state {
-	BMS_STATE_POWER_OUTPUT_OFF = 0,
-	BMS_STATE_TIMER,
-	BMS_STATE_POWER_GOOD_WAIT,
-	BMS_STATE_POWER_OUTPUT_ON,
-};
-
-#define EXPAND_ENUM_NAME(x) #x
-#define ENUM_NAME(x) EXPAND_ENUM_NAME(x)
-
 struct bms_state_data {
 	struct smf_ctx ctx;
 } state_data;
@@ -398,6 +389,49 @@ void bms_tick_handler(void)
 	} else {
 		led_off(leds, LED_RDY);
 	}
+}
+
+bool bms_get_chrg_ok(void)
+{
+	return bq_charge_ok_signal_state.state;
+}
+
+bool bms_get_efuse_pg(void)
+{
+	return efuse_signal_state.state;
+}
+
+bool bms_get_sys_pres(void)
+{
+	return gpio_get_sys_pres();
+}
+
+bool bms_get_sys_pres_raw(void)
+{
+	return system_present_signal_state.state;
+}
+
+bool bms_get_sys_pres_pol(void)
+{
+	return sys_pres_pol;
+}
+
+bool bms_is_sys_pres_forced(void)
+{
+	return force_sys_pres_flag;
+}
+
+enum bms_state bms_get_curr_state(void)
+{
+	const struct smf_state *current_state = state_data.ctx.current;
+
+	for (size_t i = 0; i < ARRAY_SIZE(bms_states); i++) {
+		if (current_state == &bms_states[i]) {
+			return (enum bms_state)i;
+		}
+	}
+
+	return BMS_STATE_INVALID;
 }
 
 void bms_state_machine_task_fn(void *p1, void *p2, void *p3)

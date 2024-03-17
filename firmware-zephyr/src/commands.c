@@ -4,6 +4,8 @@
  */
 
 #include "app_version.h"
+#include "bms.h"
+#include "smbus_target.h"
 
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/shell/shell.h>
@@ -120,6 +122,77 @@ static int sub_gpio_cmd_handler(const struct shell *sh, size_t argc,
 	return 0;
 }
 
+static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	/* Calculate uptime */
+	uint64_t uptime = k_uptime_get();
+	uint32_t days;
+	uint8_t hours;
+	uint8_t minutes;
+	uint8_t seconds;
+
+	days = uptime / (1000 * 60 * 60 * 24);
+	uptime %= 1000 * 60 * 60 * 24;
+	hours = uptime / (1000 * 60 * 60);
+	uptime %= 1000 * 60 * 60;
+	minutes = uptime / (1000 * 60);
+	uptime %= 1000 * 60;
+	seconds = uptime / 1000;
+
+	/* Get system present force status string */
+	char sys_pres_forced_str[64] = { 0 };
+	sprintf(sys_pres_forced_str, " (Signal was forced, raw signal %s)",
+		bms_get_sys_pres_raw() ? "HIGH" : "LOW");
+
+	/* Get BMS current state string */
+	enum bms_state bms_state = bms_get_curr_state();
+	char bms_state_str[32] = { 0 };
+
+	switch (bms_state) {
+	case BMS_STATE_POWER_OUTPUT_OFF:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+		break;
+	case BMS_STATE_TIMER:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
+		break;
+	case BMS_STATE_POWER_GOOD_WAIT:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
+		break;
+	case BMS_STATE_POWER_OUTPUT_ON:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON));
+		break;
+	default:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_INVALID));
+		break;
+	}
+
+	/* Print status */
+	shell_print(sh, "Dolos status:");
+	shell_print(
+		sh,
+		"    Uptime             : %d days and %02d:%02d:%02d seconds",
+		days, hours, minutes, seconds);
+	shell_print(sh, "    Charger            : %s",
+		    bms_get_chrg_ok() ? "Detected" : "Not detected");
+	shell_print(sh, "    E-Fuse Power       : %s",
+		    bms_get_efuse_pg() ? "Good" : "Not good");
+	shell_print(sh,
+		    "    System present     : %s (signal %s, polarity %s%s)",
+		    bms_get_sys_pres() ? "Present" : "Absent",
+		    bms_get_sys_pres() ? "HIGH" : "LOW",
+		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
+		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
+	shell_print(sh, "    BMS current state  : %s", bms_state_str);
+	shell_print(sh, "    SMBus communication: %s",
+		    smbus_target_is_communication_detected() ? "Detected" :
+							       "Not detected");
+
+	return 0;
+}
+
 SHELL_CMD_REGISTER(version, NULL, "Prints Dolos version", cmd_version_handler);
 SHELL_CMD_REGISTER(bsl, NULL, "Invokes BSL", cmd_jump_to_bsl_handler);
 
@@ -130,3 +203,5 @@ SHELL_SUBCMD_DICT_SET_CREATE(sub_gpio_cmds, sub_gpio_cmd_handler,
 SHELL_CMD_REGISTER(gpio, &sub_gpio_cmds,
 		   "Checks the state of the GPIO pins on Dolos",
 		   gpio_cmd_handler);
+
+SHELL_CMD_REGISTER(status, NULL, "Prints Dolos status", status_cmd_handler);
