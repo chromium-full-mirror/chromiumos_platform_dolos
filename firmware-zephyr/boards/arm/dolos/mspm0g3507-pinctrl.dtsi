@@ -102,6 +102,16 @@
 		input-enable;
 	};
 
+	uart0_rts_pa15: uart0_rts_pa15{
+		pinmux = <MSP_PINMUX(37,UART0_RTS)>;
+		input-enable;
+	};
+
+	uart0_cts_pa14: uart0_cts_pa14{
+		pinmux = <MSP_PINMUX(36,UART0_CTS)>;
+		input-enable;
+	};
+
 	adc0_pa25: adc0_pa25 {
 		pinmux = <MSP_PINMUX(55,UNCONNECTED)>;
 	};

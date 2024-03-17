@@ -122,8 +122,9 @@
 &uart0 {
 	status = "okay";
 	current-speed = <115200>;
-	pinctrl-0 = <&uart0_tx_pa10 &uart0_rx_pa11>;
+	pinctrl-0 = <&uart0_tx_pa10 &uart0_rx_pa11 &uart0_rts_pa15 &uart0_cts_pa14>;
 	pinctrl-names = "default";
+	hw-flow-control;
 };
 
 &adc0 {
