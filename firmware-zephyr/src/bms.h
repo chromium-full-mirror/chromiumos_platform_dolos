@@ -8,6 +8,8 @@
 
 #include <stdbool.h>
 
+#include <zephyr/shell/shell.h>
+
 /* BMS states */
 enum bms_state {
 	BMS_STATE_POWER_OUTPUT_OFF = 0,
@@ -68,5 +70,7 @@ bool bms_is_sys_pres_forced(void);
  * @return current BMS state
  */
 enum bms_state bms_get_curr_state(void);
+
+int print_gpio_stats_handler(const struct shell *sh, size_t argc, char **argv);
 
 #endif

@@ -13,7 +13,6 @@
 #include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
-#include <zephyr/shell/shell.h>
 #include <zephyr/smf.h>
 
 static const struct device *leds = DEVICE_DT_GET(DT_NODELABEL(leds));
@@ -107,18 +106,22 @@ struct bms_signal_state_tracker {
 	uint8_t ticks[2];
 	/* No of ticks needed to switch to that state. */
 	uint8_t min_ticks[2];
+	/*stats for state changes*/
+	uint32_t state_count;
 };
 
 static struct bms_signal_state_tracker efuse_signal_state = {
 	.state = false,
 	.ticks = { 0 },
 	.min_ticks = { 2, 2 },
+	.state_count = 0,
 };
 
 static struct bms_signal_state_tracker system_present_signal_state = {
 	.state = false,
 	.ticks = { 0 },
 	.min_ticks = { 2, 2 },
+	.state_count = 0,
 
 };
 
@@ -126,6 +129,7 @@ static struct bms_signal_state_tracker bq_charge_ok_signal_state = {
 	.state = false,
 	.ticks = { 0 },
 	.min_ticks = { 1, 1 },
+	.state_count = 0,
 };
 
 /**
@@ -369,18 +373,21 @@ void bms_tick_handler(void)
 				     gpio_get_sys_pres())) {
 		LOG_DBG("Detected a change in SYSTEM_PRESENT, signal=%d",
 			system_present_signal_state.state);
+		system_present_signal_state.state_count++;
 	}
 
 	if (bms_process_state_change(&bq_charge_ok_signal_state,
 				     gpio_pin_get_dt(&bq_chrg_ok))) {
 		LOG_DBG("Detected a change in BQ_CHRG_OK, signal=%d",
 			bq_charge_ok_signal_state.state);
+		bq_charge_ok_signal_state.state_count++;
 	}
 
 	if (bms_process_state_change(&efuse_signal_state,
 				     gpio_pin_get_dt(&efuse_pg_spec))) {
 		LOG_DBG("Detected a change in EFUSE_PG, signal=%d",
 			efuse_signal_state.state);
+		efuse_signal_state.state_count++;
 	}
 
 	/* Dolos is considered ready when BB CHARGE OK signal is asserted. */
@@ -514,6 +521,18 @@ static int cmd_bms_sys_pres_handler(const struct shell *sh, size_t argc,
 	shell_print(sh, "System present: %s %s",
 		    gpio_get_sys_pres() ? "Present" : "Not present",
 		    force_sys_pres_flag ? "(forced)" : "");
+	return 0;
+}
+
+int print_gpio_stats_handler(const struct shell *sh, size_t argc, char **argv)
+{
+	shell_print(sh, "GPIO Statistics:");
+	shell_print(sh, "   GPIO BQ_CHRG_OK int count     : %u",
+		    bq_charge_ok_signal_state.state_count);
+	shell_print(sh, "   GPIO SYSTEM_PRESENT int count : %u",
+		    system_present_signal_state.state_count);
+	shell_print(sh, "   GPIO EFUSE_PG                 : %u",
+		    efuse_signal_state.state_count);
 	return 0;
 }
 

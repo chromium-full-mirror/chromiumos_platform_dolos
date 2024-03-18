@@ -3,6 +3,8 @@
  * found in the LICENSE file.
  */
 
+#include "bms.h"
+
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/shell/shell.h>
@@ -17,13 +19,13 @@ void print_stats(const struct shell *sh, const struct device *i2c_dev)
 		struct i2c_device_state *state = CONTAINER_OF(
 			i2c_dev->state, struct i2c_device_state, devstate);
 		if (state != NULL) {
-			shell_print(sh, "Messages Count: %u",
+			shell_print(sh, "   Messages Count     : %u",
 				    state->stats.message_count);
-			shell_print(sh, "Transfer Call Count: %u",
+			shell_print(sh, "   Transfer Call Count: %u",
 				    state->stats.transfer_call_count);
-			shell_print(sh, "Bytes Read: %u",
+			shell_print(sh, "   Bytes Read         : %u",
 				    state->stats.bytes_read);
-			shell_print(sh, "Bytes Written: %u",
+			shell_print(sh, "   Bytes Written      : %u",
 				    state->stats.bytes_written);
 		}
 	} else {
@@ -74,6 +76,8 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	sub_stats,
+	SHELL_CMD(gpio, &sub_stats_i2c, "Displays GPIO statistics.",
+		  print_gpio_stats_handler),
 	SHELL_CMD(i2c, &sub_stats_i2c,
 		  "Displays i2c statistics for target and controller.",
 		  print_i2c_stats),
