@@ -294,8 +294,9 @@ int eeprom_get_block_reg(uint8_t offset, uint8_t *len, uint8_t *reg_data)
 		return ret;
 	}
 
-	if (*len > SB_REG_DATA_MAX_SIZE) {
-		LOG_WRN("Invalid register data length length, err=%d", ret);
+	if (*len > SB_REG_DATA_MAX_SIZE || *len == 0) {
+		LOG_WRN("Invalid register data length, len=%d, err=%d", *len,
+			ret);
 		return -EOVERFLOW;
 	}
 
