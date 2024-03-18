@@ -21,10 +21,10 @@ struct eeprom_data {
   uint8_t manufactured_year;
   uint8_t manufactured_month;
   uint16_t serial_number;
-  uint8_t reserved[9];
+  uint8_t reserved[11];
   uint32_t crc;
   struct sb_block_register block_registers[5];
-  uint16_t word_register[36];
+  uint16_t word_register[35];
 } __attribute__((packed));
 
 #define STATIC_ASSERT_STRUCT_SIZE(struct_name, size)                           \

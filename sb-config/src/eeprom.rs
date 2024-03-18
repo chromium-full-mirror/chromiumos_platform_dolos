@@ -258,7 +258,7 @@ pub fn write_eeprom_layout_to_file(
         reserved: Default::default(),
         crc: 0,
         block_registers: Default::default(),
-        word_register: [0; 36],
+        word_register: [0; 35],
     };
     let mut block_reg_index = 0;
     let mut word_reg_index = 0;
