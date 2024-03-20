@@ -5,6 +5,7 @@
 
 #include "app_version.h"
 #include "bms.h"
+#include "eeprom.h"
 #include "smbus_target.h"
 
 #include <zephyr/drivers/gpio.h>
@@ -190,6 +191,9 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	shell_print(sh, "    SMBus communication: %s",
 		    smbus_target_is_communication_detected() ? "Detected" :
 							       "Not detected");
+	shell_print(sh, "    Serial number      : dolos-V%d-%02d%02d-%04X",
+		    eeprom_get_version(), eeprom_get_year(), eeprom_get_week(),
+		    eeprom_get_serial_no());
 
 	return 0;
 }
