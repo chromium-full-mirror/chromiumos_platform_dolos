@@ -142,7 +142,6 @@ impl SBRegisterSet {
                 sb_u16_register("OptionalMfgFunction3"),
                 sb_u16_register("OptionalMfgFunction2"),
                 sb_u16_register("OptionalMfgFunction1"),
-                sb_u16_register("AlarmWarning"),
             ],
         }
     }
