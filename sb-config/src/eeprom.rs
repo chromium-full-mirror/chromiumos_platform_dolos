@@ -7,6 +7,7 @@
 extern crate anyhow;
 extern crate i2cdev;
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::fs::File;
@@ -14,24 +15,25 @@ use std::io::{Read, Write};
 
 use anyhow::{bail, Result};
 use log::debug;
+use memoffset::offset_of;
 use serde::{Deserialize, Serialize};
 
-use crate::eeprom::SBRegisterValue::{BlockData, Reserved, Word};
+use crate::eeprom::SBRegisterValue::{BlockRegister, Reserved, WordRegister};
 use i2cdev::core::*;
 use i2cdev::linux::LinuxI2CDevice;
 use zerocopy::AsBytes;
 use zerocopy::FromBytes;
 
 use sb_config::eeprom_layout;
-use sb_config::eeprom_layout::eeprom_data;
+use sb_config::eeprom_layout::*;
 
 /// Smart Battery Register value types
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub enum SBRegisterValue {
     /// SB spec block data - can be 1 to 32 bytes.
-    BlockData(Vec<u8>),
+    BlockRegister(Vec<u8>),
     /// SB spec word data.
-    Word(u16),
+    WordRegister(u16),
     #[default]
     /// Unspecified in the SB spec.
     Reserved,
@@ -49,21 +51,24 @@ pub struct SBRegister {
 /// All the registers in the spec.
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct SBRegisterSet {
-    pub(crate) registers: Vec<SBRegister>,
+    pub(crate) registers: HashMap<u8, SBRegister>,
 }
 
 impl fmt::Display for SBRegisterSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
-        for (addr, reg) in self.registers.iter().enumerate() {
+        let mut addresses: Vec<u8> = self.registers.keys().cloned().collect();
+        addresses.sort();
+        for addr in addresses {
+            let reg = self.registers.get(&addr).unwrap();
             write!(f, " {addr:#5x} {:30} ", reg.name)?;
             match &reg.value {
-                BlockData(v) => {
+                BlockRegister(v) => {
                     let s = std::str::from_utf8(v).unwrap_or("");
                     let s = s.replace(|c: char| !c.is_alphanumeric(), "");
                     write!(f, "{s:<32} {v:x?}")?;
                 }
-                Word(v) => {
+                WordRegister(v) => {
                     write!(f, "{:#x}", *v)?;
                 }
                 Reserved => {}
@@ -74,98 +79,88 @@ impl fmt::Display for SBRegisterSet {
     }
 }
 
+fn eeprom_layout_get_block_register_offset(address: u8) -> usize {
+    let m = HashMap::from([
+        (SB_MANUFACTURER_NAME as u8, 0),
+        (SB_DEVICE_NAME as u8, 1),
+        (SB_DEVICE_CHEMISTRY as u8, 2),
+        (SB_MANUFACTURER_DATA as u8, 3),
+        (SB_ALT_MANUFACTURER_ACCESS as u8, 4),
+        (SB_MANUFACTURE_INFO as u8, 5),
+    ]);
+    let result: u8 = *m.get(&address).unwrap();
+    result as usize
+}
+
+fn eeprom_layout_get_word_register_offset(address: u8) -> usize {
+    address as _
+}
+
 impl SBRegisterSet {
     pub fn new() -> SBRegisterSet {
         SBRegisterSet {
-            registers: vec![
-                sb_u16_register("ManufacturerAccess"),
-                sb_u16_register("RemainingCapacityAlarm"),
-                sb_u16_register("RemainingTimeAlarm"),
-                sb_u16_register("BatteryMode"),
-                sb_u16_register("AtRate"),
-                sb_u16_register("AtRateTimeToFull"),
-                sb_u16_register("AtRateTimeToEmpty"),
-                sb_u16_register("AtRateOK"),
-                sb_u16_register("Temperature"),
-                sb_u16_register("Voltage"),
-                sb_u16_register("Current"),
-                sb_u16_register("AverageCurrent"),
-                sb_u16_register("MaxError"),
-                sb_u16_register("RelativeStateOfCharge"),
-                sb_u16_register("AbsoluteStateOfCharge"),
-                sb_u16_register("RemainingCapacity"),
-                sb_u16_register("FullChargeCapacity"),
-                sb_u16_register("RunTimeToEmpty"),
-                sb_u16_register("AverageTimeToEmpty"),
-                sb_u16_register("AverageTimeToFull"),
-                sb_u16_register("ChargingCurrent"),
-                sb_u16_register("ChargingVoltage"),
-                sb_u16_register("BatteryStatus"),
-                sb_u16_register("CycleCount"),
-                sb_u16_register("DesignCapacity"),
-                sb_u16_register("DesignVoltage"),
-                sb_u16_register("SpecificationInfo"),
-                sb_u16_register("ManufactureDate"),
-                sb_u16_register("SerialNumber"),
-                sb_reserved_register(), // 0x1d
-                sb_reserved_register(), // 0x1e
-                sb_reserved_register(), // 0x1f
-                sb_string_register("ManufacturerName"),
-                sb_string_register("DeviceName"),
-                sb_string_register("DeviceChemistry"),
-                sb_string_register("ManufacturerData"),
-                sb_reserved_register(), // 0x24
-                sb_reserved_register(), // 0x25
-                sb_reserved_register(), // 0x26
-                sb_reserved_register(), // 0x27
-                sb_reserved_register(), // 0x28
-                sb_reserved_register(), // 0x29
-                sb_reserved_register(), // 0x2a
-                sb_reserved_register(), // 0x2b
-                sb_reserved_register(), // 0x2c
-                sb_reserved_register(), // 0x2d
-                sb_reserved_register(), // 0x2e
-                sb_u16_register("OptionalMfgFunction5"),
-                sb_reserved_register(), // 0x30
-                sb_reserved_register(), // 0x31
-                sb_reserved_register(), // 0x32
-                sb_reserved_register(), // 0x33
-                sb_reserved_register(), // 0x34
-                sb_reserved_register(), // 0x35
-                sb_reserved_register(), // 0x36
-                sb_reserved_register(), // 0x37
-                sb_reserved_register(), // 0x38
-                sb_reserved_register(), // 0x39
-                sb_reserved_register(), // 0x3a
-                sb_reserved_register(), // 0x3b
-                sb_u16_register("OptionalMfgFunction4"),
-                sb_u16_register("OptionalMfgFunction3"),
-                sb_u16_register("OptionalMfgFunction2"),
-                sb_u16_register("OptionalMfgFunction1"),
-            ],
+            registers: HashMap::from([
+                (SB_MANUFACTURER_ACCESS as u8, sb_u16("ManufacturerAccess")),
+                (SB_REMAINING_CAPACITY_ALARM as u8, sb_u16("RemCapAlarm")),
+                (SB_REMAINING_TIME_ALARM as u8, sb_u16("RemTimeAlarm")),
+                (SB_BATTERY_MODE as u8, sb_u16("BatteryMode")),
+                (SB_AT_RATE as u8, sb_u16("AtRate")),
+                (SB_AT_RATE_TIME_TO_FULL as u8, sb_u16("AtRateTimeToFull")),
+                (SB_AT_RATE_TIME_TO_EMPTY as u8, sb_u16("AtRateTimeToEmpty")),
+                (SB_AT_RATE_OK as u8, sb_u16("AtRateOK")),
+                (SB_TEMPERATURE as u8, sb_u16("Temperature")),
+                (SB_VOLTAGE as u8, sb_u16("Voltage")),
+                (SB_CURRENT as u8, sb_u16("Current")),
+                (SB_AVERAGE_CURRENT as u8, sb_u16("AverageCurrent")),
+                (SB_MAX_ERROR as u8, sb_u16("MaxError")),
+                (SB_RELATIVE_STATE_OF_CHARGE as u8, sb_u16("RelChargeState")),
+                (SB_ABSOLUTE_STATE_OF_CHARGE as u8, sb_u16("AbsChargeState")),
+                (SB_REMAINING_CAPACITY as u8, sb_u16("RemainingCapacity")),
+                (SB_FULL_CHARGE_CAPACITY as u8, sb_u16("FullChargeCapacity")),
+                (SB_RUN_TIME_TO_EMPTY as u8, sb_u16("RunTimeToEmpty")),
+                (SB_AVERAGE_TIME_TO_EMPTY as u8, sb_u16("AverageTimeToEmpty")),
+                (SB_AVERAGE_TIME_TO_FULL as u8, sb_u16("AverageTimeToFull")),
+                (SB_CHARGING_CURRENT as u8, sb_u16("ChargingCurrent")),
+                (SB_CHARGING_VOLTAGE as u8, sb_u16("ChargingVoltage")),
+                (SB_BATTERY_STATUS as u8, sb_u16("BatteryStatus")),
+                (SB_CYCLE_COUNT as u8, sb_u16("CycleCount")),
+                (SB_DESIGN_CAPACITY as u8, sb_u16("DesignCapacity")),
+                (SB_DESIGN_VOLTAGE as u8, sb_u16("DesignVoltage")),
+                (SB_SPECIFICATION_INFO as u8, sb_u16("SpecificationInfo")),
+                (SB_MANUFACTURE_DATE as u8, sb_u16("ManufactureDate")),
+                (SB_SERIAL_NUMBER as u8, sb_u16("SerialNumber")),
+                (SB_MANUFACTURER_NAME as u8, sb_string("ManufacturerName")),
+                (SB_DEVICE_NAME as u8, sb_string("DeviceName")),
+                (SB_DEVICE_CHEMISTRY as u8, sb_string("DeviceChemistry")),
+                (SB_MANUFACTURER_DATA as u8, sb_string("ManufacturerData")),
+                (SB_OPTIONAL_MFG_FUNC1 as u8, sb_u16("OptionalMfgFunction4")),
+                (SB_OPTIONAL_MFG_FUNC2 as u8, sb_u16("OptionalMfgFunction3")),
+                (SB_OPTIONAL_MFG_FUNC3 as u8, sb_u16("OptionalMfgFunction2")),
+                (SB_OPTIONAL_MFG_FUNC4 as u8, sb_u16("OptionalMfgFunction1")),
+                (SB_PACK_STATUS as u8, sb_u16("PackStatus")),
+                (SB_ALT_MANUFACTURER_ACCESS as u8, sb_string("AltMfrAccess")),
+                (SB_MANUFACTURE_INFO as u8, sb_string("ManufacturerInfo")),
+            ]),
         }
     }
 
     /// Create a new SBRegisterSet from eeprom_data
     pub fn from_eeprom_data(eeprom_data: eeprom_layout::eeprom_data) -> SBRegisterSet {
         let mut sb_config: SBRegisterSet = SBRegisterSet::new();
-        let mut block_reg_index = 0;
-        let mut word_reg_index = 0;
-        for (i, sb_reg) in sb_config.registers.iter_mut().enumerate() {
+        for (i, sb_reg) in sb_config.registers.iter_mut() {
+            let i = *i;
             match &mut sb_reg.value {
-                BlockData(v) => {
-                    if i == 0x2f {
-                        continue;
+                BlockRegister(v) => {
+                    let reg_offset = eeprom_layout_get_block_register_offset(i);
+                    for j in 0..eeprom_data.block_registers[reg_offset].length as usize {
+                        v.push(eeprom_data.block_registers[reg_offset].data[j]);
                     }
-                    assert!(i == 0x20 || i == 0x21 || i == 0x22 || i == 0x23 || i == 0x44);
-                    for j in 0..eeprom_data.block_registers[block_reg_index].length as usize {
-                        v.push(eeprom_data.block_registers[block_reg_index].data[j]);
-                    }
-                    block_reg_index += 1;
                 }
-                Word(v) => {
-                    *v = eeprom_data.word_register[word_reg_index];
-                    word_reg_index += 1;
+                WordRegister(v) => {
+                    let reg_offset = eeprom_layout_get_word_register_offset(i);
+                    if eeprom_data.word_registers[reg_offset].present != 0 {
+                        *v = eeprom_data.word_registers[reg_offset].data;
+                    }
                 }
                 Reserved => {}
             }
@@ -180,31 +175,19 @@ fn calculate_crc(data: &[u8]) -> u32 {
     CRC.checksum(data)
 }
 
-/// Returns the starting offset of the SB registers in the EEPROM layout.
-fn offset_of_sb_register() -> usize {
-    12
-}
-
 /// Helper to create word register.
-fn sb_u16_register(name: &str) -> SBRegister {
+fn sb_u16(name: &str) -> SBRegister {
     SBRegister {
         name: name.to_string(),
-        value: Word(0),
+        value: WordRegister(0),
     }
 }
 
 /// Helper to create empty block register.
-fn sb_string_register(name: &str) -> SBRegister {
+fn sb_string(name: &str) -> SBRegister {
     SBRegister {
         name: name.to_string(),
-        value: BlockData(vec![]),
-    }
-}
-
-fn sb_reserved_register() -> SBRegister {
-    SBRegister {
-        name: "reserved".to_string(),
-        value: Reserved,
+        value: BlockRegister(vec![]),
     }
 }
 
@@ -221,18 +204,19 @@ pub fn read_sb_registers(usb_i2c_bridge_address: u16) -> Result<SBRegisterSet> {
             bail!(msg);
         }
     };
-    for (register_address, mut reg) in result.registers.iter_mut().enumerate() {
+    for (address, reg) in result.registers.iter_mut() {
+        let address = *address;
         match reg.value {
-            BlockData(_) => {
-                debug!("Reading block data at {register_address:#x}");
-                let value = dev.smbus_read_block_data(register_address as u8)?;
+            BlockRegister(_) => {
+                debug!("Reading block data at {address:#x}");
+                let value = dev.smbus_read_block_data(address)?;
                 debug!("Read byte {}", value.len());
-                reg.value = BlockData(value);
+                reg.value = BlockRegister(value);
             }
-            Word(_) => {
-                debug!("Reading word at {register_address:#x}");
-                let value = dev.smbus_read_word_data(register_address as u8)?;
-                reg.value = Word(value);
+            WordRegister(_) => {
+                debug!("Reading word at {address:#x}");
+                let value = dev.smbus_read_word_data(address)?;
+                reg.value = WordRegister(value);
             }
             Reserved => {}
         }
@@ -252,37 +236,37 @@ pub fn write_eeprom_layout_to_file(
         version: 1,
         polarity,
         manufactured_year: 24,
-        manufactured_month: 1,
+        manufactured_week: 1,
         serial_number: 1234,
-        reserved: Default::default(),
         crc: 0,
         block_registers: Default::default(),
-        word_register: [0; 35],
+        word_registers: [Default::default(); eeprom_layout::SB_TOTAL_WORD_REGISTERS as usize],
+        reserved_1: std::array::from_fn(|_| Default::default()),
+        reserved_2: std::array::from_fn(|_| Default::default()),
+        reserved_3: std::array::from_fn(|_| Default::default()),
     };
     let mut block_reg_index = 0;
-    let mut word_reg_index = 0;
-    for (i, sb_reg) in sb_config.registers.iter().enumerate() {
+    for (i, sb_reg) in sb_config.registers.iter() {
         match &sb_reg.value {
-            BlockData(v) => {
-                if i == 0x2f {
-                    continue;
-                }
-                assert!(i == 0x20 || i == 0x21 || i == 0x22 || i == 0x23 || i == 0x44);
+            BlockRegister(v) => {
                 for (j, value) in v.iter().enumerate() {
                     r.block_registers[block_reg_index].data[j] = *value;
                 }
                 r.block_registers[block_reg_index].length = v.len() as u8;
                 block_reg_index += 1;
             }
-            Word(v) => {
-                r.word_register[word_reg_index] = *v;
-                word_reg_index += 1;
+            WordRegister(v) => {
+                r.word_registers[*i as usize] = eeprom_layout::sb_word_register {
+                    present: 1,
+                    data: *v,
+                };
             }
             Reserved => {}
         }
     }
 
-    r.crc = calculate_crc(&r.as_bytes()[offset_of_sb_register()..]);
+    let crc_start_offset = offset_of!(eeprom_layout::eeprom_data, reserved_1);
+    r.crc = calculate_crc(&r.as_bytes()[crc_start_offset..]);
     f.write_all(r.as_bytes())?;
 
     Ok(())

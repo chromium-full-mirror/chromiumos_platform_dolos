@@ -119,7 +119,7 @@ fn main() -> Result<()> {
             println!("Version:     {}", raw_eeprom_data.version);
             println!(
                 "Date:        {}/{}",
-                raw_eeprom_data.manufactured_month, raw_eeprom_data.manufactured_year
+                raw_eeprom_data.manufactured_week, raw_eeprom_data.manufactured_year
             );
             println!("Polarity:    {}", raw_eeprom_data.polarity);
             unsafe {
