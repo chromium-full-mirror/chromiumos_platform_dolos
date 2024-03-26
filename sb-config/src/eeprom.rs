@@ -277,7 +277,7 @@ pub fn read_sb_registers_set_from_file(
     file_name: &String,
 ) -> Result<(eeprom_layout::eeprom_data, SBRegisterSet)> {
     let mut f = File::open(file_name)?;
-    let mut buf: [u8; 256] = [0; 256];
+    let mut buf: [u8; 1024] = [0; 1024];
     f.read_exact(&mut buf)?;
     let data: eeprom_layout::eeprom_data = FromBytes::read_from(buf.as_slice()).unwrap();
     let sb_config = SBRegisterSet::from_eeprom_data(data);
