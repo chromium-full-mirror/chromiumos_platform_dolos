@@ -347,16 +347,7 @@ static int bms_init(void)
 	LOG_DBG("Initialized all GPIO bins successfully");
 
 	LOG_DBG("Getting System present polarity");
-
-	uint8_t eeprom_sys_pres_pol = 1;
-	ret = eeprom_get_sys_pres_pol(&eeprom_sys_pres_pol);
-
-	if (ret != 0) {
-		LOG_ERR("Failed to configure SYSTEM_PRESENT pin polarity");
-		return ret;
-	}
-
-	sys_pres_pol = (bool)eeprom_sys_pres_pol;
+	sys_pres_pol = (bool)eeprom_get_sys_pres_pol();
 
 	return 0;
 }

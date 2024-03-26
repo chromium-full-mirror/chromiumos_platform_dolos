@@ -4,6 +4,7 @@
  */
 
 #include "eeprom.h"
+#include "eeprom_layout.h"
 #include "smart_battery.h"
 
 #include <stdlib.h>
@@ -18,30 +19,38 @@
  */
 #define EEPROM_SIZE DT_PROP(DT_NODELABEL(eeprom), size)
 
-#define EEPROM_VERSION_OFFSET 0x0
-#define EEPROM_SYS_PRES_POL_OFFSET 0x1
-#define EEPROM_MANUFACTURER_YEAR_OFFSET 0x2
-#define EEPROM_MANUFACTURER_WEEK_OFFSET 0x3
-#define EEPROM_SERIAL_NO_OFFSET 0x4
-#define EEPROM_CRC32_OFFSET 0x11
-#define EEPROM_CRC32_VER_DATA_OFFSET 0x15
+#define EEPROM_VERSION_OFFSET offsetof(struct eeprom_data, version)
+#define EEPROM_SYS_PRES_POL_OFFSET offsetof(struct eeprom_data, polarity)
+#define EEPROM_MANUFACTURER_YEAR_OFFSET \
+	offsetof(struct eeprom_data, manufactured_year)
+#define EEPROM_MANUFACTURER_WEEK_OFFSET \
+	offsetof(struct eeprom_data, manufactured_week)
+#define EEPROM_SERIAL_NO_OFFSET offsetof(struct eeprom_data, serial_number)
+#define EEPROM_CRC32_OFFSET offsetof(struct eeprom_data, crc)
+#define EEPROM_CRC32_VER_DATA_OFFSET \
+	offsetof(struct eeprom_data, crc) + sizeof(uint32_t)
 
 #define EEPROM_PAGE_SIZE 16
+#define EEPROM_CHUNK_SIZE 256
+
 #define EEPROM_CRC32_VER_DATA_SIZE (EEPROM_SIZE - EEPROM_CRC32_VER_DATA_OFFSET)
 #define EEPROM_WRITE_CYCLE_TIME_MS 5
 
 LOG_MODULE_REGISTER(eeprom, LOG_LEVEL_INF);
 
-static const struct i2c_dt_spec i2c_spec =
-	I2C_DT_SPEC_GET(DT_NODELABEL(eeprom));
+#define EEPROM_I2C_ADDR DT_REG_ADDR(DT_NODELABEL(eeprom))
+static const struct device *i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
 
-int eeprom_read(uint8_t addr, uint8_t *data)
+static struct eeprom_data eeprom_data;
+
+int eeprom_read(uint16_t addr, uint8_t *data)
 {
 	int ret;
 
 	LOG_DBG("Starting 1 byte EEPROM read, addr=%#x", addr);
 
-	ret = i2c_reg_read_byte_dt(&i2c_spec, addr, data);
+	ret = i2c_reg_read_byte(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
+				(uint8_t)addr, data);
 	if (ret != 0) {
 		LOG_WRN("Failed to read from EEPROM, addr=%#x, err=%d", addr,
 			ret);
@@ -52,16 +61,35 @@ int eeprom_read(uint8_t addr, uint8_t *data)
 	return 0;
 }
 
-int eeprom_read_n(uint8_t addr, uint8_t *data, size_t len)
+int eeprom_read_n(uint16_t addr, uint8_t *data, size_t len)
 {
 	int ret;
+	uint8_t *data_ptr = data;
+	size_t bytes_to_read = 0;
+	size_t bytes_left = len;
 
-	LOG_DBG("Starting %d byte EEPROM read, addr=%#x", len, addr);
-	ret = i2c_write_read_dt(&i2c_spec, &addr, sizeof(addr), data, len);
-	if (ret != 0) {
-		LOG_WRN("Failed to read from EEPROM, addr=%#x, err=%d", addr,
-			ret);
-		return ret;
+	LOG_DBG("Starting %d byte EEPROM read, addr=%#x", bytes_left, addr);
+
+	while (bytes_left > 0) {
+		bytes_to_read =
+			MIN(bytes_left, EEPROM_CHUNK_SIZE - (addr % 16));
+
+		ret = i2c_write_read(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
+				     (uint8_t *)&addr, 1, data_ptr,
+				     bytes_to_read);
+		if (ret != 0) {
+			LOG_WRN("Failed to read from EEPROM, addr=%#x, err=%d",
+				addr, ret);
+			return ret;
+		}
+
+		LOG_DBG("Read a chunk from EEPROM, addr=%#x, size=%d", addr,
+			bytes_to_read);
+		LOG_HEXDUMP_DBG(data_ptr, bytes_to_read, "Chunk: ");
+
+		data_ptr += bytes_to_read;
+		addr += bytes_to_read;
+		bytes_left -= bytes_to_read;
 	}
 
 	LOG_DBG("Read from EEPROM, addr=%#x", addr);
@@ -70,12 +98,13 @@ int eeprom_read_n(uint8_t addr, uint8_t *data, size_t len)
 	return 0;
 }
 
-int eeprom_write(uint8_t addr, uint8_t data)
+int eeprom_write(uint16_t addr, uint8_t data)
 {
 	int ret;
 
 	LOG_DBG("Starting EEPROM write, addr=%#x, data=%#x", addr, data);
-	ret = i2c_reg_write_byte_dt(&i2c_spec, addr, data);
+	ret = i2c_reg_write_byte(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
+				 (uint8_t)addr, data);
 	if (ret != 0) {
 		LOG_WRN("Failed to write to EEPROM, addr=%#x, data=%#x err=%d",
 			addr, data, ret);
@@ -87,7 +116,7 @@ int eeprom_write(uint8_t addr, uint8_t data)
 	return 0;
 }
 
-int eeprom_write_n(uint8_t addr, uint8_t *data, size_t len)
+int eeprom_write_n(uint16_t addr, uint8_t *data, size_t len)
 {
 	int ret;
 	uint8_t write_buf[EEPROM_PAGE_SIZE + 1];
@@ -98,18 +127,13 @@ int eeprom_write_n(uint8_t addr, uint8_t *data, size_t len)
 	LOG_HEXDUMP_DBG(data, len, "Writing data:");
 
 	while (len > 0) {
-		if (addr % EEPROM_PAGE_SIZE != 0) {
-			bytes_to_write =
-				MIN(len, EEPROM_PAGE_SIZE - (addr % 16));
-		} else {
-			bytes_to_write = MIN(len, EEPROM_PAGE_SIZE);
-		}
+		bytes_to_write = MIN(len, EEPROM_PAGE_SIZE - (addr % 16));
 
-		write_buf[0] = addr;
+		write_buf[0] = (uint8_t)addr;
 		memcpy(&write_buf[1], data_ptr, bytes_to_write);
 
-		ret = i2c_write_dt(&i2c_spec, &write_buf[0],
-				   bytes_to_write + 1);
+		ret = i2c_write(i2c_dev, &write_buf[0], bytes_to_write + 1,
+				EEPROM_I2C_ADDR | (addr >> 8));
 		if (ret != 0) {
 			LOG_WRN("Failed to write to EEPROM, addr=%#x, err=%d",
 				addr, ret);
@@ -131,131 +155,67 @@ int eeprom_write_n(uint8_t addr, uint8_t *data, size_t len)
 	return ret;
 }
 
-int eeprom_get_version(uint8_t *version)
+int eeprom_read_data(void)
 {
 	int ret;
 
-	LOG_DBG("Reading EEPROM version");
-	ret = eeprom_read(EEPROM_VERSION_OFFSET, version);
+	LOG_DBG("Reading all EEPROM data");
+
+	ret = eeprom_read_n(0, (uint8_t *)&eeprom_data,
+			    sizeof(struct eeprom_data));
 	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM version, err=%d", ret);
+		LOG_ERR("Couldn't read EEPROM data, err=%d", ret);
 		return ret;
 	}
-
-	LOG_DBG("Version: %d", *version);
 
 	return 0;
 }
 
-int eeprom_get_sys_pres_pol(uint8_t *sys_pres_pol)
+uint8_t eeprom_get_version(void)
 {
-	int ret;
-
-	LOG_DBG("Reading EEPROM system present polarity");
-	ret = eeprom_read(EEPROM_SYS_PRES_POL_OFFSET, sys_pres_pol);
-	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM system present polarity, err=%d",
-			ret);
-		return ret;
-	}
-
-	LOG_DBG("System present polarity: %s",
-		(*sys_pres_pol ? "HIGH" : "LOW"));
-
-	return 0;
+	return eeprom_data.version;
 }
 
-int eeprom_get_year(uint8_t *year)
+uint8_t eeprom_get_sys_pres_pol(void)
 {
-	int ret;
-
-	LOG_DBG("Reading EEPROM year");
-	ret = eeprom_read(EEPROM_MANUFACTURER_YEAR_OFFSET, year);
-	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM year, err=%d", ret);
-		return ret;
-	}
-
-	LOG_DBG("Year: %d", *year + 2000);
-
-	return 0;
+	return eeprom_data.polarity;
 }
 
-int eeprom_get_week(uint8_t *week)
+uint8_t eeprom_get_year(void)
 {
-	int ret;
-
-	LOG_DBG("Reading EEPROM week");
-	ret = eeprom_read(EEPROM_MANUFACTURER_WEEK_OFFSET, week);
-	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM week, err=%d", ret);
-		return ret;
-	}
-
-	LOG_DBG("Week: %d", *week);
-
-	return 0;
+	return eeprom_data.manufactured_year;
 }
 
-int eeprom_get_serial_no(uint16_t *serial_no)
+uint8_t eeprom_get_week(void)
 {
-	int ret;
-
-	LOG_DBG("Reading EEPROM serial number");
-	ret = eeprom_read_n(EEPROM_SERIAL_NO_OFFSET, (uint8_t *)serial_no,
-			    sizeof(*serial_no));
-	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM serial number, err=%d", ret);
-		return ret;
-	}
-
-	LOG_DBG("Serial number: 0x%04X", *serial_no);
-
-	return 0;
+	return eeprom_data.manufactured_week;
 }
 
-int eeprom_get_crc32(uint32_t *crc32)
+uint16_t eeprom_get_serial_no(void)
 {
-	int ret;
+	return eeprom_data.serial_number;
+}
 
-	LOG_DBG("Reading EEPROM CRC32");
-	ret = eeprom_read_n(EEPROM_CRC32_OFFSET, (uint8_t *)crc32,
-			    sizeof(*crc32));
-	if (ret != 0) {
-		LOG_WRN("Failed to read EEPROM CRC32, err=%d", ret);
-		return ret;
-	}
-
-	LOG_DBG("CRC32: 0x%08X", *crc32);
-
-	return 0;
+uint32_t eeprom_get_crc32(void)
+{
+	return eeprom_data.crc;
 }
 
 int eeprom_crc32_check(void)
 {
-	uint8_t cr32_ver_data[EEPROM_CRC32_VER_DATA_SIZE];
+	uint8_t *crc32_ver_data;
 	uint32_t crc32;
 	uint32_t calculated_crc32;
-	int ret;
 
 	LOG_DBG("Starting EEPROM CRC32 check");
-	ret = eeprom_get_crc32(&crc32);
-	if (ret != 0) {
-		LOG_ERR("Failed to perform CRC32 check, err=%d", ret);
-		return ret;
-	}
 
-	ret = eeprom_read_n(EEPROM_CRC32_VER_DATA_OFFSET, cr32_ver_data,
-			    EEPROM_CRC32_VER_DATA_SIZE);
-	if (ret != 0) {
-		LOG_ERR("Failed to read data to perform CRC32 check, err=%d",
-			ret);
-		return ret;
-	}
+	crc32 = eeprom_get_crc32();
+	crc32_ver_data =
+		((uint8_t *)&eeprom_data) + EEPROM_CRC32_VER_DATA_OFFSET;
 
 	/* Bitwise NOT performed to obtain CRC32 JAMCRC */
 	calculated_crc32 =
-		~crc32_ieee(cr32_ver_data, EEPROM_CRC32_VER_DATA_SIZE);
+		~crc32_ieee(crc32_ver_data, EEPROM_CRC32_VER_DATA_SIZE);
 	if (crc32 != calculated_crc32) {
 		LOG_ERR("Incorrect CRC32, expected=0x%08X, got=0x%08X",
 			calculated_crc32, crc32);
@@ -266,49 +226,34 @@ int eeprom_crc32_check(void)
 	return 0;
 }
 
-int eeprom_get_word_reg(uint8_t offset, uint16_t *reg_data)
+struct sb_word_register *eeprom_get_word_reg(uint8_t offset)
 {
-	int ret;
-
-	LOG_DBG("Reading word register at offset=%d", offset);
-	ret = eeprom_read_n(offset, (uint8_t *)reg_data, 2);
-	if (ret != 0) {
-		LOG_WRN("Failed to read word register, err=%d", ret);
-		return ret;
+	if (offset >= ARRAY_SIZE(eeprom_data.word_registers)) {
+		return NULL;
 	}
 
-	LOG_DBG("Read word register: 0x%04x", *reg_data);
-
-	return 0;
+	return &eeprom_data.word_registers[offset];
 }
 
-int eeprom_get_block_reg(uint8_t offset, uint8_t *len, uint8_t *reg_data)
+struct sb_block_register *eeprom_get_block_reg(uint8_t offset)
 {
-	int ret;
-
-	LOG_DBG("Reading block register at offset=%d", offset);
-	ret = eeprom_read(offset, len);
-
-	if (ret != 0) {
-		LOG_WRN("Failed to read block register length, err=%d", ret);
-		return ret;
+	if (offset >= ARRAY_SIZE(eeprom_data.block_registers)) {
+		return NULL;
 	}
 
-	if (*len > SB_REG_DATA_MAX_SIZE || *len == 0) {
-		LOG_WRN("Invalid register data length, len=%d, err=%d", *len,
-			ret);
-		return -EOVERFLOW;
-	}
+	return &eeprom_data.block_registers[offset];
+}
 
-	ret = eeprom_read_n(offset + 1, reg_data, *len);
-	if (ret != 0) {
-		LOG_WRN("Failed to read block register data, err=%d", ret);
-		return ret;
-	}
+struct sb_word_register *eeprom_get_word_reg_arr(size_t *arr_size)
+{
+	*arr_size = ARRAY_SIZE(eeprom_data.word_registers);
+	return eeprom_data.word_registers;
+}
 
-	LOG_HEXDUMP_DBG(reg_data, *len, "Read block register:");
-
-	return 0;
+struct sb_block_register *eeprom_get_block_reg_arr(size_t *arr_size)
+{
+	*arr_size = ARRAY_SIZE(eeprom_data.block_registers);
+	return eeprom_data.block_registers;
 }
 
 /**
@@ -347,7 +292,7 @@ static int cmd_eeprom_readall_handler(const struct shell *sh, size_t argc,
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	uint8_t data[256];
+	uint8_t data[EEPROM_SIZE];
 
 	if (eeprom_read_n(0, data, ARRAY_SIZE(data)) == 0) {
 		shell_print(sh, "EEPROM data: ");
@@ -453,52 +398,20 @@ static int cmd_eeprom_data_handler(const struct shell *sh, size_t argc,
 	uint16_t serial_no;
 	uint32_t crc32;
 
-	if (eeprom_get_version(&version) == 0) {
-		shell_print(sh, "Version: %d", version);
-	} else {
-		shell_error(sh, "Failed to read version from EEPROM");
-		return 0;
-	}
+	version = eeprom_get_version();
+	sys_pres_pol = eeprom_get_sys_pres_pol();
+	year = eeprom_get_year();
+	week = eeprom_get_week();
+	serial_no = eeprom_get_serial_no();
+	crc32 = eeprom_get_crc32();
 
-	if (eeprom_get_sys_pres_pol(&sys_pres_pol) == 0) {
-		shell_print(sh, "System present polarity: %s",
-			    sys_pres_pol ? "HIGH" : "LOW");
-	} else {
-		shell_error(
-			sh,
-			"Failed to read system present polarity from EEPROM");
-		return 0;
-	}
-
-	if (eeprom_get_year(&year) == 0) {
-		shell_print(sh, "Year: %d", 2000 + year);
-	} else {
-		shell_error(sh, "Failed to read year from EEPROM");
-		return 0;
-	}
-
-	if (eeprom_get_week(&week) == 0) {
-		shell_print(sh, "Week: %d", week);
-	} else {
-		shell_error(sh, "Failed to read week from EEPROM");
-		return 0;
-	}
-
-	if (eeprom_get_serial_no(&serial_no) == 0) {
-		shell_print(sh, "Serial number: 0x%04X", serial_no);
-	} else {
-		shell_error(sh, "Failed to read serial number from EEPROM");
-		return 0;
-	}
-
-	if (eeprom_get_crc32(&crc32) == 0) {
-		shell_print(sh, "CRC32: 0x%08X", crc32);
-	} else {
-		shell_error(sh, "Failed to read CRC32 from EEPROM");
-		return 0;
-	}
-
-	eeprom_crc32_check();
+	shell_print(sh, "Version: %d", version);
+	shell_print(sh, "System present polarity: %s",
+		    sys_pres_pol ? "HIGH" : "LOW");
+	shell_print(sh, "Manufactured Year: %d", 2000 + year);
+	shell_print(sh, "Manufactured Week: %d", week);
+	shell_print(sh, "Serial number: 0x%04X", serial_no);
+	shell_print(sh, "CRC32: 0x%08X", crc32);
 
 	return 0;
 }

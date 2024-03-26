@@ -111,7 +111,7 @@ static int smbus_write_received(struct i2c_target_config *cfg,
 	++smbus_data_receive_cnt;
 
 	if (smbus_data_receive_cnt == 1) {
-		/* First byte is always the address, we set the sb_curr_reg_ptr
+		/* First byte is always the address, we set the sb_curr_reg_addr
 		 * to point to the new register */
 		if (sb_curr_reg_ptr_set(next_byte) == 0) {
 			ret = 0;
@@ -121,14 +121,18 @@ static int smbus_write_received(struct i2c_target_config *cfg,
 	} else if (smbus_data_receive_cnt == 2 && !sb_curr_reg_is_word()) {
 		/* Second byte for block registers is always the block length,
 		 * we will set the length of the block register */
-		if (sb_curr_reg_set_length(next_byte) == 0) {
+		if (sb_curr_reg_is_read_only()) {
+			ret = 0;
+		} else if (sb_curr_reg_set_length(next_byte) == 0) {
 			ret = 0;
 		} else {
 			ret = -1;
 		}
 	} else {
 		/* Any other byte should be a data byte */
-		if (sb_curr_reg_write(next_byte) == 0) {
+		if (sb_curr_reg_is_read_only()) {
+			ret = 0;
+		} else if (sb_curr_reg_write(next_byte) == 0) {
 			ret = 0;
 		} else {
 			ret = -1;

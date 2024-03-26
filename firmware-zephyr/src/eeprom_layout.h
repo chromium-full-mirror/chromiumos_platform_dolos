@@ -1,0 +1,1 @@
+../../sb-config/src/eeprom_layout.h

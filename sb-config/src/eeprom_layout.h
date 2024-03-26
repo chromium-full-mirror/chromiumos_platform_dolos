@@ -116,7 +116,7 @@ static inline uint8_t sb_get_block_register_offset(uint8_t address) {
   return 0xff;
 }
 
-uint8_t sb_is_valid_address(uint8_t address) {
+static inline uint8_t sb_is_valid_address(uint8_t address) {
   uint8_t map[] = {SB_MANUFACTURER_ACCESS,
                    SB_REMAINING_CAPACITY_ALARM,
                    SB_REMAINING_TIME_ALARM,

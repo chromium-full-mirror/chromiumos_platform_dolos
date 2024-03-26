@@ -26,6 +26,10 @@ int main(void)
 
 	led_on(leds, LED_PRG);
 
+	if (eeprom_read_data() != 0) {
+		led_on(leds, LED_ERR);
+	}
+
 	if (eeprom_crc32_check() != 0) {
 		led_on(leds, LED_ERR);
 	}

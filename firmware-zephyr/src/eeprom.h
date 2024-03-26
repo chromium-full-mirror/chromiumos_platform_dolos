@@ -6,6 +6,7 @@
 #ifndef EEPROM_H_
 #define EEPROM_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -18,7 +19,7 @@
  * @retval 0 on success
  * @retval -EIO on input/output error.
  */
-int eeprom_read(uint8_t addr, uint8_t *data);
+int eeprom_read(uint16_t addr, uint8_t *data);
 
 /**
  * @brief Reads N bytes from Dolos Connector EEPROM
@@ -30,7 +31,7 @@ int eeprom_read(uint8_t addr, uint8_t *data);
  * @retval 0 on success
  * @retval -EIO on input/output error.
  */
-int eeprom_read_n(uint8_t addr, uint8_t *data, size_t len);
+int eeprom_read_n(uint16_t addr, uint8_t *data, size_t len);
 
 /**
  * @brief Writes a single byte to Dolos Connector EEPROM
@@ -41,7 +42,7 @@ int eeprom_read_n(uint8_t addr, uint8_t *data, size_t len);
  * @retval 0 on success
  * @retval -EIO on input/output error.
  */
-int eeprom_write(uint8_t addr, uint8_t data);
+int eeprom_write(uint16_t addr, uint8_t data);
 
 /**
  * @brief Writes N bytes to Dolos Connector EEPROM
@@ -53,91 +54,58 @@ int eeprom_write(uint8_t addr, uint8_t data);
  * @retval 0 on success
  * @retval -EIO on input/output error.
  */
-int eeprom_write_n(uint8_t addr, uint8_t *data, size_t len);
+int eeprom_write_n(uint16_t addr, uint8_t *data, size_t len);
+
+/**
+ * @brief Reads all of the EEPROM data. Should be called before getting any data
+ * from EEPROM.
+ *
+ * @retval 0 on success.
+ * @retval Negative on failure.
+ */
+int eeprom_read_data(void);
 
 /**
  * @brief Reads the connecter EEPROM version.
  *
- * @param version Pointer to the EEPROM version read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return Version
  */
-int eeprom_get_version(uint8_t *version);
+uint8_t eeprom_get_version(void);
 
 /**
  * @brief Reads the connecter EEPROM system present polarity.
  *
- * @param sys_pres_pol Pointer to the EEPROM system present polarity read from
- * EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return System present polarity.
  */
-int eeprom_get_sys_pres_pol(uint8_t *sys_pres_pol);
+uint8_t eeprom_get_sys_pres_pol(void);
 
 /**
  * @brief Reads the connecter EEPROM manufacturer year.
  *
- * @param year Pointer to the EEPROM manufacturer year read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return Manufacturer year.
  */
-int eeprom_get_year(uint8_t *year);
+uint8_t eeprom_get_year(void);
 
 /**
  * @brief Reads the connecter EEPROM manufacturer week.
  *
- * @param week Pointer to the EEPROM manufacturer week read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return Manufacturer week.
  */
-int eeprom_get_week(uint8_t *week);
+uint8_t eeprom_get_week(void);
 
 /**
  * @brief Reads the connecter EEPROM serial number.
  *
- * @param serial_no Pointer to the EEPROM serial number read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return Serial number
  */
-int eeprom_get_serial_no(uint16_t *serial_no);
+uint16_t eeprom_get_serial_no(void);
 
 /**
  * @brief Reads the connecter EEPROM CRC32.
  *
- * @param crc32 Pointer to the EEPROM CRC32 read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
+ * @return CRC32.
  */
-int eeprom_get_crc32(uint32_t *crc32);
-
-/**
- * @brief Reads a smart battery word register from the connecter EEPROM.
- *
- * @param offset The offset of the word register data in the EEPROM.
- * @param reg Pointer to the word register data read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
- */
-int eeprom_get_word_reg(uint8_t offset, uint16_t *reg);
-
-/**
- * @brief Reads a smart battery block register from the connecter EEPROM.
- *
- * @param offset The offset of the block register data in the EEPROM.
- * @param len Pointer to the length of the block register data.
- * @param reg Pointer to the block register data read from EEPROM.
- *
- * @retval 0 on success.
- * @retval Negative on failure.
- */
-int eeprom_get_block_reg(uint8_t offset, uint8_t *len, uint8_t *reg);
+uint32_t eeprom_get_crc32(void);
 
 /**
  * @brief Performs EEPROM CRC32 check. Reads the connector EEPROM CRC32 and
@@ -147,5 +115,44 @@ int eeprom_get_block_reg(uint8_t offset, uint8_t *len, uint8_t *reg);
  * @retval Negative on failure.
  */
 int eeprom_crc32_check(void);
+
+/**
+ * @brief Get a word register from the eeprom_data struct.
+ *
+ * @param offset The offset of the word register data in the eeprom_data struct.
+ *
+ * @return Returns a pointer to sb_word_register struct if register offset is
+ * correct, NULL otherwise.
+ */
+struct sb_word_register *eeprom_get_word_reg(uint8_t offset);
+
+/**
+ * @brief Get a block register from the eeprom_data struct.
+ *
+ * @param offset The offset of the block register data in the eeprom_data
+ * struct.
+ *
+ * @return Returns a pointer to sb_block_register struct if register offset is
+ * correct, NULL otherwise.
+ */
+struct sb_block_register *eeprom_get_block_reg(uint8_t offset);
+
+/**
+ * @brief Get word registers array from the eeprom_data struct.
+ *
+ * @param arr_size Pointer for the array size;
+ *
+ * @return Returns a pointer to sb_word_registers array.
+ */
+struct sb_word_register *eeprom_get_word_reg_arr(size_t *arr_size);
+
+/**
+ * @brief Get block registers array from the eeprom_data struct.
+ *
+ * @param arr_size Pointer for the array size;
+ *
+ * @return Returns a pointer to sb_block_registers array.
+ */
+struct sb_block_register *eeprom_get_block_reg_arr(size_t *arr_size);
 
 #endif /* EEPROM_H_ */
