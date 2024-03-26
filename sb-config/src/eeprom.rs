@@ -245,15 +245,14 @@ pub fn write_eeprom_layout_to_file(
         reserved_2: std::array::from_fn(|_| Default::default()),
         reserved_3: std::array::from_fn(|_| Default::default()),
     };
-    let mut block_reg_index = 0;
     for (i, sb_reg) in sb_config.registers.iter() {
         match &sb_reg.value {
             BlockRegister(v) => {
+                let block_reg_index = eeprom_layout_get_block_register_offset(*i);
                 for (j, value) in v.iter().enumerate() {
                     r.block_registers[block_reg_index].data[j] = *value;
                 }
                 r.block_registers[block_reg_index].length = v.len() as u8;
-                block_reg_index += 1;
             }
             WordRegister(v) => {
                 r.word_registers[*i as usize] = eeprom_layout::sb_word_register {
