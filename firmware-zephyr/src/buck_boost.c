@@ -5,6 +5,7 @@
 
 #include "buck_boost.h"
 #include "eeprom_layout.h"
+#include "error.h"
 #include "smart_battery.h"
 
 #include <zephyr/drivers/i2c.h>
@@ -47,8 +48,9 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
 
 	ret = i2c_write_dt(&i2c_spec, write_buf, sizeof(write_buf));
 	if (ret) {
-		LOG_ERR("Buck boost write failed - register(%#2x): %d",
-			reg_address, ret);
+		DOLOS_LOG_ERR(ERROR_BUCKBOOST, ret,
+			      "Buck boost write failed - register(%#2x): %d",
+			      reg_address, ret);
 		return ret;
 	}
 
@@ -72,7 +74,9 @@ static int bq25731_write_config_sb(enum bq_reg_space bq_addr, uint8_t sb_addr)
 
 	ret = sb_reg_read(sb_addr, (uint8_t *)&conf_data, &buf_size);
 	if (ret != 0) {
-		LOG_ERR("Failed to read register addr=0x%02x from smart battery, err=%d",
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to read register addr=0x%02x from smart battery, err=%d",
 			sb_addr, ret);
 		return ret;
 	}
@@ -80,7 +84,9 @@ static int bq25731_write_config_sb(enum bq_reg_space bq_addr, uint8_t sb_addr)
 	ret = bq25731_write_config(bq_addr, conf_data);
 
 	if (ret != 0) {
-		LOG_ERR("Failed write BQ configuration from smart battery register, bq_addr=0x%02x, sb_addr=0x%02x, data=0x%04x, err=%d",
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed write BQ configuration from smart battery register, bq_addr=0x%02x, sb_addr=0x%02x, data=0x%04x, err=%d",
 			bq_addr, sb_addr, conf_data, ret);
 		return ret;
 	}
@@ -112,7 +118,9 @@ int bq25731_init(void)
 		ret = bq25731_write_config(config[i].reg_address,
 					   config[i].value);
 		if (ret) {
-			LOG_ERR("Failed to initialize buck boost: %d.", ret);
+			DOLOS_LOG_ERR(ERROR_BUCKBOOST, ret,
+				      "Failed to initialize buck boost: %d.",
+				      ret);
 			return ret;
 		}
 	}

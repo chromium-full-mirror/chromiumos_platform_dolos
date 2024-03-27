@@ -5,6 +5,7 @@
 
 #include "eeprom.h"
 #include "eeprom_layout.h"
+#include "error.h"
 #include "smart_battery.h"
 
 #include <stdlib.h>
@@ -52,8 +53,9 @@ int eeprom_read(uint16_t addr, uint8_t *data)
 	ret = i2c_reg_read_byte(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
 				(uint8_t)addr, data);
 	if (ret != 0) {
-		LOG_WRN("Failed to read from EEPROM, addr=%#x, err=%d", addr,
-			ret);
+		DOLOS_LOG_ERR(ERROR_EEPROM, ret,
+			      "Failed to read from EEPROM, addr=%#x, err=%d",
+			      addr, ret);
 		return ret;
 	}
 
@@ -78,7 +80,9 @@ int eeprom_read_n(uint16_t addr, uint8_t *data, size_t len)
 				     (uint8_t *)&addr, 1, data_ptr,
 				     bytes_to_read);
 		if (ret != 0) {
-			LOG_WRN("Failed to read from EEPROM, addr=%#x, err=%d",
+			DOLOS_LOG_ERR(
+				ERROR_EEPROM, ret,
+				"Failed to read from EEPROM, addr=%#x, err=%d",
 				addr, ret);
 			return ret;
 		}
@@ -106,7 +110,9 @@ int eeprom_write(uint16_t addr, uint8_t data)
 	ret = i2c_reg_write_byte(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
 				 (uint8_t)addr, data);
 	if (ret != 0) {
-		LOG_WRN("Failed to write to EEPROM, addr=%#x, data=%#x err=%d",
+		DOLOS_LOG_ERR(
+			ERROR_EEPROM, ret,
+			"Failed to write to EEPROM, addr=%#x, data=%#x err=%d",
 			addr, data, ret);
 		return ret;
 	}
@@ -135,7 +141,9 @@ int eeprom_write_n(uint16_t addr, uint8_t *data, size_t len)
 		ret = i2c_write(i2c_dev, &write_buf[0], bytes_to_write + 1,
 				EEPROM_I2C_ADDR | (addr >> 8));
 		if (ret != 0) {
-			LOG_WRN("Failed to write to EEPROM, addr=%#x, err=%d",
+			DOLOS_LOG_ERR(
+				ERROR_EEPROM, ret,
+				"Failed to write to EEPROM, addr=%#x, err=%d",
 				addr, ret);
 			LOG_HEXDUMP_WRN(write_buf, bytes_to_write + 1,
 					"Page: ");
@@ -164,7 +172,8 @@ int eeprom_read_data(void)
 	ret = eeprom_read_n(0, (uint8_t *)&eeprom_data,
 			    sizeof(struct eeprom_data));
 	if (ret != 0) {
-		LOG_ERR("Couldn't read EEPROM data, err=%d", ret);
+		DOLOS_LOG_ERR(ERROR_EEPROM, ret,
+			      "Couldn't read EEPROM data, err=%d", ret);
 		return ret;
 	}
 
@@ -217,8 +226,9 @@ int eeprom_crc32_check(void)
 	calculated_crc32 =
 		~crc32_ieee(crc32_ver_data, EEPROM_CRC32_VER_DATA_SIZE);
 	if (crc32 != calculated_crc32) {
-		LOG_ERR("Incorrect CRC32, expected=0x%08X, got=0x%08X",
-			calculated_crc32, crc32);
+		DOLOS_LOG_ERR(ERROR_EEPROM, -1,
+			      "Incorrect CRC32, expected=0x%08X, got=0x%08X",
+			      calculated_crc32, crc32);
 		return -1;
 	}
 

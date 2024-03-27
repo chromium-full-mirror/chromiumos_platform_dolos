@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include "error.h"
 #include "pac.h"
 
 #include <stdio.h>
@@ -51,7 +52,8 @@ static void pac1954_refresh(void)
 	ret = i2c_write_dt(&i2c_spec, &refresh_reg, sizeof(refresh_reg));
 
 	if (ret) {
-		LOG_WRN("Failed to refresh PAC registers %d", ret);
+		DOLOS_LOG_ERR(ERROR_PAC, ret,
+			      "Failed to refresh PAC registers %d", ret);
 		return;
 	}
 
@@ -72,7 +74,8 @@ static void pac1954_read_voltage(void)
 	ret = i2c_write_read_dt(&i2c_spec, &voltage_reg, sizeof(voltage_reg),
 				voltage_buf, sizeof(voltage_buf));
 	if (ret) {
-		LOG_WRN("Failed to read voltage from PAC %d", ret);
+		DOLOS_LOG_ERR(ERROR_PAC, ret,
+			      "Failed to read voltage from PAC %d", ret);
 		return;
 	}
 
@@ -95,7 +98,8 @@ static void pac1954_read_current(void)
 	ret = i2c_write_read_dt(&i2c_spec, &current_reg, sizeof(current_reg),
 				current_buf, sizeof(current_buf));
 	if (ret) {
-		LOG_WRN("Failed to read current from PAC %d", ret);
+		DOLOS_LOG_ERR(ERROR_PAC, ret,
+			      "Failed to read current from PAC %d", ret);
 		return;
 	}
 

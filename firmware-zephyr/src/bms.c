@@ -5,6 +5,7 @@
 
 #include "bms.h"
 #include "eeprom.h"
+#include "error.h"
 
 #include <stdint.h>
 
@@ -330,15 +331,18 @@ static int bms_init(void)
 		struct gpio_config *pin_config = &gpio_configs[i];
 
 		if (!gpio_is_ready_dt(pin_config->pin_spec)) {
-			LOG_ERR("GPIO Pin %s is not ready",
-				pin_config->pin_spec->port->name);
+			DOLOS_LOG_ERR(ERROR_BMS, ret,
+				      "GPIO Pin %s is not ready",
+				      pin_config->pin_spec->port->name);
 			return -ENOTSUP;
 		}
 
 		ret = gpio_pin_configure_dt(pin_config->pin_spec,
 					    pin_config->dir);
 		if (ret != 0) {
-			LOG_ERR("Failed to configure input pin %s, err=%d",
+			DOLOS_LOG_ERR(
+				ERROR_BMS, ret,
+				"Failed to configure input pin %s, err=%d",
 				pin_config->pin_spec->port->name, ret);
 			return ret;
 		}
@@ -447,7 +451,9 @@ void bms_state_machine_task_fn(void *p1, void *p2, void *p3)
 		ret = smf_run_state(SMF_CTX(&state_data));
 
 		if (ret != 0) {
-			LOG_ERR("State machine failed to execute, err=%d", ret);
+			DOLOS_LOG_ERR(ERROR_BMS, ret,
+				      "State machine failed to execute, err=%d",
+				      ret);
 			smf_set_terminate(SMF_CTX(&state_data), ret);
 		}
 
@@ -466,7 +472,9 @@ void bms_tick_handler_task_fn(void *p1, void *p2, void *p3)
 	ret = bms_init();
 
 	if (ret != 0) {
-		LOG_ERR("Failed to start BMS tick handler task, err=%d", ret);
+		DOLOS_LOG_ERR(ERROR_BMS, ret,
+			      "Failed to start BMS tick handler task, err=%d",
+			      ret);
 		return;
 	}
 

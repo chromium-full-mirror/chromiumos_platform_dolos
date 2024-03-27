@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include "error.h"
 #include "smart_battery.h"
 #include "smbus_target.h"
 
@@ -169,13 +170,16 @@ int smbus_target_init(void)
 	LOG_INF("Initializing SMBus target device");
 
 	if (!device_is_ready(smbus_target_dev)) {
-		LOG_ERR("SMBus device is not ready");
+		DOLOS_LOG_ERR(ERROR_SMBUS_TARGET, -1,
+			      "SMBus device is not ready");
 		return -1;
 	}
 
 	ret = i2c_target_register(smbus_target_dev, &smbus_target_config);
 	if (ret != 0) {
-		LOG_ERR("SMBus device could not be registered as target, err=%d",
+		DOLOS_LOG_ERR(
+			ERROR_SMBUS_TARGET, ret,
+			"SMBus device could not be registered as target, err=%d",
 			ret);
 		return -1;
 	}

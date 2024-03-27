@@ -3,6 +3,7 @@
  * found in the LICENSE file.
  */
 
+#include "error.h"
 #include "temperature.h"
 
 #include <math.h>
@@ -62,19 +63,23 @@ int temperature_init(void)
 	LOG_DBG("Initializing temperature ADC");
 
 	if (!adc_is_ready_dt(&adc_spec)) {
-		LOG_ERR("ADC device %s not ready", adc_spec.dev->name);
+		DOLOS_LOG_ERR(ERROR_TEMPERATURE, -1, "ADC device %s not ready",
+			      adc_spec.dev->name);
 		return -ENOTSUP;
 	}
 
 	ret = adc_channel_setup_dt(&adc_spec);
 	if (ret != 0) {
-		LOG_ERR("Failed to set up ADC channel, code=%d", ret);
+		DOLOS_LOG_ERR(ERROR_TEMPERATURE, ret,
+			      "Failed to set up ADC channel, code=%d", ret);
 		return ret;
 	}
 
 	ret = adc_sequence_init_dt(&adc_spec, &seq);
 	if (ret != 0) {
-		LOG_ERR("Failed to set up ADC conversion sequence, code=%d",
+		DOLOS_LOG_ERR(
+			ERROR_TEMPERATURE, ret,
+			"Failed to set up ADC conversion sequence, code=%d",
 			ret);
 		return ret;
 	}
@@ -94,7 +99,8 @@ void temperature_read_adc(void)
 	int ret = adc_read_dt(&adc_spec, &seq);
 
 	if (ret != 0) {
-		LOG_WRN("ERROR: ADC read failed, err=%d", ret);
+		DOLOS_LOG_ERR(ERROR_TEMPERATURE, ret,
+			      "ERROR: ADC read failed, err=%d", ret);
 		return;
 	}
 
@@ -133,8 +139,13 @@ double temperature_get_f(void)
 
 static void temperature_thread_fn(void *p1, void *p2, void *p3)
 {
-	if (temperature_init() != 0) {
-		LOG_ERR("Could not initialize temperature sensor reading thread");
+	int ret;
+
+	ret = temperature_init();
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_TEMPERATURE, ret,
+			"Could not initialize temperature sensor reading thread");
 		return;
 	}
 
