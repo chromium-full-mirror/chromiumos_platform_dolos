@@ -129,9 +129,9 @@
 
 &adc0 {
 	status = "okay";
-	ti,clk-source = <MSP_ADC_CLOCK_SYSOSC>;
+	ti,clk-source = <MSP_ADC_CLOCK_ULPCLK>;
 	ti,clk-divider = <1>;
-	ti,clk-range = <MSP_ADC_CLOCK_RANGE_32TO40>;
+	ti,clk-range = <MSP_ADC_CLOCK_RANGE_24TO32>;
 
 	pinctrl-0 = <&adc0_pa26>;
 	pinctrl-names = "default";
@@ -143,7 +143,7 @@
 		reg = <1>;
 		zephyr,gain = "ADC_GAIN_1";
 		zephyr,reference = "ADC_REF_VDD_1";
-		zephyr,acquisition-time = <ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 500)>;
+		zephyr,acquisition-time =<ADC_ACQ_TIME(ADC_ACQ_TIME_TICKS, 4)>;
 		zephyr,resolution = <12>;
 	};
 };

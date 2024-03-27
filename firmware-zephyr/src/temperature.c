@@ -159,6 +159,7 @@ static int cmd_temperature_read(const struct shell *sh, size_t argc,
 	shell_print(sh, "Temperature in Celsius (C)   : %7.2f", temp_c);
 	shell_print(sh, "Temperature in Kelvin (K)    : %7.2f", temp_k);
 	shell_print(sh, "Temperature in Fahrenheit (F): %7.2f", temp_f);
+	shell_print(sh, "Raw ADC Temperature value    : %7d", temp_adc_raw);
 
 	return 0;
 }
