@@ -29,7 +29,7 @@
 #define EEPROM_SERIAL_NO_OFFSET offsetof(struct eeprom_data, serial_number)
 #define EEPROM_CRC32_OFFSET offsetof(struct eeprom_data, crc)
 #define EEPROM_CRC32_VER_DATA_OFFSET \
-	offsetof(struct eeprom_data, crc) + sizeof(uint32_t)
+	(offsetof(struct eeprom_data, crc) + sizeof(uint32_t))
 
 #define EEPROM_PAGE_SIZE 16
 #define EEPROM_CHUNK_SIZE 256
