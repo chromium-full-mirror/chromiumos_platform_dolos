@@ -46,6 +46,10 @@ enum Command {
         /// Polarity of the System Present Signal to be stored in the EEPROM.
         #[clap(long, default_value_t = 1)]
         polarity: u8,
+
+        /// SmartBattery Registers to ignore.
+        #[clap(long, short)]
+        not_present_registers: Vec<u8>,
     },
 
     /// Print Smart Battery config stored in a file.
@@ -98,11 +102,12 @@ fn main() -> Result<()> {
             file_name,
             polarity,
             usb_i2c_bridge_address,
+            not_present_registers,
         } => {
             debug!(
                 "Parsed arguments: file:{file_name} i2c_dev_address:{usb_i2c_bridge_address:#x}"
             );
-            match eeprom::read_sb_registers(*usb_i2c_bridge_address) {
+            match eeprom::read_sb_registers(*usb_i2c_bridge_address, not_present_registers) {
                 Ok(config) => {
                     info!("{config}");
                     eeprom::write_eeprom_layout_to_file(file_name, *polarity, &config)?;

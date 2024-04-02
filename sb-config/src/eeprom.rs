@@ -97,8 +97,8 @@ fn eeprom_layout_get_word_register_offset(address: u8) -> usize {
 }
 
 impl SBRegisterSet {
-    pub fn new() -> SBRegisterSet {
-        SBRegisterSet {
+    pub fn new(not_present_registers: &Vec<u8>) -> SBRegisterSet {
+        let mut result = SBRegisterSet {
             registers: HashMap::from([
                 (SB_MANUFACTURER_ACCESS as u8, sb_u16("ManufacturerAccess")),
                 (SB_REMAINING_CAPACITY_ALARM as u8, sb_u16("RemCapAlarm")),
@@ -141,12 +141,18 @@ impl SBRegisterSet {
                 (SB_ALT_MANUFACTURER_ACCESS as u8, sb_string("AltMfrAccess")),
                 (SB_MANUFACTURE_INFO as u8, sb_string("ManufacturerInfo")),
             ]),
+        };
+
+        for address in not_present_registers {
+            result.registers.remove(address);
         }
+
+        result
     }
 
     /// Create a new SBRegisterSet from eeprom_data
     pub fn from_eeprom_data(eeprom_data: eeprom_layout::eeprom_data) -> SBRegisterSet {
-        let mut sb_config: SBRegisterSet = SBRegisterSet::new();
+        let mut sb_config: SBRegisterSet = SBRegisterSet::new(&vec![]);
         for (i, sb_reg) in sb_config.registers.iter_mut() {
             let i = *i;
             match &mut sb_reg.value {
@@ -192,9 +198,12 @@ fn sb_string(name: &str) -> SBRegister {
 }
 
 /// Read Smart Battery Registers over I2c and create SBRegisterSet
-pub fn read_sb_registers(usb_i2c_bridge_address: u16) -> Result<SBRegisterSet> {
+pub fn read_sb_registers(
+    usb_i2c_bridge_address: u16,
+    not_present_registers: &Vec<u8>,
+) -> Result<SBRegisterSet> {
     let smbus_address: u16 = 0xb;
-    let mut result: SBRegisterSet = SBRegisterSet::new();
+    let mut result: SBRegisterSet = SBRegisterSet::new(not_present_registers);
 
     let path = format!("/dev/i2c-{usb_i2c_bridge_address}");
     let mut dev = match LinuxI2CDevice::new(path.clone(), smbus_address) {
