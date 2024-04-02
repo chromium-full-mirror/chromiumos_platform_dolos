@@ -200,11 +200,20 @@ fn sb_string(name: &str) -> SBRegister {
 /// Read Smart Battery Registers over I2c and create SBRegisterSet
 pub fn read_sb_registers(
     usb_i2c_bridge_address: u16,
-    not_present_registers: &Vec<u8>,
+    dont_read_extension_registers: bool,
 ) -> Result<SBRegisterSet> {
     let smbus_address: u16 = 0xb;
-    let mut result: SBRegisterSet = SBRegisterSet::new(not_present_registers);
+    let not_present_registers: Vec<u8> = if dont_read_extension_registers {
+        vec![
+            SB_PACK_STATUS as u8,
+            SB_ALT_MANUFACTURER_ACCESS as u8,
+            SB_MANUFACTURE_INFO as u8,
+        ]
+    } else {
+        vec![]
+    };
 
+    let mut result: SBRegisterSet = SBRegisterSet::new(&not_present_registers);
     let path = format!("/dev/i2c-{usb_i2c_bridge_address}");
     let mut dev = match LinuxI2CDevice::new(path.clone(), smbus_address) {
         Ok(v) => v,
