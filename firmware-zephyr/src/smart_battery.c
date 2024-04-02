@@ -204,7 +204,7 @@ static int sb_reg_read_block(uint8_t offset, const uint8_t *buf,
 
 int sb_reg_read(uint8_t addr, const uint8_t *buf, uint8_t *buf_size)
 {
-	if (sb_is_valid_address(addr)) {
+	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
 	}
 
@@ -254,7 +254,7 @@ static int sb_reg_write_block(uint8_t offset, const uint8_t *buf,
 
 int sb_reg_write(uint8_t addr, const uint8_t *buf, uint8_t buf_size)
 {
-	if (sb_is_valid_address(addr)) {
+	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
 	}
 
@@ -280,7 +280,7 @@ void sb_update_registers(void)
 
 int sb_reg_is_read_only(uint8_t addr, bool *is_read_only)
 {
-	if (sb_is_valid_address(addr)) {
+	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
 	}
 
@@ -290,7 +290,7 @@ int sb_reg_is_read_only(uint8_t addr, bool *is_read_only)
 
 int sb_reg_is_word(uint8_t addr, bool *is_word)
 {
-	if (sb_is_valid_address(addr)) {
+	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
 	}
 
@@ -328,7 +328,7 @@ static int cmd_sb_reg_print_handler(const struct shell *sh, size_t argc,
 			return 0;
 		}
 
-		if (sb_is_valid_address(addr)) {
+		if (!sb_is_valid_address(addr)) {
 			shell_error(sh, "Register addr=0x%02x was not found",
 				    addr);
 			return 0;
