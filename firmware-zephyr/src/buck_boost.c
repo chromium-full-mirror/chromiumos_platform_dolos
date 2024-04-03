@@ -58,6 +58,49 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
 }
 
 /**
+ * @brief Writes BQ25731 ChargeCurrent register from DesignCapacity smart
+ * battery register
+ *
+ * @retval 0 on succcess
+ * @retval Negative on failure
+ */
+static int bq25731_write_charge_current_sb(void)
+{
+	int ret;
+	uint16_t charge_current = 0;
+	uint8_t buf_size = 0;
+
+	ret = sb_reg_read(SB_DESIGN_CAPACITY, (uint8_t *)&charge_current,
+			  &buf_size);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to read SB_DESIGN_CAPACITY addr=0x%02x from smart battery, err=%d",
+			SB_DESIGN_CAPACITY, ret);
+		return ret;
+	}
+
+	/* Charge current has to be shifted to the right 1 bit for proper
+	 * translation */
+	charge_current >>= 1;
+	ret = bq25731_write_config(BQ_REG_CHARGE_CURRENT, charge_current);
+
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed write BQ_REG_CHARGE_CURRENT from smart battery register SB_DESIGN_CAPACITY, bq_addr=0x%02x, sb_addr=0x%02x, data=0x%04x, err=%d",
+			BQ_REG_CHARGE_CURRENT, BQ_REG_CHARGE_CURRENT,
+			charge_current, ret);
+		return ret;
+	}
+
+	LOG_DBG("Wrote BQ BQ_REG_CHARGE_CURRENT from smart battery register SB_DESIGN_CAPACITY, bq_addr=0x%02x, sb_addr=0x%02x, data=0x%04x",
+		BQ_REG_CHARGE_CURRENT, SB_DESIGN_CAPACITY, charge_current);
+
+	return 0;
+}
+
+/**
  * @brief Writes BQ25731 configuration from a smart battery register
  *
  * @param bq_addr BQ25731 register address
@@ -127,7 +170,7 @@ int bq25731_init(void)
 	/* Initialize BQ ChargeVoltage and ChargeCurrent registers from smart
 	 * battery */
 	bq25731_write_config_sb(BQ_REG_CHARGE_VOLTAGE, SB_DESIGN_VOLTAGE);
-	bq25731_write_config_sb(BQ_REG_CHARGE_CURRENT, SB_DESIGN_CAPACITY);
+	bq25731_write_charge_current_sb();
 
 	LOG_DBG("Buck boost init successfully done");
 	return ret;
