@@ -96,7 +96,7 @@ bool sb_curr_reg_is_read_only(void);
  * @retval -EINVAL if the register does not exist or is not present
  * @retval -EOVERFLOW if the register does not exist
  */
-int sb_reg_read(uint8_t addr, const uint8_t *buf, uint8_t *buf_size);
+int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *buf_size);
 
 /**
  * @brief Reads the value of a smart battery register

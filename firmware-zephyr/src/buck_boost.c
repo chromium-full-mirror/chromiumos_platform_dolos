@@ -69,10 +69,9 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
 static int bq25731_write_config_sb(enum bq_reg_space bq_addr, uint8_t sb_addr)
 {
 	int ret;
-	uint16_t conf_data = 0;
-	uint8_t buf_size = 0;
+	uint16_t conf_data;
 
-	ret = sb_reg_read(sb_addr, (uint8_t *)&conf_data, &buf_size);
+	ret = sb_reg_read(sb_addr, (uint8_t *)&conf_data, NULL);
 	if (ret != 0) {
 		DOLOS_LOG_ERR(
 			ERROR_BUCKBOOST, ret,
