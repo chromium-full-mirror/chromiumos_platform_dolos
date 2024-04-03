@@ -302,6 +302,25 @@ int sb_reg_load(void)
 	return 0;
 }
 
+/* Smart battery update registers thread info */
+#define SB_UPDATE_REGISTERS_THREAD_STACK_SIZE 512
+#define SB_UPDATE_REGISTERS_THREAD_PRIORITY 0
+
+/* Smart battery update registers thread handler */
+static void sb_update_registers_thread_fn(void *p1, void *p2, void *p3)
+{
+	while (true) {
+		sb_update_registers();
+		k_sleep(K_SECONDS(1));
+	}
+}
+
+/* Starting smart battery update registers thread */
+K_THREAD_DEFINE(sb_update_registers_thread,
+		SB_UPDATE_REGISTERS_THREAD_STACK_SIZE,
+		sb_update_registers_thread_fn, NULL, NULL, NULL,
+		SB_UPDATE_REGISTERS_THREAD_PRIORITY, 0, 0);
+
 static inline void cmd_sb_reg_print(const struct shell *sh, uint8_t addr)
 {
 	uint8_t offset = sb_get_block_register_offset(addr);
