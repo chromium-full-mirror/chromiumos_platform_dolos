@@ -23,10 +23,29 @@ static void communication_timer_handler(struct k_timer *communication_timer)
 
 K_TIMER_DEFINE(communication_timer, communication_timer_handler, NULL);
 
+#define SMBUS_WORK_Q_STACK_SIZE 512
+#define SMBUS_WORK_Q_PRIORITY 1
+
+K_THREAD_STACK_DEFINE(smbus_work_q_stack_area, SMBUS_WORK_Q_STACK_SIZE);
+
+struct k_work_q smbus_work_q;
+
 static const struct device *smbus_target_dev =
 	DEVICE_DT_GET(DT_NODELABEL(i2c1));
 
 static int smbus_data_receive_cnt = 0;
+
+struct smbus_read_write_info {
+	struct k_work work;
+	enum smbus_target_comm_state state;
+} smbus_curr_transaction_info;
+
+void smbus_read_write_handler(struct k_work *item)
+{
+	struct smbus_read_write_info *curr_transaction_info =
+		CONTAINER_OF(item, struct smbus_read_write_info, work);
+	sb_smbus_read_write_handler(curr_transaction_info->state);
+}
 
 static int smbus_stop_callback(struct i2c_target_config *cfg)
 {
@@ -35,6 +54,8 @@ static int smbus_stop_callback(struct i2c_target_config *cfg)
 	if (state != NULL) {
 		STATS_INC(state->stats, transfer_call_count);
 	}
+
+	k_work_submit(&smbus_curr_transaction_info.work);
 
 	return 0;
 }
@@ -45,12 +66,14 @@ static int smbus_read_requested(struct i2c_target_config *cfg,
 	int ret;
 
 	if (sb_curr_reg_is_word()) {
+		smbus_curr_transaction_info.state = SMBUS_READ_WORD;
 		if (sb_curr_reg_read(init_val) == 0) {
 			ret = 0;
 		} else {
 			ret = -1;
 		}
 	} else {
+		smbus_curr_transaction_info.state = SMBUS_READ_BLOCK;
 		if (sb_curr_reg_get_length(init_val) == 0) {
 			ret = 0;
 		} else {
@@ -96,6 +119,8 @@ static int smbus_write_requested(struct i2c_target_config *cfg)
 
 	smbus_data_receive_cnt = 0;
 
+	smbus_curr_transaction_info.state = SMBUS_INVALID;
+
 	struct i2c_device_state *state = CONTAINER_OF(
 		smbus_target_dev->state, struct i2c_device_state, devstate);
 	if (state != NULL) {
@@ -122,6 +147,7 @@ static int smbus_write_received(struct i2c_target_config *cfg,
 	} else if (smbus_data_receive_cnt == 2 && !sb_curr_reg_is_word()) {
 		/* Second byte for block registers is always the block length,
 		 * we will set the length of the block register */
+		smbus_curr_transaction_info.state = SMBUS_WRITE_BLOCK;
 		if (sb_curr_reg_is_read_only()) {
 			ret = 0;
 		} else if (sb_curr_reg_set_length(next_byte) == 0) {
@@ -131,6 +157,9 @@ static int smbus_write_received(struct i2c_target_config *cfg,
 		}
 	} else {
 		/* Any other byte should be a data byte */
+		if (smbus_curr_transaction_info.state != SMBUS_WRITE_BLOCK) {
+			smbus_curr_transaction_info.state = SMBUS_WRITE_WORD;
+		}
 		if (sb_curr_reg_is_read_only()) {
 			ret = 0;
 		} else if (sb_curr_reg_write(next_byte) == 0) {
@@ -183,6 +212,17 @@ int smbus_target_init(void)
 			ret);
 		return -1;
 	}
+
+	LOG_DBG("Initializing SMBus read/write handler workqueue");
+
+	k_work_queue_init(&smbus_work_q);
+
+	k_work_queue_start(&smbus_work_q, smbus_work_q_stack_area,
+			   K_THREAD_STACK_SIZEOF(smbus_work_q_stack_area),
+			   SMBUS_WORK_Q_PRIORITY, NULL);
+
+	k_work_init(&smbus_curr_transaction_info.work,
+		    smbus_read_write_handler);
 
 	LOG_DBG("Starting SMBus target communication timer");
 	k_timer_start(&communication_timer, K_SECONDS(10), K_NO_WAIT);

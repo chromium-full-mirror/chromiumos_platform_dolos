@@ -8,6 +8,14 @@
 
 #include <stdbool.h>
 
+enum smbus_target_comm_state {
+	SMBUS_READ_WORD,
+	SMBUS_READ_BLOCK,
+	SMBUS_WRITE_WORD,
+	SMBUS_WRITE_BLOCK,
+	SMBUS_INVALID,
+};
+
 int smbus_target_init(void);
 
 /**

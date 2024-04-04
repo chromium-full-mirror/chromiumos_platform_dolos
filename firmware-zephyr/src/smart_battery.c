@@ -8,6 +8,7 @@
 #include "error.h"
 #include "pac.h"
 #include "smart_battery.h"
+#include "smbus_target.h"
 #include "temperature.h"
 
 #include <stdlib.h>
@@ -447,6 +448,114 @@ int sb_init(void)
 uint16_t sb_get_design_capacity_mah(void)
 {
 	return design_capacity_mAh;
+}
+
+/**
+ * @brief Updates capacity registers after writing CAPACITY_MODE bit
+ */
+static int sb_battery_mode_write_handler(void)
+{
+	int ret;
+	uint8_t capacity_mode;
+
+	ret = sb_get_capacity_mode(&capacity_mode);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to execute SB_BATTERY_MODE write handler, couldn't read CAPACITY_MODE bit, err=%d",
+			ret);
+		return ret;
+	}
+
+	if (capacity_mode) {
+		/* 10mWh */
+		ret = sb_reg_write(SB_DESIGN_CAPACITY,
+				   (uint8_t *)&design_capacity_10mWh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_BATTERY_MODE write handler, couldn't update SB_DESIGN_CAPACITY to 10mWh unit, err=%d",
+				ret);
+			return ret;
+		}
+		ret = sb_reg_write(SB_REMAINING_CAPACITY,
+				   (uint8_t *)&remaining_capacity_10mWh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_BATTERY_MODE write handler, couldn't update SB_REMAINING_CAPACITY to 10mWh unit, err=%d",
+				ret);
+			return ret;
+		}
+		ret = sb_reg_write(SB_FULL_CHARGE_CAPACITY,
+				   (uint8_t *)&full_charge_capacity_10mWh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_BATTERY_MODE write handler, couldn't update SB_FULL_CHARGE_CAPACITY to 10mWh unit, err=%d",
+				ret);
+			return ret;
+		}
+	} else {
+		/* mAh */
+		ret = sb_reg_write(SB_DESIGN_CAPACITY,
+				   (uint8_t *)&design_capacity_mAh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_DESIGN_CAPACITY write handler, couldn't update SB_FULL_CHARGE_CAPACITY to mAh unit, err=%d",
+				ret);
+			return ret;
+		}
+		ret = sb_reg_write(SB_REMAINING_CAPACITY,
+				   (uint8_t *)&remaining_capacity_mAh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_REMAINING_CAPACITY write handler, couldn't update SB_FULL_CHARGE_CAPACITY to mAh unit, err=%d",
+				ret);
+			return ret;
+		}
+		ret = sb_reg_write(SB_FULL_CHARGE_CAPACITY,
+				   (uint8_t *)&full_charge_capacity_mAh,
+				   sizeof(uint16_t));
+		if (ret != 0) {
+			DOLOS_LOG_ERR(
+				ERROR_SMART_BATTERY, ret,
+				"Failed to execute SB_FULL_CHARGE_CAPACITY write handler, couldn't update SB_FULL_CHARGE_CAPACITY to mAh unit, err=%d",
+				ret);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+void sb_smbus_read_write_handler(enum smbus_target_comm_state state)
+{
+	int ret = 0;
+
+	if (state == SMBUS_WRITE_WORD) {
+		switch (sb_curr_reg_addr) {
+		case SB_BATTERY_MODE:
+			ret = sb_battery_mode_write_handler();
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to execute smart battery smbus handler, err=%d",
+			ret);
+	}
 }
 
 /* Smart battery update registers thread info */

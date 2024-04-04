@@ -6,6 +6,8 @@
 #ifndef SMART_BATTERY_H_
 #define SMART_BATTERY_H_
 
+#include "smbus_target.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -147,5 +149,13 @@ int sb_init(void);
  * @return Returns the design capacity in mAh
  */
 uint16_t sb_get_design_capacity_mah(void);
+
+/**
+ * @brief Executes special read/write handlers after receiving a stop condition.
+ * Meant to be used by SMBus target.
+ *
+ * @param state smbus_target_comm_state state type
+ */
+void sb_smbus_read_write_handler(enum smbus_target_comm_state state);
 
 #endif /* SMART_BATTERY_H_ */
