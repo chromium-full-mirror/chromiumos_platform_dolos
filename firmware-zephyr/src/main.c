@@ -34,7 +34,7 @@ int main(void)
 		led_on(leds, LED_ERR);
 	}
 
-	sb_reg_load();
+	sb_init();
 	smbus_target_init();
 
 	bq25731_init();

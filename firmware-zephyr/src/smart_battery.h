@@ -134,11 +134,18 @@ int sb_reg_is_read_only(uint8_t addr, bool *is_read_only);
 int sb_reg_is_word(uint8_t addr, bool *is_word);
 
 /**
- * @brief Loads the smart batter registers from the EEPROM
+ * @brief Initializes smart battery
  *
  * @retval 0 on success
  * @retval Negative on failure
  */
-int sb_reg_load(void);
+int sb_init(void);
+
+/**
+ * @brief Returns the design capacity in mAh
+ *
+ * @return Returns the design capacity in mAh
+ */
+uint16_t sb_get_design_capacity_mah(void);
 
 #endif /* SMART_BATTERY_H_ */

@@ -5,6 +5,7 @@
 
 #include "eeprom.h"
 #include "eeprom_layout.h"
+#include "error.h"
 #include "pac.h"
 #include "smart_battery.h"
 #include "temperature.h"
@@ -16,6 +17,15 @@
 #include <zephyr/sys/byteorder.h>
 
 LOG_MODULE_REGISTER(smart_battery, LOG_LEVEL_ERR);
+
+#define SB_BATTERY_MODE_CAPACITY_MODE_MASK (1 << 15)
+
+static uint32_t design_capacity_10mWh;
+static uint32_t design_capacity_mAh;
+static uint32_t remaining_capacity_10mWh;
+static uint32_t remaining_capacity_mAh;
+static uint32_t full_charge_capacity_10mWh;
+static uint32_t full_charge_capacity_mAh;
 
 static uint8_t sb_curr_reg_addr = 0;
 static uint8_t sb_curr_reg_data_idx = 0;
@@ -295,9 +305,148 @@ int sb_reg_is_word(uint8_t addr, bool *is_word)
 	return (sb_get_word_register_offset(addr) == 0xff);
 }
 
-int sb_reg_load(void)
+/**
+ * @brief Returns the CAPACITY_MODE bit from SB_BATTERY_MODE register.
+ * When CAPACITY_MODE bit is 0, smart battery will report capacity in mAh.
+ * When CAPACITY_MODE bit is 1, smart battery will report capacity in 10mWh.
+ *
+ * @param capacity_mode Pointer to the CAPACITY_MODE bit;
+ *
+ * @retval 0 on success
+ * @retval -EINVAL if the register does not exist
+ */
+static int sb_get_capacity_mode(uint8_t *capacity_mode)
 {
+	uint16_t batt_mode;
+	int ret;
+
+	ret = sb_reg_read(SB_BATTERY_MODE, (uint8_t *)&batt_mode, NULL);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to get CAPACITY_MODE from SB_BATTERY_MODE register, err=%d",
+			ret);
+		return ret;
+	}
+
+	*capacity_mode = (batt_mode & SB_BATTERY_MODE_CAPACITY_MODE_MASK) ? 1 :
+									    0;
+
 	return 0;
+}
+
+/**
+ * @brief Calculates the capacity in mAh and 10mWh according to CAPACITY_MODE
+ * bit in SB_BATTERY_MODE register
+ *
+ * @retval 0 on success
+ * @retval -EINVAL if the register does not exist
+ */
+static int sb_reg_calc_capacity(void)
+{
+	uint8_t capacity_mode;
+	uint32_t design_voltage = 0;
+	uint32_t design_capacity = 0;
+	uint32_t remaining_capacity = 0;
+	uint32_t full_charge_capacity = 0;
+	int ret;
+
+	ret = sb_get_capacity_mode(&capacity_mode);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to calculate smart battery capacity, could not read CAPACITY_MODE, err=%d",
+			ret);
+		return ret;
+	}
+
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, NULL);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to calculate smart battery capacity, could not read SB_DESIGN_VOLTAGE, err=%d",
+			ret);
+		return ret;
+	}
+
+	ret = sb_reg_read(SB_DESIGN_CAPACITY, (uint8_t *)&design_capacity,
+			  NULL);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to calculate smart battery capacity, could not read SB_DESIGN_CAPACITY, err=%d",
+			ret);
+		return ret;
+	}
+
+	ret = sb_reg_read(SB_REMAINING_CAPACITY, (uint8_t *)&remaining_capacity,
+			  NULL);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to calculate smart battery capacity, could not read SB_REMAINING_CAPACITY, err=%d",
+			ret);
+		return ret;
+	}
+
+	ret = sb_reg_read(SB_FULL_CHARGE_CAPACITY,
+			  (uint8_t *)&full_charge_capacity, NULL);
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_SMART_BATTERY, ret,
+			"Failed to calculate smart battery capacity, could not read SB_FULL_CHARGE_CAPACITY, err=%d",
+			ret);
+		return ret;
+	}
+
+	if (capacity_mode) {
+		/* Smart battery has 10mWh, should calulcate mAh */
+		design_capacity_10mWh = design_capacity;
+		design_capacity_mAh = design_capacity * 10000 / design_voltage;
+
+		remaining_capacity_10mWh = remaining_capacity;
+		remaining_capacity_mAh =
+			remaining_capacity * 10000 / design_voltage;
+
+		full_charge_capacity_10mWh = full_charge_capacity;
+		full_charge_capacity_mAh =
+			full_charge_capacity * 10000 / design_voltage;
+	} else {
+		/* Smart battery has mAh, should calulcate 10mWh */
+		design_capacity_10mWh =
+			design_capacity * design_voltage / 10000;
+		design_capacity_mAh = design_capacity;
+
+		remaining_capacity_10mWh =
+			remaining_capacity * design_voltage / 10000;
+		remaining_capacity_mAh = remaining_capacity;
+
+		full_charge_capacity_10mWh =
+			full_charge_capacity * design_voltage / 10000;
+		full_charge_capacity_mAh = full_charge_capacity;
+	}
+
+	return 0;
+}
+
+int sb_init(void)
+{
+	int ret;
+
+	ret = sb_reg_calc_capacity();
+	if (ret != 0) {
+		DOLOS_LOG_ERR(ERROR_SMART_BATTERY, ret,
+			      "Failed to initialize smart battery, err=%d",
+			      ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+uint16_t sb_get_design_capacity_mah(void)
+{
+	return design_capacity_mAh;
 }
 
 /* Smart battery update registers thread info */

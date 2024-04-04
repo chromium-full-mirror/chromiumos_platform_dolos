@@ -67,18 +67,9 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
 static int bq25731_write_charge_current_sb(void)
 {
 	int ret;
-	uint16_t charge_current = 0;
-	uint8_t buf_size = 0;
+	uint16_t charge_current;
 
-	ret = sb_reg_read(SB_DESIGN_CAPACITY, (uint8_t *)&charge_current,
-			  &buf_size);
-	if (ret != 0) {
-		DOLOS_LOG_ERR(
-			ERROR_BUCKBOOST, ret,
-			"Failed to read SB_DESIGN_CAPACITY addr=0x%02x from smart battery, err=%d",
-			SB_DESIGN_CAPACITY, ret);
-		return ret;
-	}
+	charge_current = sb_get_design_capacity_mah();
 
 	/* Charge current has to be shifted to the right 1 bit for proper
 	 * translation */
