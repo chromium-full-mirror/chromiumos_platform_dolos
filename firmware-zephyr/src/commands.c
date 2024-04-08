@@ -125,6 +125,13 @@ static int sub_gpio_cmd_handler(const struct shell *sh, size_t argc,
 	return 0;
 }
 
+static char how_jump_to[4][140] = {
+	"Transition to BMS_STATE_POWER_OUTPUT_OFF happens when either the system or charger is disconnected.",
+	"Transition to BMS_STATE_TIMER happens when the system and charger are connected.",
+	"Transition to BMS_STATE_POWER_GOOD_WAIT happens when the system and charger are connected and the input voltage is out of efuse range.",
+	"Transition to BMS_STATE_POWER_OUTPUT_ON happens when the system and charger are connected and the input voltage is within efuse range."
+};
+
 static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -153,22 +160,48 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	/* Get BMS current state string */
 	enum bms_state bms_state = bms_get_curr_state();
 	char bms_state_str[32] = { 0 };
+	char next_bms_state_str[128] = { 0 };
+	char next_bms_state_desc[512] = { 0 };
 
 	switch (bms_state) {
 	case BMS_STATE_POWER_OUTPUT_OFF:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+		strcpy(next_bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
+		sprintf(next_bms_state_desc, "%s",
+			how_jump_to[BMS_STATE_TIMER]);
 		break;
 	case BMS_STATE_TIMER:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
+		sprintf(next_bms_state_str, "Next States can be %s or %s or %s",
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF),
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON),
+			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
+		sprintf(next_bms_state_desc, "%s\n%24s %s\n%24s %s",
+			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF], "",
+			how_jump_to[BMS_STATE_POWER_OUTPUT_ON], "",
+			how_jump_to[BMS_STATE_POWER_GOOD_WAIT]);
 		break;
 	case BMS_STATE_POWER_GOOD_WAIT:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
+		sprintf(next_bms_state_str, "Next States can be %s or %s",
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON),
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+		sprintf(next_bms_state_desc, "%s\n%24s %s",
+			how_jump_to[BMS_STATE_POWER_OUTPUT_ON], "",
+			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF]);
 		break;
 	case BMS_STATE_POWER_OUTPUT_ON:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON));
+		sprintf(next_bms_state_str, "Next States can be %s or %s",
+			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT),
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+		sprintf(next_bms_state_desc, "%s\n%24s %s",
+			how_jump_to[BMS_STATE_POWER_GOOD_WAIT], "",
+			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF]);
 		break;
 	default:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_INVALID));
+		strcpy(next_bms_state_str, ENUM_NAME(BMS_STATE_INVALID));
 		break;
 	}
 
@@ -189,6 +222,10 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 	shell_print(sh, "    BMS current state  : %s", bms_state_str);
+	shell_print(sh, "    BMS next state     : %s", next_bms_state_str);
+	if (strcmp(next_bms_state_str, ENUM_NAME(BMS_STATE_INVALID)) != 0) {
+		shell_print(sh, "%24s %s", "", next_bms_state_desc);
+	}
 	shell_print(sh, "    SMBus communication: %s",
 		    smbus_target_is_communication_detected() ? "Detected" :
 							       "Not detected");
