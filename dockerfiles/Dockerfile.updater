@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.4
+# Copyright 2024 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+
+######################################################################
+FROM ubuntu:jammy as builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update \
+    && apt-get install -y \
+    curl \
+    build-essential \
+    git
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+WORKDIR /dolos/.git
+COPY .git/ .
+
+WORKDIR /dolos/fw-updater
+COPY fw-updater/ .
+
+WORKDIR /dolos/fw-updater
+ENV USER=docker
+RUN . /root/.cargo/env; cargo build --release
+
+#######################################################################
+FROM scratch as copytohost
+
+COPY --link --from=builder /dolos/fw-updater/target/release/fw-updater /
