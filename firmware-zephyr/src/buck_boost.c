@@ -176,8 +176,23 @@ int bq25731_init(void)
 
 	/* Initialize BQ ChargeVoltage and ChargeCurrent registers from smart
 	 * battery */
-	bq25731_write_charge_voltage_sb();
-	bq25731_write_charge_current_sb();
+	ret = bq25731_write_charge_voltage_sb();
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to initialize buck boost, could not initialize ChargeVoltage register, err=%d",
+			ret);
+		return ret;
+	}
+
+	ret = bq25731_write_charge_current_sb();
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to initialize buck boost, could not initialize ChargeCurrent register, err=%d",
+			ret);
+		return ret;
+	}
 
 	LOG_DBG("Buck boost init successfully done");
 	return ret;
