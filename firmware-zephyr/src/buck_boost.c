@@ -79,6 +79,11 @@ static int bq25731_write_charge_current_sb(void)
 
 	charge_current = (design_capacity >> BQ_REG_CHARGE_CURRENT_SHIFT) &
 			 BQ_REG_CHARGE_CURRENT_MASK;
+	if (charge_current != design_capacity >> BQ_REG_CHARGE_CURRENT_SHIFT) {
+		LOG_WRN("Value of SB_DESIGN_CAPACITY will be masked when converted to ChargeCurrent, design_capacity=0x%04x, charge_current=0x%04x",
+			design_capacity, charge_current);
+	}
+
 	ret = bq25731_write_config(BQ_REG_CHARGE_CURRENT, charge_current);
 
 	if (ret != 0) {
@@ -119,6 +124,11 @@ static int bq25731_write_charge_voltage_sb(void)
 	}
 
 	charge_voltage = design_voltage & BQ_REG_CHARGE_VOLTAGE_MASK;
+	if (design_voltage != charge_voltage) {
+		LOG_WRN("Value of SB_DESIGN_VOLTAGE will be masked when converted to ChargeVoltage, design_voltage=0x%04x, charge_voltage=0x%04x",
+			design_voltage, charge_voltage);
+	}
+
 	ret = bq25731_write_config(BQ_REG_CHARGE_VOLTAGE, charge_voltage);
 
 	if (ret != 0) {
