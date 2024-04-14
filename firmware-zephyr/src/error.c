@@ -22,6 +22,7 @@ static const struct device *leds = DEVICE_DT_GET(DT_PARENT(LED_ERR_NODE));
 static struct error_info errors[MAX_ERRORS];
 static size_t errors_producer;
 static size_t curr_error_num;
+char eeprom_status[32] = "Successful";
 
 void error_log(enum error_source source, uint32_t line_number, int error_code)
 {

@@ -10,12 +10,26 @@
 #include <stdint.h>
 
 #define MAX_ERRORS 10
+extern char eeprom_status[32];
 
 /* Helper macro to log errors */
-#define DOLOS_LOG_ERR(src, err_code, msg, ...)      \
-	do {                                        \
-		error_log(src, __LINE__, err_code); \
-		LOG_ERR(msg, ##__VA_ARGS__);        \
+#define DOLOS_LOG_ERR(src, err_code, msg, ...)                                \
+	do {                                                                  \
+		error_log(src, __LINE__, err_code);                           \
+		LOG_ERR(msg, ##__VA_ARGS__);                                  \
+		if (src == ERROR_EEPROM) {                                    \
+			if (strstr(msg, "Incorrect CRC32") != NULL) {         \
+				strcpy(eeprom_status, "CRC Failure.");        \
+			} else if (strstr(msg, "Failed to write") != NULL) {  \
+				strcpy(eeprom_status, "EEPROM Write Error."); \
+			} else if ((strstr(msg, "Failed to read") != NULL) || \
+				   (strstr(msg, "Couldn't read EEPROM") !=    \
+				    NULL)) {                                  \
+				strcpy(eeprom_status, "EEPROM Read Error.");  \
+			} else {                                              \
+				strcpy(eeprom_status, "Undefined Error.");    \
+			}                                                     \
+		}                                                             \
 	} while (0)
 
 enum error_source {
