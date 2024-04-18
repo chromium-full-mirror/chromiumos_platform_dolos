@@ -88,23 +88,6 @@ static struct gpio_config gpio_configs[] = {
 };
 
 /**
- * Event info
- */
-K_EVENT_DEFINE(bms_event_data);
-
-enum bms_event {
-	BMS_EVENT_SYSTEM_PRESENT = BIT(0),
-	BMS_EVENT_EFUSE_PG = BIT(1),
-	BMS_EVENT_BQ_CHRG_OK = BIT(2),
-	BMS_EVENT_TIMER = BIT(3),
-	BMS_EVENT_STATE_CHANGE = BIT(4),
-};
-
-#define BMS_EVENT_ALL                                                          \
-	BMS_EVENT_SYSTEM_PRESENT | BMS_EVENT_EFUSE_PG | BMS_EVENT_BQ_CHRG_OK | \
-		BMS_EVENT_TIMER | BMS_EVENT_STATE_CHANGE
-
-/**
  * BMS info
  */
 struct bms_signal_state_tracker {
