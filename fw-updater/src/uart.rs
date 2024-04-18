@@ -6,6 +6,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::os::fd::AsRawFd;
 use std::path::Path;
+use std::thread::sleep;
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use log::{info, trace};
@@ -170,6 +172,23 @@ impl Uart {
     pub fn read_exact(&mut self, buf: &mut [u8]) -> Result<()> {
         trace!("Reading {} bytes from UART", buf.len());
         self.file.read_exact(buf)?;
+        Ok(())
+    }
+
+    pub fn read_all(&mut self, buf: &mut [u8]) -> Result<()> {
+        info!("Reading a line from UART");
+        self.file.read(buf)?;
+        Ok(())
+    }
+
+    pub fn clear_io(&mut self) -> Result<()> {
+        // flush any pending commands
+        self.write_all("\r".as_bytes())?;
+        sleep(Duration::from_secs(1));
+
+        // read all available buffer and discard
+        let mut buf = vec![];
+        self.file.read_to_end(&mut buf)?;
         Ok(())
     }
 

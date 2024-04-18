@@ -9,6 +9,7 @@ use std::time::Duration;
 use anyhow::Result;
 use clap::Parser;
 use log::{debug, info, trace};
+use regex::Regex;
 
 use fw_updater::bsl;
 use fw_updater::titxt;
@@ -51,10 +52,6 @@ pub struct Args {
     ///   -vvv       => Print `debug` messages too.
     #[clap(short, long, parse(from_occurrences), verbatim_doc_comment)]
     verbose: usize,
-
-    /// Specify whether Dolos has Zephyr code.
-    #[clap(long)]
-    zephyr: bool,
 }
 
 /// Convert given log level to name string.
@@ -96,11 +93,27 @@ fn init_logger(verbose: usize) {
 
 const APP_FIRMWARE_DELAY_SEC: u64 = 3;
 
+// Gets the firmware version
+fn firmware_version(uart: &mut Uart) -> Result<String> {
+    info!("Obtaining firmware version");
+    // Send version command
+    let mut version_buf = vec![0u8; 128];
+    uart.write_all("version\r".as_bytes())?;
+    sleep(Duration::from_secs(APP_FIRMWARE_DELAY_SEC));
+    uart.read_all(&mut version_buf)?;
+
+    // Get the version from the output string
+    let version_str = String::from_utf8(version_buf).unwrap();
+    let re = Regex::new(r"[0-9]+\.[0-9]+(\.[0-9])?-[a-z0-9]+").unwrap();
+    let m = re.find(&version_str).unwrap();
+    info!("Firmware version: {}", &version_str[m.start()..m.end()]);
+
+    Ok(version_str[m.start()..m.end()].to_string())
+}
+
 /// Jump to BSL from firmware.
 fn jump_to_bsl(uart: &mut Uart, cmd: &str) -> Result<()> {
-    // flush any command
-    uart.write_all("\r".as_bytes())?;
-    sleep(Duration::from_secs(APP_FIRMWARE_DELAY_SEC));
+    info!("Jumping to BSL");
     let cmd_bytes = cmd.as_bytes();
     debug!("Sending firmware command to enter BSL");
     uart.write_all(cmd_bytes)?;
@@ -157,20 +170,20 @@ fn main() -> Result<()> {
     info!("Reading image: {}", args.firmware_image);
     let image = titxt::parse(&args.firmware_image)?;
 
-    if args.zephyr {
-        info!("Dolos has Zephyr code");
-    } else {
-        info!("Dolos has CCS or default code");
-    }
     if !args.bsl_mode {
-        info!("Jumping to BSL");
         let mut uart = Uart::open(&args.uart, args.fw_baud_rate)?;
-        if args.zephyr {
-            info!("Dolos has Zephyr os");
-            jump_to_bsl(&mut uart, "bsl\n")?;
-        } else {
-            info!("Dolos doesn't has zephyr");
+        debug!("Clearing UART IO buffers");
+        uart.clear_io()?;
+
+        let version = firmware_version(&mut uart).unwrap();
+
+        // Check version number, 0.70 will be considered baremetal
+        if version.contains("0.70") {
+            info!("Firmware is running on baremetal");
             jump_to_bsl(&mut uart, "jump-to-bsl\r")?;
+        } else {
+            info!("Firmware is running on Zephyr OS");
+            jump_to_bsl(&mut uart, "bsl\n")?;
         }
     }
 
