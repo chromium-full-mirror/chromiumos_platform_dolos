@@ -148,7 +148,7 @@ impl Uart {
                                                                                      // received bytes
         tty.c_oflag &= !OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
         tty.c_oflag &= !ONLCR; // Prevent conversion of newline to carriage return/line feed
-        tty.c_cc[VTIME] = 100; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+        tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
         tty.c_cc[VMIN] = 0;
 
         trace!("Setting baud rate for the UART");

@@ -91,7 +91,7 @@ fn init_logger(verbose: usize) {
         .init();
 }
 
-const APP_FIRMWARE_DELAY_SEC: u64 = 3;
+const APP_FIRMWARE_DELAY_MSEC: u64 = 500;
 
 // Gets the firmware version
 fn firmware_version(uart: &mut Uart) -> Result<String> {
@@ -99,7 +99,7 @@ fn firmware_version(uart: &mut Uart) -> Result<String> {
     // Send version command
     let mut version_buf = vec![0u8; 128];
     uart.write_all("version\r".as_bytes())?;
-    sleep(Duration::from_secs(APP_FIRMWARE_DELAY_SEC));
+    sleep(Duration::from_millis(APP_FIRMWARE_DELAY_MSEC));
     uart.read_all(&mut version_buf)?;
 
     // Get the version from the output string
@@ -117,8 +117,8 @@ fn jump_to_bsl(uart: &mut Uart, cmd: &str) -> Result<()> {
     let cmd_bytes = cmd.as_bytes();
     debug!("Sending firmware command to enter BSL");
     uart.write_all(cmd_bytes)?;
-    debug!("Waiting for {APP_FIRMWARE_DELAY_SEC} seconds for bootloader to come backup");
-    sleep(Duration::from_secs(APP_FIRMWARE_DELAY_SEC));
+    debug!("Waiting for {APP_FIRMWARE_DELAY_MSEC} milliseconds for bootloader to come backup");
+    sleep(Duration::from_millis(APP_FIRMWARE_DELAY_MSEC));
 
     Ok(())
 }
