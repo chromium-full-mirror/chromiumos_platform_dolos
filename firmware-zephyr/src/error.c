@@ -4,6 +4,7 @@
  */
 
 #include "error.h"
+#include <stdlib.h>
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/led.h>
@@ -24,37 +25,43 @@ static size_t errors_producer;
 static size_t curr_error_num;
 char eeprom_status[32] = "Successful";
 
+int compare_errors(const void *a, const void *b)
+{
+	const struct error_info *error_a = (const struct error_info *)a;
+	const struct error_info *error_b = (const struct error_info *)b;
+	return (int)(error_a->timestamp - error_b->timestamp);
+}
+
 void error_log(enum error_source source, uint32_t line_number, int error_code)
 {
 	led_on(leds, LED_ERR);
+	int err_cnt = MIN(curr_error_num, MAX_ERRORS);
+	for (size_t i = 0; i < err_cnt; ++i) {
+		if ((errors[i].source == source) &&
+		    (errors[i].error_code == error_code) &&
+		    (errors[i].line_number == line_number)) {
+			// Update existing error time and occurrences.
+			errors[i].timestamp = k_uptime_get();
+			errors[i].occurrences++;
+			qsort(errors, err_cnt, sizeof(struct error_info),
+			      compare_errors);
+			return;
+		}
+	}
 
+	/* If no existing error sharing same err_code, line_number and source
+	 then add a new entry */
 	errors[errors_producer].timestamp = k_uptime_get();
 	errors[errors_producer].source = source;
 	errors[errors_producer].line_number = line_number;
 	errors[errors_producer].error_code = error_code;
-
+	errors[errors_producer].occurrences = 1;
 	++errors_producer;
 	++curr_error_num;
 
 	if (errors_producer == MAX_ERRORS) {
 		errors_producer = 0;
 	}
-}
-
-size_t error_list(struct error_info error_list[MAX_ERRORS])
-{
-	if (curr_error_num < MAX_ERRORS) {
-		memcpy(error_list, errors,
-		       sizeof(struct error_info) * curr_error_num);
-	} else {
-		memcpy(error_list, &errors[errors_producer],
-		       sizeof(struct error_info) *
-			       (MAX_ERRORS - errors_producer));
-		memcpy(error_list + (MAX_ERRORS - errors_producer), &errors[0],
-		       sizeof(struct error_info) * errors_producer);
-	}
-
-	return MIN(curr_error_num, MAX_ERRORS);
 }
 
 void error_clear(void)
@@ -99,16 +106,13 @@ static int error_clear_handler(const struct shell *sh, size_t argc, char **argv)
 
 static int error_show_handler(const struct shell *sh, size_t argc, char **argv)
 {
-	struct error_info err_list[MAX_ERRORS];
-	size_t err_cnt = 0;
-
-	err_cnt = error_list(err_list);
-
+	int err_cnt = MIN(curr_error_num, MAX_ERRORS);
 	if (err_cnt == 0) {
 		shell_print(sh, "No errors encountered");
 		return 0;
 	}
 
+	qsort(errors, err_cnt, sizeof(struct error_info), compare_errors);
 	uint64_t time_remaining;
 	uint32_t hours;
 	uint32_t min;
@@ -117,7 +121,7 @@ static int error_show_handler(const struct shell *sh, size_t argc, char **argv)
 
 	shell_print(sh, "Listing last %d errors", err_cnt);
 	for (size_t i = 0; i < err_cnt; i++) {
-		time_remaining = err_list[i].timestamp;
+		time_remaining = errors[i].timestamp;
 		hours = time_remaining / (1000 * 60 * 60);
 		time_remaining %= 1000 * 60 * 60;
 		min = time_remaining / (1000 * 60);
@@ -126,14 +130,17 @@ static int error_show_handler(const struct shell *sh, size_t argc, char **argv)
 		time_remaining %= 1000;
 		msec = time_remaining;
 
-		shell_error(sh, "[%06d:%02d:%02d:%03d] %s: line: %d, err: %d",
-			    hours, min, sec, msec,
-			    error_source_to_str(err_list[i].source),
-			    err_list[i].line_number, err_list[i].error_code);
+		shell_error(
+			sh,
+			"[%06d:%02d:%02d:%03d] %s: line: %d, err: %d, occurrences: %d",
+			hours, min, sec, msec,
+			error_source_to_str(errors[i].source),
+			errors[i].line_number, errors[i].error_code,
+			errors[i].occurrences);
 	}
-
 	return 0;
 }
+
 
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	error_sub_cmd,

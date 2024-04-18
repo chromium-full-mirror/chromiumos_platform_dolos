@@ -53,6 +53,8 @@ struct error_info {
 	uint32_t line_number;
 	/* Error code raised */
 	int error_code;
+	/*Error counter*/
+	int occurrences;
 };
 
 /**
