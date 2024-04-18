@@ -5,16 +5,10 @@
 
 #include "error.h"
 #include <stdlib.h>
-
+#include "led.h"
 #include <zephyr/device.h>
-#include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
-
-#define LED_ERR_NODE DT_NODELABEL(lederr)
-#define LED_ERR DT_NODE_CHILD_IDX(LED_ERR_NODE)
-
-static const struct device *leds = DEVICE_DT_GET(DT_PARENT(LED_ERR_NODE));
 
 #define X_DEF_STR(s) #s
 #define DEF_STR(s) X_DEF_STR(s)
@@ -34,20 +28,7 @@ int compare_errors(const void *a, const void *b)
 
 void error_log(enum error_source source, uint32_t line_number, int error_code)
 {
-	led_on(leds, LED_ERR);
-	int err_cnt = MIN(curr_error_num, MAX_ERRORS);
-	for (size_t i = 0; i < err_cnt; ++i) {
-		if ((errors[i].source == source) &&
-		    (errors[i].error_code == error_code) &&
-		    (errors[i].line_number == line_number)) {
-			// Update existing error time and occurrences.
-			errors[i].timestamp = k_uptime_get();
-			errors[i].occurrences++;
-			qsort(errors, err_cnt, sizeof(struct error_info),
-			      compare_errors);
-			return;
-		}
-	}
+	dled_error_led_turn_on();
 
 	/* If no existing error sharing same err_code, line_number and source
 	 then add a new entry */
@@ -66,8 +47,7 @@ void error_log(enum error_source source, uint32_t line_number, int error_code)
 
 void error_clear(void)
 {
-	led_off(leds, LED_ERR);
-
+	dled_error_led_turn_off();
 	curr_error_num = 0;
 	errors_producer = 0;
 }

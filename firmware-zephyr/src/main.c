@@ -4,33 +4,25 @@
  */
 
 #include "eeprom.h"
+#include "led.h"
 #include "smart_battery.h"
 #include "smbus_target.h"
 
 #include <zephyr/device.h>
-#include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
-
-#define LED_PRG_NODE DT_NODELABEL(ledprg)
-#define LED_ERR_NODE DT_NODELABEL(lederr)
-#define LED_PRG DT_NODE_CHILD_IDX(LED_PRG_NODE)
-#define LED_ERR DT_NODE_CHILD_IDX(LED_ERR_NODE)
-
-static const struct device *leds = DEVICE_DT_GET(DT_PARENT(LED_PRG_NODE));
 
 int main(void)
 {
 	printk("Starting Dolos\n");
 
-	led_on(leds, LED_PRG);
-
+	dled_program_led_turn_on();
 	if (eeprom_read_data() != 0) {
-		led_on(leds, LED_ERR);
+		dled_error_led_turn_on();
 	}
 
 	if (eeprom_crc32_check() != 0) {
-		led_on(leds, LED_ERR);
+		dled_error_led_turn_on();
 	}
 
 	sb_init();

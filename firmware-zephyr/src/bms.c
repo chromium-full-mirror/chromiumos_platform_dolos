@@ -7,20 +7,17 @@
 #include "buck_boost.h"
 #include "eeprom.h"
 #include "error.h"
+#include "led.h"
 
 #include <stdint.h>
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
-#include <zephyr/drivers/led.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/smf.h>
 
-static const struct device *leds = DEVICE_DT_GET(DT_NODELABEL(leds));
-#define LED_RDY DT_NODE_CHILD_IDX(DT_NODELABEL(ledrdy))
-#define LED_PWR DT_NODE_CHILD_IDX(DT_NODELABEL(ledpwr))
-
+static bool power_output_state = false;
 LOG_MODULE_REGISTER(bms, LOG_LEVEL_DBG);
 
 /**
@@ -59,10 +56,12 @@ static void bms_enable_power_output(bool enable)
 {
 	if (enable) {
 		gpio_pin_set_dt(&out_en_spec, 1);
-		led_on(leds, LED_PWR);
+		power_output_state = true;
+		dled_powering_led_turn_on();
 	} else {
 		gpio_pin_set_dt(&out_en_spec, 0);
-		led_off(leds, LED_PWR);
+		power_output_state = false;
+		dled_powering_led_turn_off();
 	}
 }
 
@@ -72,6 +71,11 @@ enum gpio_config_idx {
 	GPIO_CONFIG_IDX_BQ_CHRG_OK,
 	GPIO_CONFIG_IDX_OUT_EN,
 };
+
+bool bms_get_power_output_state()
+{
+	return power_output_state;
+}
 
 /**
  * Helper struct to initialize GPIO
@@ -387,9 +391,9 @@ void bms_tick_handler(void)
 
 	/* Dolos is considered ready when BB CHARGE OK signal is asserted. */
 	if (bq_charge_ok_signal_state.state) {
-		led_on(leds, LED_RDY);
+		dled_ready_led_turn_on();
 	} else {
-		led_off(leds, LED_RDY);
+		dled_ready_led_turn_off();
 	}
 }
 

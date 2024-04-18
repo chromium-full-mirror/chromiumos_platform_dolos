@@ -73,4 +73,5 @@ enum bms_state bms_get_curr_state(void);
 
 int print_gpio_stats_handler(const struct shell *sh, size_t argc, char **argv);
 
+bool bms_get_power_output_state(void);
 #endif

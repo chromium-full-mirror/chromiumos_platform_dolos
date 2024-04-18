@@ -7,6 +7,7 @@
 #include "bms.h"
 #include "eeprom.h"
 #include "error.h"
+#include "led.h"
 #include "smbus_target.h"
 
 #include <zephyr/drivers/gpio.h>
@@ -97,11 +98,24 @@ void print_system_present_state(const struct shell *sh)
 		bms_get_sys_pres_raw() ? "HIGH" : "LOW");
 
 	shell_print(sh,
-		    "SYSTEM_PRESENT pin state: %s (signal %s, polarity %s%s)\n",
+		    "SYSTEM_PRESENT pin state : %s (signal %s, polarity %s%s)\n",
 		    bms_get_sys_pres() ? "Present" : "Absent",
 		    bms_get_sys_pres() ? "HIGH" : "LOW",
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
+}
+
+int print_leds_state(const struct shell *sh)
+{
+	shell_print(sh, "Error LED                : %s\r\n",
+		        dled_error_led_is_on() ? "On" : "Off");
+	shell_print(sh, "Programmed LED           : %s\r\n",
+		        dled_program_led_is_on() ? "On" : "Off");
+	shell_print(sh, "Ready LED                : %s\r\n",
+		        dled_ready_led_is_on() ? "On" : "Off");
+	shell_print(sh, "Powering LED             : %s\r\n",
+		        dled_powering_led_is_on() ? "On" : "Off");
+	return 0;
 }
 
 // Define a command handler function for GPIO pins
@@ -112,12 +126,15 @@ static int gpio_cmd_handler(const struct shell *sh, size_t argc, char **argv)
 		const struct gpio_dt_spec spec_efuse_pg =
 			GPIO_DT_SPEC_GET(DT_NODELABEL(efuse_pg), gpios);
 		state = read_gpio_state(sh, &spec_efuse_pg);
-		shell_print(sh, "EFSUE_PG pin state      : %d\r\n", state);
+		shell_print(sh, "EFSUE_PG pin state       : %d\r\n", state);
 		const struct gpio_dt_spec spec =
 			GPIO_DT_SPEC_GET(DT_NODELABEL(bq_charge_ok), gpios);
 		state = read_gpio_state(sh, &spec);
-		shell_print(sh, "CHRG_OK pin state       : %d\r\n", state);
+		shell_print(sh, "CHRG_OK pin state        : %d\r\n", state);
+		shell_print(sh, "Power Output Enable      : %d\r\n",
+			    bms_get_power_output_state());
 		print_system_present_state(sh);
+		print_leds_state(sh);
 	}
 	return 0;
 }
