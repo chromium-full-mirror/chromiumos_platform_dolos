@@ -13,6 +13,8 @@ use anyhow::{bail, Result};
 use log::{info, trace};
 use termios::os::linux::CRTSCTS;
 use termios::*;
+use std::io::{Error, ErrorKind};
+use regex::Regex;
 
 pub struct Uart {
     file: File,
@@ -117,49 +119,83 @@ fn get_uart_speed(baud_rate: u32) -> Result<speed_t> {
 }
 
 impl Uart {
-    pub fn open(path: &String, baud_rate: u32) -> Result<Uart> {
-        let baud_rate = get_uart_speed(baud_rate)?;
-        info!("Opening UART: {path} with baud rate:{baud_rate} ");
-        let p = Path::new(path);
-        let file = OpenOptions::new().write(true).read(true).open(p)?;
+    pub fn open(path: &String, baud_rate: u32) -> Result<Uart,Error> {
+        if let Some(_) = serialport::available_ports()?
+        .iter()
+        .find(|port| port.port_name == *path)
+        {
+            let baud_rate = match get_uart_speed(baud_rate) {
+                Ok(speed) => speed,
+                Err(_) => return Err(Error::new(ErrorKind::Other, "Invalid baud rate")),
+            };
+            info!("Opening UART: {path} with baud rate:{baud_rate} ");
+            let p = Path::new(path);
+            let file = OpenOptions::new().write(true).read(true).open(p)?;
 
-        trace!("Setting termios settings for the UART");
-        let fd = file.as_raw_fd();
-        let mut tty = Termios::from_fd(fd)?;
-        cfmakeraw(&mut tty);
-        tcsetattr(fd, TCSANOW, &tty)?;
+            trace!("Setting termios settings for the UART");
+            let fd = file.as_raw_fd();
+            let mut tty = Termios::from_fd(fd)?;
+            cfmakeraw(&mut tty);
+            tcsetattr(fd, TCSANOW, &tty)?;
 
-        let mut tty = Termios::from_fd(fd)?;
+            let mut tty = Termios::from_fd(fd)?;
 
-        tty.c_cflag &= !PARENB; // Clear parity bit, disabling parity (most common)
-        tty.c_cflag &= !CSTOPB; // Clear stop field, only one stop bit used in communication (most common)
-        tty.c_cflag &= !CSIZE; // Clear all bits that set the data size
-        tty.c_cflag |= CS8; // 8 bits per byte (most common)
-        tty.c_cflag &= !CRTSCTS; // Disable RTS/CTS hardware flow control (most common)
-        tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
+            tty.c_cflag &= !PARENB; // Clear parity bit, disabling parity (most common)
+            tty.c_cflag &= !CSTOPB; // Clear stop field, only one stop bit used in communication (most common)
+            tty.c_cflag &= !CSIZE; // Clear all bits that set the data size
+            tty.c_cflag |= CS8; // 8 bits per byte (most common)
+            tty.c_cflag &= !CRTSCTS; // Disable RTS/CTS hardware flow control (most common)
+            tty.c_cflag |= CREAD | CLOCAL; // Turn on READ & ignore ctrl lines (CLOCAL = 1)
 
-        tty.c_lflag &= !ICANON;
-        tty.c_lflag &= !ECHO; // Disable echo
-        tty.c_lflag &= !ECHOE; // Disable erasure
-        tty.c_lflag &= !ECHONL; // Disable new-line echo
-        tty.c_lflag &= !ISIG; // Disable interpretation of INTR, QUIT and SUSP
-        tty.c_iflag &= !(IXON | IXOFF | IXANY); // Turn off s/w flow ctrl
-        tty.c_iflag &= !(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Disable any special handling of
-                                                                                     // received bytes
-        tty.c_oflag &= !OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
-        tty.c_oflag &= !ONLCR; // Prevent conversion of newline to carriage return/line feed
-        tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
-        tty.c_cc[VMIN] = 0;
+            tty.c_lflag &= !ICANON;
+            tty.c_lflag &= !ECHO; // Disable echo
+            tty.c_lflag &= !ECHOE; // Disable erasure
+            tty.c_lflag &= !ECHONL; // Disable new-line echo
+            tty.c_lflag &= !ISIG; // Disable interpretation of INTR, QUIT and SUSP
+            tty.c_iflag &= !(IXON | IXOFF | IXANY); // Turn off s/w flow ctrl
+            tty.c_iflag &= !(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Disable any special handling of
+                                                                                        // received bytes
+            tty.c_oflag &= !OPOST; // Prevent special interpretation of output bytes (e.g. newline chars)
+            tty.c_oflag &= !ONLCR; // Prevent conversion of newline to carriage return/line feed
+            tty.c_cc[VTIME] = 100; // Wait for up to 1s (10 deciseconds), returning as soon as any data is received.
+            tty.c_cc[VMIN] = 0;
 
-        trace!("Setting baud rate for the UART");
-        cfsetispeed(&mut tty, baud_rate)?;
-        cfsetospeed(&mut tty, baud_rate)?;
+            trace!("Setting baud rate for the UART");
+            cfsetispeed(&mut tty, baud_rate)?;
+            cfsetospeed(&mut tty, baud_rate)?;
 
-        tcsetattr(fd, TCSANOW, &tty)?;
+            tcsetattr(fd, TCSANOW, &tty)?;
 
-        let uart = Uart { file };
+            let uart = Uart { file };
 
-        Ok(uart)
+            Ok(uart)
+        } else {
+            info!("Serial port {} not found.", path);
+            /* Print all available ports */
+            Uart::print_all_serial_ports();
+            Err(Error::new(ErrorKind::Other, format!("Serial port {} not found.", path)))
+        }
+    }
+
+    pub fn print_all_serial_ports(){
+        if let Ok(ports) = serialport::available_ports() {
+            if !ports.is_empty() {
+                println!("Available ports:");
+                for port in ports {
+                    let port_info_str = format!("{:?}", port.port_type);
+                    let manufacture_reg = Regex::new(r#"manufacturer: Some\("(.*?)"\)"#).unwrap();
+                    if let Some(manufacturer) = manufacture_reg.captures(&port_info_str) {
+                        /* Extract the manufacturer value from port type */
+                        let manufacturer_value = manufacturer.get(1).unwrap().as_str();
+                        println!("Name: {}  Manufacturer: {}", port.port_name, manufacturer_value);
+                    } else {
+                        println!("Name: {}", port.port_name);
+                    }
+                }
+            }
+        } else {
+            info!("Unable to enumerate serial ports");
+        }
     }
 
     pub fn write_all(&mut self, data: &[u8]) -> Result<()> {
