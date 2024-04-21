@@ -68,7 +68,7 @@ fn log_level_to_string(level: log::Level) -> &'static str {
 /// Initialize logging with specified verbosity level.
 fn init_logger(verbose: usize) {
     let level = match verbose {
-        0 => log::LevelFilter::Error,
+        0 => log::LevelFilter::Info,
         1 => log::LevelFilter::Warn,
         2 => log::LevelFilter::Info,
         3 => log::LevelFilter::Debug,
@@ -133,7 +133,7 @@ pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
     let mut bsl = bsl::Bsl::open(uart)?;
 
     bsl.connect()?;
-    debug!("connected to BSL");
+    info!("connected to BSL");
 
     bsl.unlock_bootloader()?;
     trace!("Unlocked bootloader");
@@ -146,7 +146,7 @@ pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
     let mut bsl = bsl::Bsl::open(uart)?;
 
     bsl.erase()?;
-    debug!("Successfully erased flash");
+    info!("Successfully erased flash");
 
     for section in &image.sections {
         trace!(
@@ -158,7 +158,7 @@ pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
     }
 
     bsl.start_application()?;
-    debug!("Firmware started");
+    info!("Firmware started");
 
     Ok(())
 }
