@@ -5,16 +5,12 @@
 /// Implements API to send/receive commands/response to Ti BSL (Bootstrap Loader).
 /// Spec: https://www.ti.com/lit/ug/slau887/slau887.pdf
 use std::iter;
-use std::thread::sleep;
-use std::time::Duration;
 
 use anyhow::{bail, Result};
 use log::{debug, trace};
 
 use crate::uart::Uart;
 
-const BSL_DEFAULT_CMD_WAIT_MS: u64 = 500;
-const BSL_FLASH_CMD_WAIT_MS: u64 = 100;
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -124,7 +120,6 @@ impl Bsl {
             None,
             None,
             false,
-            BSL_DEFAULT_CMD_WAIT_MS,
         )?;
         Ok(())
     }
@@ -138,7 +133,6 @@ impl Bsl {
                 None,
                 None,
                 true,
-                BSL_DEFAULT_CMD_WAIT_MS,
             )?
             .unwrap();
         match result {
@@ -159,7 +153,6 @@ impl Bsl {
             None,
             Some(default_password),
             true,
-            BSL_DEFAULT_CMD_WAIT_MS,
         )?;
 
         Ok(())
@@ -174,7 +167,6 @@ impl Bsl {
             None,
             Some(vec![baud_rate_enum as u8]),
             false,
-            BSL_DEFAULT_CMD_WAIT_MS,
         )?;
 
         Ok(())
@@ -206,7 +198,6 @@ impl Bsl {
                 Some(program_start_address),
                 Some(program_end_address),
                 true,
-                BSL_DEFAULT_CMD_WAIT_MS,
             )?
             .unwrap();
         match result {
@@ -230,7 +221,6 @@ impl Bsl {
                 Some(address),
                 Some(chunk.to_vec()),
                 true,
-                BSL_FLASH_CMD_WAIT_MS,
             )?
             .unwrap();
         match result {
@@ -280,7 +270,6 @@ impl Bsl {
             None,
             None,
             false,
-            BSL_DEFAULT_CMD_WAIT_MS,
         )?;
         Ok(())
     }
@@ -372,13 +361,10 @@ impl Bsl {
         address: Option<u32>,
         data: Option<Vec<u8>>,
         expect_bsl_core_response: bool,
-        wait_before_receive_ms: u64,
     ) -> Result<Option<BslCoreResponse>> {
         let packet = Self::construct_cmd_packet(cmd, address, data);
         trace!("Issuing command {packet:x?}");
         self.uart.write_all(&packet)?;
-
-        sleep(Duration::from_millis(wait_before_receive_ms));
 
         let ack = self.receive_bsl_ack()?;
         if ack != BslResponseAck::Ack {
