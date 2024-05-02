@@ -4,6 +4,7 @@
  */
 
 #include "bms.h"
+#include "buck_boost.h"
 #include "eeprom.h"
 #include "error.h"
 
@@ -160,6 +161,9 @@ static void power_output_off_state_run(void *o)
 static void timer_state_entry(void *o)
 {
 	LOG_DBG("Executing %s entry", ENUM_NAME(BMS_STATE_TIMER));
+
+	/* Make sure BQ is initialized correctly before enabling the output */
+	bq25731_init();
 
 	bms_enable_power_output(true);
 	k_timer_start(&efuse_pg_timer, K_SECONDS(5), K_NO_WAIT);

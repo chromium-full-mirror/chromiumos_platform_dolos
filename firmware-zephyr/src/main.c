@@ -3,7 +3,6 @@
  * found in the LICENSE file.
  */
 
-#include "buck_boost.h"
 #include "eeprom.h"
 #include "smart_battery.h"
 #include "smbus_target.h"
@@ -36,8 +35,6 @@ int main(void)
 
 	sb_init();
 	smbus_target_init();
-
-	bq25731_init();
 
 	while (true) {
 		k_sleep(K_FOREVER);
