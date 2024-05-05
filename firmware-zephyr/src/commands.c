@@ -267,9 +267,9 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 							       "Not detected");
 	if (strcmp(eeprom_status, "Successful") == 0) {
 		shell_print(sh,
-			    "    Serial number      : dolos-V%d-%02d%02d-%04X",
-			    eeprom_get_version(), eeprom_get_year(),
-			    eeprom_get_week(), eeprom_get_serial_no());
+			    "    Serial number      : DOLOSV%d-C-%02d20%02d%04d",
+			    eeprom_get_version(), eeprom_get_week(),
+			    eeprom_get_year(), eeprom_get_serial_no());
 	} else {
 		shell_print(
 			sh,
