@@ -410,7 +410,7 @@ bool bms_get_sys_pres(void)
 
 bool bms_get_sys_pres_raw(void)
 {
-	return system_present_signal_state.state;
+	return gpio_pin_get_dt(&sys_pres_spec);
 }
 
 bool bms_get_sys_pres_pol(void)

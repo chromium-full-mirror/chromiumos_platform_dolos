@@ -218,7 +218,7 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	shell_print(sh,
 		    "    System present     : %s (signal %s, polarity %s%s)",
 		    bms_get_sys_pres() ? "Present" : "Absent",
-		    bms_get_sys_pres() ? "HIGH" : "LOW",
+		    bms_get_sys_pres_raw() ? "HIGH" : "LOW",
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 	shell_print(sh, "    BMS current state  : %s", bms_state_str);
