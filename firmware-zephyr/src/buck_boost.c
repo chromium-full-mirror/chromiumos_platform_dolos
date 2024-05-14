@@ -10,6 +10,7 @@
 
 #include <zephyr/drivers/i2c.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/shell/shell.h>
 #include <zephyr/sys/byteorder.h>
 
 #define DT_DRV_COMPAT ti_bq25731
@@ -197,3 +198,37 @@ int bq25731_init(void)
 	LOG_DBG("Buck boost init successfully done");
 	return ret;
 }
+
+static int cmd_dump_handler(const struct shell* sh, size_t argc, char **argv)
+{
+	ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+	uint8_t ranges_start[] = {0x00, 0x0e, 0x20, 0x30};
+	uint8_t ranges_end[] = {0x0c, 0x10, 0x2e, 0x40};
+
+	uint16_t reg_data;
+
+	int ret;
+
+	for(size_t i = 0; i < ARRAY_SIZE(ranges_start); i++) {
+		for(uint8_t j = ranges_start[i] ; j < ranges_end[i]; j+=2) {
+			ret = i2c_write_read_dt(&i2c_spec, &j, sizeof(j), &reg_data, sizeof(reg_data));
+			if(ret != 0) {
+				shell_error(sh, "Failed to read register at address=0x%02x, err=%d", j, ret);
+			}
+
+			shell_print(sh, "@0x%02x: 0x%04x", j, reg_data);
+		}
+	}
+
+	return 0;
+}
+
+SHELL_STATIC_SUBCMD_SET_CREATE(
+	bq_sub_cmds,
+	SHELL_CMD(dump, NULL, "Dumps all BQ registers",
+		  cmd_dump_handler),
+	SHELL_SUBCMD_SET_END);
+
+SHELL_CMD_REGISTER(bq, &bq_sub_cmds, "Buckboost command set", NULL);
