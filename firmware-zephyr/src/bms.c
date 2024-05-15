@@ -65,19 +65,26 @@ static void bms_enable_power_output(bool enable)
 	}
 }
 
+enum gpio_config_idx {
+	GPIO_CONFIG_IDX_SYS_PRES = 0,
+	GPIO_CONFIG_IDX_EFUSE_PG,
+	GPIO_CONFIG_IDX_BQ_CHRG_OK,
+	GPIO_CONFIG_IDX_OUT_EN,
+};
+
 /**
  * Helper struct to initialize GPIO
  */
 struct gpio_config {
 	const struct gpio_dt_spec *pin_spec;
-	uint32_t dir;
+	uint32_t flags;
 };
 
 static struct gpio_config gpio_configs[] = {
-	{ &sys_pres_spec, GPIO_INPUT },
-	{ &efuse_pg_spec, GPIO_INPUT },
-	{ &bq_chrg_ok, GPIO_INPUT },
-	{ &out_en_spec, GPIO_OUTPUT_INACTIVE },
+	[GPIO_CONFIG_IDX_SYS_PRES] = { &sys_pres_spec, GPIO_INPUT },
+	[GPIO_CONFIG_IDX_EFUSE_PG] = { &efuse_pg_spec, GPIO_INPUT },
+	[GPIO_CONFIG_IDX_BQ_CHRG_OK] = { &bq_chrg_ok, GPIO_INPUT },
+	[GPIO_CONFIG_IDX_OUT_EN] = { &out_en_spec, GPIO_OUTPUT_INACTIVE },
 };
 
 /**
@@ -325,6 +332,15 @@ static int bms_init(void)
 {
 	int ret;
 
+	LOG_DBG("Getting System present polarity");
+	sys_pres_pol = (bool)eeprom_get_sys_pres_pol();
+	if (!sys_pres_pol) {
+		gpio_configs[GPIO_CONFIG_IDX_SYS_PRES].flags |= GPIO_PULL_UP;
+	}
+	LOG_DBG("System present polarity obtained, sys_pres_pol=%d%s",
+		sys_pres_pol,
+		(sys_pres_pol ? "" : ", configured a pullup resistor"));
+
 	LOG_DBG("Initializing GPIO pins");
 
 	for (size_t i = 0; i < ARRAY_SIZE(gpio_configs); i++) {
@@ -338,7 +354,7 @@ static int bms_init(void)
 		}
 
 		ret = gpio_pin_configure_dt(pin_config->pin_spec,
-					    pin_config->dir);
+					    pin_config->flags);
 		if (ret != 0) {
 			DOLOS_LOG_ERR(
 				ERROR_BMS, ret,
@@ -349,9 +365,6 @@ static int bms_init(void)
 	}
 
 	LOG_DBG("Initialized all GPIO bins successfully");
-
-	LOG_DBG("Getting System present polarity");
-	sys_pres_pol = (bool)eeprom_get_sys_pres_pol();
 
 	return 0;
 }
