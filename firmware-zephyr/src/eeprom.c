@@ -354,7 +354,7 @@ static int cmd_eeprom_writen_handler(const struct shell *sh, size_t argc,
 				     char **argv)
 {
 	size_t len;
-	uint8_t addr;
+	uint16_t addr;
 	uint8_t data[16];
 	int err = 0;
 
