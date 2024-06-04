@@ -73,8 +73,9 @@ def mock_dolos_console():
                     b"": None,
                     b"status": status.render(),
                     b"version": (
-                        b"version"
-                        b"Dolos version 0.135.0-1a5dbd1\r\n"
+                        b"\x1b[1;32mdolos:~> "
+                        b"\x1b[m version Dolos version "
+                        b"0.135.0-1a5dbd1 "
                         b"\x1b[1;32mdolos:~> \x1b[m"
                     ),
                     b"reset": b"reset\r\n",

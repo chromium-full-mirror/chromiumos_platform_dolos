@@ -139,8 +139,8 @@ class DolosConsole:
             string: version of the Dolos firmware.
         """
         result = self.run_firmware_command(console, "version")
-        processed_results = result[2].splitlines()[0].strip()
-        return processed_results
+        version = " ".join(result).split()[5]
+        return version
 
     def repair(self, console):
         """Call reset command on the UART.
