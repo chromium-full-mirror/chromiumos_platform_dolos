@@ -118,6 +118,9 @@ static int i2c_mspm0g3xxx_receive(const struct device *dev, struct i2c_msg msg, 
 	/* Send a read request to Target */
 	data->count = 0;
 	data->state = I2C_mspm0g3xxx_RX_STARTED;
+	while (!(DL_I2C_getControllerStatus((I2C_Regs *)config->base) &
+	       DL_I2C_CONTROLLER_STATUS_IDLE));
+
 	DL_I2C_startControllerTransfer((I2C_Regs *)config->base, data->addr,
 				       DL_I2C_CONTROLLER_DIRECTION_RX, data->msg.len);
 
