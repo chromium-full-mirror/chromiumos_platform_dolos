@@ -1,0 +1,8 @@
+
+
+.venv/
+build/
+dist/
+doloscmd.egg-info/
+
+*.pyc

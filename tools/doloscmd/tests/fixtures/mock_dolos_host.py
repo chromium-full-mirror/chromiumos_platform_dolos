@@ -37,7 +37,7 @@ def mock_dolos_host(class_mocker):
 
         class MockDolosHost:
             def __init__(self):
-                self.usb_devices = []
+                self.usb_devices = {}
                 class_mocker.patch("serial.Serial", side_effect=self.mock_serial_open)
                 class_mocker.patch(
                     "pathlib.PosixPath.glob",
@@ -48,7 +48,7 @@ def mock_dolos_host(class_mocker):
                 self.usb_devices = usb_devices
 
             def clear_usb_devices(self):
-                self.usb_devices = []
+                self.usb_devices = {}
 
             def raise_on_open(self):
                 class_mocker.patch(
@@ -65,7 +65,7 @@ def mock_dolos_host(class_mocker):
                 ]
 
             # pylint
-            def mock_serial_open(self, port, baudrate, timeout, exclusive):
+            def mock_serial_open(self, port, baudrate, exclusive):
                 if not os.path.basename(port) in self.usb_devices:
                     raise serial.SerialException(f"Device not found {port}.")
                 return self.usb_devices[os.path.basename(port)]

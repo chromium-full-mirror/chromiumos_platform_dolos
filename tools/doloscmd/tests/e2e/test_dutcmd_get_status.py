@@ -42,7 +42,7 @@ class TestDolosCmdGetStatus:
 
     def test_get_status_ok_dolos(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.serial_number = b"DOLOSV1-C-2403140001"
+        status.serial_number = "DOLOSV1-C-2403140001"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -81,7 +81,7 @@ class TestDolosCmdGetStatus:
 
     def test_get_status_smbus_fail(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.smbus = b"Not detected"
+        status.smbus = "Not detected"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -104,7 +104,7 @@ class TestDolosCmdGetStatus:
 
     def test_get_status_bms_fail(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.bms_state = b"BMS_STATE_POWER_OUTPUT_OFF"
+        status.bms_state = "BMS_STATE_POWER_OUTPUT_OFF"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -127,7 +127,7 @@ class TestDolosCmdGetStatus:
 
     def test_get_status_efuse_fail(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.efuse = b"Not good"
+        status.efuse = "Not good"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -150,7 +150,7 @@ class TestDolosCmdGetStatus:
 
     def test_get_status_eeprom_fail(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.eeprom = b"EEPROM Read Error."
+        status.eeprom = "EEPROM Read Error."
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -175,7 +175,7 @@ class TestDolosCmdGetStatus:
         self, monkeypatch, mock_host_with_one_dolos, capfd
     ):
         status = DolosStatus()
-        status.charger = b"Not Detected"
+        status.charger = "Not Detected"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -234,6 +234,6 @@ class TestDolosCmdGetStatus:
             with pytest.raises(SystemExit) as pytest_wrapped_e:
                 main()
             out, unused_err = capfd.readouterr()
-            assert '{\n  "status": "DOLOS_NO_COMMUNICATION"\n}\n' == out
+            assert '{\n  "status": "DOLOS_NOT_PRESENT"\n}\n' == out
             assert SystemExit == pytest_wrapped_e.type
             assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code

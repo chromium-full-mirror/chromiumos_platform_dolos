@@ -13,11 +13,11 @@
 """Provide a command line interface for to the Dolos UART console."""
 
 import argparse
+import logging
 import sys
 
 from doloscmd import console_lib
 from doloscmd.proto import doloscmd_pb2
-from doloscmd.utils import debug_print
 from google.protobuf.json_format import MessageToJson
 
 
@@ -80,14 +80,14 @@ def _do_exit(message):
     sys.exit(message.response.code)
 
 
-def _update_firmware(args, console):
+def _update_firmware(args):
     """Update dolos to a new firmware version.
 
     Args:
         args (Namespace): parsed command line arguments.
-        console (DolosConsole): Dolos console interface object.
     """
     _exit_if_no_serial(args, doloscmd_pb2.FirmwareUpdateResponse)
+
     if not args.firmware_version:
         _do_exit(
             doloscmd_pb2.FirmwareUpdateResponse(
@@ -97,42 +97,47 @@ def _update_firmware(args, console):
                 )
             )
         )
+
+    console = None
     try:
-        uartname = console.get_uartname(args)
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
     except console_lib.DolosConsoleException as error:
         _do_exit(
             doloscmd_pb2.FirmwareUpdateResponse(
                 response=doloscmd_pb2.Response(
-                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.DOLOS_NOT_FOUND
+                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.NOT_FOUND
                 )
             )
         )
-    console.update_firmware(uartname, args.firmware_version)
+        return
+    console.update_firmware(args.firmware_version)
     _do_exit(doloscmd_pb2.GetVersionResponse())
 
 
-def version(args, console):
+def version(args):
     """Get the current dolos firmware version.
 
     Args:
         args (Namespace): parsed command line arguments.
-        console (DolosConsole): Dolos console interface object.
     """
     _exit_if_no_serial(args, doloscmd_pb2.GetVersionResponse)
+
+    console = None
     try:
-        uartname = console.get_uartname(args)
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
     except console_lib.DolosConsoleException as error:
         _do_exit(
             doloscmd_pb2.GetVersionResponse(
                 response=doloscmd_pb2.Response(
-                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.DOLOS_NOT_FOUND
+                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.NOT_FOUND
                 )
             )
         )
+        return
 
-    debug_print(f"version uartname {uartname}")
+    logging.debug("version uartname %r", console.uartname)
     try:
-        fw_version = console.run_command_on_dolos(uartname, console.get_version)
+        fw_version = console.get_version()
     except console_lib.DolosConsoleException as error:
         _do_exit(
             doloscmd_pb2.GetVersionResponse(
@@ -144,26 +149,28 @@ def version(args, console):
     _do_exit(doloscmd_pb2.GetVersionResponse(version=fw_version))
 
 
-def repair(args, console):
+def repair(args):
     """Repair the dolos.
 
     Args:
         args (Namespace): parsed command line arguments.
-        console (DolosConsole): Dolos console interface object.
     """
     _exit_if_no_serial(args, doloscmd_pb2.GetRepairResponse)
+
+    console = None
     try:
-        uartname = console.get_uartname(args)
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
     except console_lib.DolosConsoleException as error:
         _do_exit(
             doloscmd_pb2.GetRepairResponse(
                 response=doloscmd_pb2.Response(
-                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.DOLOS_NOT_FOUND
+                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.NOT_FOUND
                 )
             )
         )
+        return
     try:
-        console.run_command_on_dolos(uartname, console.repair)
+        console.repair()
     except console_lib.DolosConsoleException as error:
         _do_exit(
             doloscmd_pb2.GetRepairResponse(
@@ -175,26 +182,26 @@ def repair(args, console):
     _do_exit(doloscmd_pb2.GetRepairResponse())
 
 
-def get_status(args, console):
+def get_status(args):
     """Report the current status of the Dolos.
 
     Args:
         args (Namespace): parsed command line arguments.
-        console (DolosConsole): Dolos console interface object.
     """
     _exit_if_no_serial(args, doloscmd_pb2.GetStatusResponse)
+
+    console = None
     try:
-        uartname = console.get_uartname(args)
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
     except console_lib.DolosConsoleException:
         _do_exit(
             doloscmd_pb2.GetStatusResponse(
                 status=doloscmd_pb2.DOLOS_STATUS.DOLOS_NOT_PRESENT
             )
         )
+        return
     try:
-        status = console.determine_status(
-            console.run_command_on_dolos(uartname, console.get_status)
-        )
+        status = console.determine_status(console.get_status())
 
         _do_exit(doloscmd_pb2.GetStatusResponse(status=status))
     except console_lib.DolosConsoleException:
@@ -205,12 +212,11 @@ def get_status(args, console):
         )
 
 
-def find_uartname(args, console):
+def find_uartname(args):
     """Given a Dolos serial number find what UART name maps to it.
 
     Args:
-        args (Namespace): parsed command line arguments.
-        console (DolosConsole): Dolos console interface object.
+        args (Namespace): parsed command line arguments
     """
     if not args.serial:
         _do_exit(
@@ -221,10 +227,24 @@ def find_uartname(args, console):
                 )
             )
         )
-    uartname = console.find_dolos_serial(args.serial)
+        return
+    console = None
+    try:
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
+    except console_lib.DolosConsoleException:
+        _do_exit(
+            doloscmd_pb2.FindUartNameResponse(
+                response=doloscmd_pb2.Response(
+                    msg="Failed to find dolos.",
+                    code=doloscmd_pb2.ERROR_CODE.NOT_FOUND,
+                )
+            )
+        )
+        return
+
     _do_exit(
         doloscmd_pb2.FindUartNameResponse(
-            uartname=uartname,
+            uartname=console.uartname,
         )
     )
 
@@ -232,18 +252,18 @@ def find_uartname(args, console):
 def main():
     """Parse the args and call the correct function for command specified."""
     args = parse_args(sys.argv[1:])
-    console = console_lib.DolosConsole()
+    logging.basicConfig(level=logging.DEBUG)
     try:
         if args.command == "find-uartname":
-            find_uartname(args, console)
+            find_uartname(args)
         elif args.command == "update-firmware":
-            _update_firmware(args, console)
+            _update_firmware(args)
         elif args.command == "get-status":
-            get_status(args, console)
+            get_status(args)
         elif args.command == "repair":
-            repair(args, console)
+            repair(args)
         elif args.command == "version":
-            version(args, console)
+            version(args)
         else:
             _do_exit(
                 doloscmd_pb2.GenericResponse(
