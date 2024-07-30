@@ -83,7 +83,9 @@ ENV ZEPHYR_BASE=/zephyrproject/zephyr/
 
 RUN west zephyr-export
 
-RUN pip install -r /zephyrproject/zephyr/scripts/requirements.txt
+COPY dockerfiles/requirements.compiled .
+
+RUN pip install --require-hashes -r requirements.compiled
 
 WORKDIR /usr/local/zephyr-sdk-0.16.5-1
 
