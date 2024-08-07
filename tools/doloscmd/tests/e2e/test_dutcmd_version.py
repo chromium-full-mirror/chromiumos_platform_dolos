@@ -41,7 +41,7 @@ class TestDolosCmdVersion:
 
     def test_version_dolos(self, monkeypatch, mock_host_with_one_dolos, capfd):
         status = DolosStatus()
-        status.serial_number = "DOLOSV1-C-2403140001"
+        status.serial_number = b"DOLOSV1-C-2403140001"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:
@@ -94,8 +94,8 @@ class TestDolosCmdVersion:
             out, unused_err = capfd.readouterr()
             assert (
                 '{\n  "response": {\n'
-                '    "msg": "Found 0 dolos devices.",\n'
-                '    "code": "NOT_FOUND"\n  }\n}\n' == out
+                '    "msg": "No dolos device found.",\n'
+                '    "code": "INTERNAL"\n  }\n}\n' == out
             )
             assert SystemExit == pytest_wrapped_e.type
-            assert doloscmd_pb2.ERROR_CODE.NOT_FOUND == pytest_wrapped_e.value.code
+            assert doloscmd_pb2.ERROR_CODE.INTERNAL == pytest_wrapped_e.value.code

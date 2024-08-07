@@ -63,10 +63,9 @@ setup(
         "doloscmd",
         "doloscmd.proto",
     ],
-    setup_requires=["grpcio-tools"],
     cmdclass={"build_py": DolosBuildPy},
     entry_points={
         "console_scripts": ["doloscmd=doloscmd.doloscmd:main"],
     },
-    description="Dolos command tools.",
+    description="Servo usb updater.",
 )
