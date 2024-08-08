@@ -84,8 +84,10 @@ class DolosConsole:
                 port=path,
                 baudrate=115200,
                 exclusive=True,
+                timeout=10,
+                write_timeout=10,
             )
-        except serial.SerialException as err:
+        except (serial.SerialException, OSError) as err:
             raise DolosConsoleException(
                 f"Unable to open serial device {path}.\rReason: {str(err)}",
             ) from err
@@ -147,7 +149,8 @@ class DolosConsole:
         dolos = []
         uarts = cls._get_all_ftdi_uart_names()
 
-        with Pool() as pool:
+        # On labstation we have a 10-1 labstation to
+        with Pool(max(10, os.cpu_count())) as pool:
             dolos = pool.map(cls._safe_init, uarts)
             dolos = list(filter(None, dolos))
 
@@ -473,7 +476,9 @@ class DolosConsole:
         Args:
             firmware_version (string): version of the firmware to update to.
         """
-        with tempfile.TemporaryDirectory(prefix="/usr/local/tmp/") as temp_directory:
+        with tempfile.TemporaryDirectory(
+            prefix="/usr/local/tmp/"
+        ) as temp_directory:
             firmware_updater_filename = f"{temp_directory}/fw-updater"
             req = requests.get(
                 "https://storage.googleapis.com/dolos-firmware/fw-updater",
@@ -541,7 +546,10 @@ class DolosConsole:
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_NO_POWER_SUPPLIED
         if status_dict.get("E-Fuse Power", "") != "Good":
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED
-        if status_dict.get("BMS current state", "") != "BMS_STATE_POWER_OUTPUT_ON":
+        if (
+            status_dict.get("BMS current state", "")
+            != "BMS_STATE_POWER_OUTPUT_ON"
+        ):
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_BMS_STATE_INVALID
         if status_dict.get("SMBus communication", "") != "Detected":
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_SMBUS_COMM_NOT_DETECTED
@@ -607,7 +615,9 @@ class DolosConsole:
                 return self._decode_eeprom(response)
             except DolosConsoleException as err:
                 logging.warning("EEPROM Read attempt %d error: %r", i, err)
-        raise DolosConsoleException(f"Failed to read eeprom after {retry_cnt} attempts")
+        raise DolosConsoleException(
+            f"Failed to read eeprom after {retry_cnt} attempts"
+        )
 
     def _eeprom_write_segment(self, addr, segment, retry_cnt=5):
         """Write and verify a segment is transferred.
@@ -631,8 +641,12 @@ class DolosConsole:
         for i in range(retry_cnt):
             try:
                 # EEPROM commands tend to be slow.
-                response = self.run_firmware_command(cmd, timeout=2, echo_timeout=2)
-                m = re.search(r"address=(?P<addr>0x[\da-f]+)", response, re.IGNORECASE)
+                response = self.run_firmware_command(
+                    cmd, timeout=2, echo_timeout=2
+                )
+                m = re.search(
+                    r"address=(?P<addr>0x[\da-f]+)", response, re.IGNORECASE
+                )
                 if m is None:
                     raise DolosConsoleException("Invalid response")
                 if int(m.group("addr"), 16) != addr:
@@ -641,7 +655,9 @@ class DolosConsole:
                     )
                 return
             except DolosConsoleException as err:
-                logging.warning("EEPROM write segment attempt %d error: %r", i, err)
+                logging.warning(
+                    "EEPROM write segment attempt %d error: %r", i, err
+                )
         raise DolosConsoleException(
             f"Failed to write eeprom after {retry_cnt} attempts"
         )
@@ -697,7 +713,9 @@ class DolosConsole:
                     break
                 raise DolosConsoleException("Verify failed")
             except DolosConsoleException as err:
-                logging.warning("EEPROM write_verify attempt %d error: %r", i, err)
+                logging.warning(
+                    "EEPROM write_verify attempt %d error: %r", i, err
+                )
         else:
             raise DolosConsoleException(
                 f"Failed to write and verify eeprom after {retry_cnt} attempts"
