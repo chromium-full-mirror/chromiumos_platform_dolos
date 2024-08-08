@@ -1,0 +1,178 @@
+
+python battery.py -s chromeos8-row4-rack3-host13 -f aleena.yaml -p 0
+
+
+## First Time Setup
+
+For first time setup we need to create a virtual environment, enter it, and
+install dependencies. This is only needed when the `.venv` directory is erased.
+
+From root tools directory:
+
+```console
+python -m venv .venv
+source activate.sh
+pip install -r requirements.txt
+pip install .
+```
+
+### Enter Virtual Environment after setup:
+
+To run the scripts, enter the virtual environment if it is not active using
+`source activate.sh`.
+
+### Exit Virtual Environment
+
+Exit the virtual environment using the `deactivate` command.
+
+```console
+(.venv) ~/chromiumos/src/third_party/dolos/battery $ deactivate
+~/chromiumos/src/third_party/dolos/batterydata $
+```
+
+### Optional: Setup crosfleet and SSH access:
+
+https://goto.google.com/crosfleet-cli
+https://goto.google.com/chromeos-lab-duts-ssh
+
+## Importing Battery Information
+
+```console
+(.venv) $ load_battery  --help
+usage: load_battery [-h] (-s SSH | -i) [-p I2C_PORT] -f FILE [-c COMMENT] [-v]
+
+options:
+  -h, --help   show this help message and exit
+  -s SSH       Use SSH and ECTool to extract registers from a remote DUT
+  -i           Use a FTDI board to extract registers from an unplugged battery
+  -p I2C_PORT  Configure ECTool's I2C port if I2C_PORT_BATTERY is known
+  -f FILE      File path to export yaml data
+  -c COMMENT   Comment data
+  -v           Enable verbose logging
+```
+
+### Steps to extract battery data from the Fleet
+
+Find checkout `MODEL` with crosfleet and identify the `DUT_HOSTNAME` field.
+```console
+crosfleet dut lease -model $MODEL
+```
+
+Example:
+```console
+crosfleet dut lease -model pico
+Verifying the provided DUT dimensions...
+Found 45 DUT(s) (39 busy) matching the provided DUT dimensions
+...
+DUT_HOSTNAME=chromeos8-row10-rack8-host46
+MODEL=pico
+BOARD=jacuzzi
+SERVO_HOSTNAME=chromeos8-row10-rack8-labstation6
+SERVO_PORT=9996
+SERVO_SERIAL=SERVOV4P1-S-2103240648
+```
+
+Pass the `DUT_HOSTNAME` Parameter to the load_battery.py script and specify
+an `OUTPUT` path for the yaml data.
+
+
+```console
+load_battery -s $DUT_HOSTNAME -f $OUTPUT
+```
+
+Example:
+```console
+(.venv) $ load_battery -s chromeos8-row10-rack8-host46 -f pico.yaml
+INFO - load_battery.py:252:configure_connections : Connected
+INFO - load_battery.py:176:_configure_port : Detecting port
+INFO - load_battery.py:180:_configure_port : Using port 4
+INFO - load_battery.py:197:load_registers : Loading registers
+INFO - load_battery.py:201:load_registers : Progress 1/40 - Loading 'SB_MANUFACTURER_ACCESS'
+...
+INFO - load_battery.py:201:load_registers : Progress 40/40 - Loading 'SB_PACK_STATUS'
+INFO - load_battery.py:209:export_table : Exporting yaml to:PosixPath('test.yaml')
+```
+
+Usage:
+
+```console
+program_cable -f aleena.yaml -d 24/4/23 -c
+```
+
+Final steps:
+
+PolarityHigh can not be extracted automatically. We need to test it with full
+DUT-Cable-Dolos setup to confirm it is correct. It needs to be set to be set to
+`True` or `False`.
+
+```yaml
+PolarityHigh: False
+```
+
+When the DUT is powered on, we can see the correct state using the `status` command
+in the Dolos console:
+
+```console
+System present     : Absent (signal HIGH, polarity LOW)
+```
+
+If the DUT is active and `signal HIGH` is reported, we need to adjust the Polarity.
+
+```yaml
+PolarityHigh: True
+```
+
+```console
+System present     : Present (signal HIGH, polarity HIGH)
+```
+
+## Programming The Cable
+
+We can program the EEPROM in the Dolos cable using a Dolos or FTDI board like the FT4232H.
+Simply pass the `YAML` file in and provide fields to specify the date, and polarity.
+
+If the serial field is left empty, it'll preserve the existing serial.
+
+```console
+(.venv) $ program_cable --help
+usage: program_cable [-h] -y YAML (-d DOLOS | -f) [-ns NEW_SERIAL] [-v]
+
+options:
+  -h, --help      show this help message and exit
+  -y YAML         File path of imported yaml data
+  -d DOLOS        Use Dolos to program: 'any' is used if the serial number does not matter.
+  -f              Use FTDI to program: Fails if more than 1 device is found.
+  -ns NEW_SERIAL  Optional overwrite serial number
+  -v              Enable verbose logging
+```
+
+Example using Dolos:
+```console
+(.venv) $ program_cable -y jinlon.yaml -d any
+INFO - program_cable.py:30:load_table : Loading yaml: PosixPath('jinlon.yaml')
+INFO - program_cable.py:113:read : Reading cable
+INFO - program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
+INFO - program_cable.py:137:write : Programming cable
+INFO - program_cable.py:142:write : Verifying cable
+INFO - program_cable.py:113:read : Reading cable
+INFO - program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
+INFO - program_cable.py:145:write : Program success
+```
+
+```console
+(.venv) $ program_cable -y jinlon.yaml -d DOLOSV3-C-3320241234
+```
+
+Example using FTDI:
+```console
+(.venv) $ program_cable -y jinlon.yaml -f
+```
+
+### Dry run export of binary data
+
+We can use the yamls to generate a copy of the binary data without a cable.
+
+Example:
+```console
+(.venv) $ program_cable -f akali.yaml --dry -e test.bin
+```
