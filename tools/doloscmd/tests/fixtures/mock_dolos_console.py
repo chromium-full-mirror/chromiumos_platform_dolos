@@ -8,9 +8,11 @@
 
 import contextlib
 import logging
+import re
 
-from doloscmd.console_lib import CONSOLE_CLEAR_CHR
+from doloscmd.console_lib import CONSOLE_CLEAR
 from doloscmd.console_lib import CONSOLE_ENTER
+from doloscmd.console_lib import EEPROM_SIZE
 import pytest
 
 
@@ -20,65 +22,110 @@ _logger = logging.getLogger("mock_dolos_host")
 class DolosStatus:  # pylint: disable=too-many-instance-attributes, too-few-public-methods
 
     template = (
-        b"status\r\n"
-        b"Dolos status:\r\n"
-        b"    Uptime             : %(uptime)b\r\n"
-        b"    Charger            : %(charger)b\r\n"
-        b"    E-Fuse Power       : %(efuse)b\r\n"
-        b"    System present     : %(system_present)b\r\n"
-        b"    BMS current state  : %(bms_state)b\r\n"
-        b"    BMS next state     : Next States can be BMS_STATE_POWER_GOOD_WAIT"
-        b"or BMS_STATE_POWER_OUTPUT_OFF\r\n"
-        b"                         Transition to BMS_STATE_POWER_GOOD_WAIT happens"
-        b" when the system and charger are connected and the input voltage is out of "
-        b"efuse range.\r\n"
-        b"                         Transition to BMS_STATE_POWER_OUTPUT_OFF happens when"
-        b" either the system or charger is disconnected.\r\n"
-        b"    SMBus communication: %(smbus)b\r\n"
-        b"    Serial number      : %(serial_number)b\r\n"
-        b"    EEPROM             : %(eeprom)b\r\n"
-        b"\x1b[1;32mdolos:~> \x1b[m"
+        "status\r\n"
+        "Dolos status:\r\n"
+        "    Uptime             : %(uptime)s\r\n"
+        "    Charger            : %(charger)s\r\n"
+        "    E-Fuse Power       : %(efuse)s\r\n"
+        "    System present     : %(system_present)s\r\n"
+        "    BMS current state  : %(bms_state)s\r\n"
+        "    BMS next state     : Next States can be BMS_STATE_POWER_GOOD_WAIT"
+        "or BMS_STATE_POWER_OUTPUT_OFF\r\n"
+        "                         Transition to BMS_STATE_POWER_GOOD_WAIT happens"
+        " when the system and charger are connected and the input voltage is out of "
+        "efuse range.\r\n"
+        "                         Transition to BMS_STATE_POWER_OUTPUT_OFF happens when"
+        " either the system or charger is disconnected.\r\n"
+        "    SMBus communication: %(smbus)s\r\n"
+        "    Serial number      : %(serial_number)s\r\n"
+        "    EEPROM             : %(eeprom)s\r\n"
+        "\x1b[1;32mdolos:~> \x1b[m"
     )
 
     def __init__(self):
-        self.uptime = b"0 days and 00:00:40 seconds"
-        self.charger = b"Detected"
-        self.efuse = b"Good"
-        self.system_present = b"Present (signal HIGH, polarity HIGH)"
-        self.bms_state = b"BMS_STATE_POWER_OUTPUT_ON"
-        self.smbus = b"Detected"
-        self.serial_number = b"DOLOSV1-C-1520241234"
-        self.eeprom = b"Successful"
+        self.uptime = "0 days and 00:00:40 seconds"
+        self.charger = "Detected"
+        self.efuse = "Good"
+        self.system_present = "Present (signal HIGH, polarity HIGH)"
+        self.bms_state = "BMS_STATE_POWER_OUTPUT_ON"
+        self.smbus = "Detected"
+        self.serial_number = "DOLOSV1-C-1520241234"
+        self.eeprom = "Successful"
 
-    def render(self):
+    def status(self, cmd):
         return self.template % {
-            b"uptime": self.uptime,
-            b"charger": self.charger,
-            b"efuse": self.efuse,
-            b"system_present": self.system_present,
-            b"bms_state": self.bms_state,
-            b"smbus": self.smbus,
-            b"serial_number": self.serial_number,
-            b"eeprom": self.eeprom,
+            "uptime": self.uptime,
+            "charger": self.charger,
+            "efuse": self.efuse,
+            "system_present": self.system_present,
+            "bms_state": self.bms_state,
+            "smbus": self.smbus,
+            "serial_number": self.serial_number,
+            "eeprom": self.eeprom,
         }
+
+
+class DolosEEPROM:
+    def __init__(self):
+        self.data = bytearray([x % 256 for x in range(EEPROM_SIZE)])
+
+    def readall(self, cmd):
+        response = [cmd, "EEPROM data:"]
+        resp_format = (
+            "{:08X}: " + ("{:02x} " * 8) + " " + ("{:02x} " * 8) + "|........ ........|"
+        )
+        for addr in range(0, EEPROM_SIZE, 16):
+            segment = self.data[addr : addr + 16]
+            response.append(resp_format.format(addr, *segment))
+        response.append("\x1b[1;32mdolos:~> \x1b[m")
+        response = "\r\n".join(response)
+        return response
+
+    def writen(self, cmd):
+        invalid_length = "Invalid provided data length, expected 1 entries"
+        failed_write = "Failed to write data to EEPROM"
+        response = [cmd]
+        # Command format is:
+        # eeprom writen {hex addr} {dec length} {space delim hex bytes}
+
+        args = cmd.split()
+        addr = int(args[2], 16)
+        length = int(args[3])
+        data = [int(x, 16) for x in args[4:]]
+        assert len(data) == length
+        for offset, val in enumerate(data):
+            self.data[addr + offset] = val
+        response.append(f"Wrote data to address={hex(addr)}")
+        response.append("\x1b[1;32mdolos:~> \x1b[m")
+        response = "\r\n".join(response)
+        return response
 
 
 @pytest.fixture(scope="function")
 def mock_dolos_console():
-    def generate_dolos_console(status=DolosStatus()):
+    def generate_dolos_console(status=DolosStatus(), eeprom=DolosEEPROM()):
         class MockDolosConsole(contextlib.AbstractContextManager):
-            def __init__(self, status=status):
-                self.last_write = None
+            def __init__(self, status=status, eeprom=eeprom):
+                self.last_write = ""
+                self.status = status
+                self.eeprom = eeprom
+                # Console responses are an ordered lookup. The first
+                # result matching is used as the handler.
                 self.console_responses = {
-                    b"": None,
-                    b"status": status.render(),
-                    b"version": (
-                        b"\x1b[1;32mdolos:~> "
-                        b"\x1b[m version Dolos version "
-                        b"0.135.0-1a5dbd1 "
-                        b"\x1b[1;32mdolos:~> \x1b[m"
+                    "\n": lambda x: ("\r\n\x1b[1;32mdolos:~> \x1b[m"),
+                    "status": lambda x: self.status.status(x),
+                    "version": lambda x: (
+                        "version\r\n"
+                        "Dolos version 0.135.0-1a5dbd1\r\n"
+                        "\x1b[1;32mdolos:~> \x1b[m"
                     ),
-                    b"reset": b"reset\r\n",
+                    "reset": lambda x: (
+                        "reset\r\n"
+                        "Resetting device...\r\n"
+                        "\x1b[1;32mdolos:~> \x1b[m"
+                    ),
+                    "eeprom readall": self.eeprom.readall,
+                    "eeprom writen": self.eeprom.writen,
                 }
 
             def reset_input_buffer(self):
@@ -88,17 +135,43 @@ def mock_dolos_console():
                 pass
 
             def write(self, text):
-                self.last_write = text.strip(
-                    f"{CONSOLE_ENTER}{CONSOLE_CLEAR_CHR} ".encode("utf-8")
-                )
+                text = text.decode()
+                # Handle the clear text key
+                if CONSOLE_CLEAR in text:
+                    start = text.rfind(CONSOLE_CLEAR) + len(CONSOLE_CLEAR)
+                    self.last_write = text[start:]
+                    return
+                self.last_write += text
 
             def read(self):
                 return None
 
             def read_until(self, unused_end_char):
-                return self.console_responses[self.last_write]
+                # Do not return a result until we see a newline.
+                if CONSOLE_ENTER not in self.last_write:
+                    return b""
+
+                # Trim anything but the last newline from the command
+                cmd = self.last_write.strip() + "\n"
+
+                # Return the first command matching the prefix.
+                # This allows us to support arguments
+                for key, handler in self.console_responses.items():
+                    if cmd.startswith(key):
+                        response = handler(cmd)
+                        return response.encode()
+                return b""
 
             def flush(self):
+                pass
+
+            def close(self):
+                pass
+
+            def reset_input_buffer(self):
+                pass
+
+            def reset_output_buffer(self):
                 pass
 
             def __exit__(self, exc_type, exc_value, traceback):

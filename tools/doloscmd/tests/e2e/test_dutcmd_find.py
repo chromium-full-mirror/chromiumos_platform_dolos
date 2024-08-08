@@ -44,7 +44,7 @@ class TestDolosCmdFind:
     def test_basic_find_one_dolos(self, monkeypatch, mock_host_with_one_dolos, capfd):
 
         status = DolosStatus()
-        status.serial_number = b"DOLOSV1-C-2403140001"
+        status.serial_number = "DOLOSV1-C-2403140001"
         mock_host_with_one_dolos(status=status)
 
         with monkeypatch.context() as patch:

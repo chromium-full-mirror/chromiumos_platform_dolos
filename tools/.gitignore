@@ -2,10 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-build/
-.pytest_cache/
 **/__pycache__
-dist/
+*.pyc
 *egg-info
-proto/*pb2*
-proto/*pyi*
+.pytest_cache/
+.venv/
+build/
+dist/
+doloscmd/proto/*pb2*
+doloscmd/proto/*pyi*
