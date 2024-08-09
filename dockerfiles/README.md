@@ -18,19 +18,16 @@ cd dolos_source
 Get the source code
 
 ```shell
-git clone https://chrome-internal.googlesource.com/chromeos/third_party/dolos
+git clone https://chromium.googlesource.com/chromiumos/platform/dolos
 cd dolos
-```
-
-setup docker to use buildkit
-```shell
-export DOCKER_BUILDKIT=1
 ```
 
 Build the firmware.
 ```shell
+export DOCKER_BUILDKIT=1
 docker build --output "./build_result" \
              --target copytohost \
+             --builder=buildkit \
              -f dockerfiles/Dockerfile.firmware .
 ```
 
@@ -39,6 +36,7 @@ Build the updater.
 ```shell
 docker build --output "./build_result" \
              --target copytohost \
+             --builder=buildkit \
              -f dockerfiles/Dockerfile.updater .
 ```
 
