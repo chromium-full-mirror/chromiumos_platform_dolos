@@ -41,7 +41,7 @@ def generate_proto(source):
             sys.exit(-1)
 
 
-proto_src = ["doloscmd/proto/doloscmd.proto"]
+proto_src = ["proto/doloscmd.proto"]
 
 
 class DolosBuildPy(build_py.build_py):
@@ -59,6 +59,7 @@ setup(
     maintainer="chromium os",
     maintainer_email="chromium-os-dev@chromium.org",
     license="Chromium",
+    package_dir={"doloscmd": "../doloscmd"},
     packages=[
         "doloscmd",
         "doloscmd.proto",
