@@ -53,6 +53,14 @@ class DolosBuildPy(build_py.build_py):
         build_py.build_py.run(self)
 
 
+# Chroot's copy of Python includes 'grpc_tools' but lacks 'pip',
+# this means we can not include packages in it's 'setup_requires'.
+# Unfortunately, setup.py requires it to access the 'grpc_tools' package
+# when generating the protobufs.
+setup_requires = None
+if os.getenv("VIRTUAL_ENV"):
+    setup_requires = ["grpcio-tools"]
+
 setup(
     name="doloscmd",
     version="0.1",
@@ -64,9 +72,10 @@ setup(
         "doloscmd",
         "doloscmd.proto",
     ],
+    setup_requires=setup_requires,
     cmdclass={"build_py": DolosBuildPy},
     entry_points={
         "console_scripts": ["doloscmd=doloscmd.doloscmd:main"],
     },
-    description="Servo usb updater.",
+    description="Dolos command tools.",
 )

@@ -1,25 +1,19 @@
-
-python battery.py -s chromeos8-row4-rack3-host13 -f aleena.yaml -p 0
-
-
 ## First Time Setup
 
 For first time setup we need to create a virtual environment, enter it, and
-install dependencies. This is only needed when the `.venv` directory is erased.
-
-From root tools directory:
+install dependencies. These steps have consolidated into a start script.
 
 ```console
-python -m venv .venv
-source activate.sh
-pip install -r requirements.txt
-pip install .
+source start_venv.sh
 ```
 
-### Enter Virtual Environment after setup:
+#### Install venv if missing:
 
-To run the scripts, enter the virtual environment if it is not active using
-`source activate.sh`.
+If venv is missing, install the package with:
+
+```console
+sudo apt-get install python3-venv
+```
 
 ### Exit Virtual Environment
 
@@ -38,8 +32,8 @@ https://goto.google.com/chromeos-lab-duts-ssh
 ## Importing Battery Information
 
 ```console
-(.venv) $ load_battery  --help
-usage: load_battery [-h] (-s SSH | -i) [-p I2C_PORT] -f FILE [-c COMMENT] [-v]
+(.venv) $ dolos_load_battery  --help
+usage: dolos_load_battery [-h] (-s SSH | -i) [-p I2C_PORT] -f FILE [-c COMMENT] [-v]
 
 options:
   -h, --help   show this help message and exit
@@ -72,31 +66,25 @@ SERVO_PORT=9996
 SERVO_SERIAL=SERVOV4P1-S-2103240648
 ```
 
-Pass the `DUT_HOSTNAME` Parameter to the load_battery.py script and specify
+Pass the `DUT_HOSTNAME` Parameter to the dolos_load_battery.py script and specify
 an `OUTPUT` path for the yaml data.
 
 
 ```console
-load_battery -s $DUT_HOSTNAME -f $OUTPUT
+dolos_load_battery -s $DUT_HOSTNAME -f $OUTPUT
 ```
 
 Example:
 ```console
-(.venv) $ load_battery -s chromeos8-row10-rack8-host46 -f pico.yaml
-INFO - load_battery.py:252:configure_connections : Connected
-INFO - load_battery.py:176:_configure_port : Detecting port
-INFO - load_battery.py:180:_configure_port : Using port 4
-INFO - load_battery.py:197:load_registers : Loading registers
-INFO - load_battery.py:201:load_registers : Progress 1/40 - Loading 'SB_MANUFACTURER_ACCESS'
+(.venv) $ dolos_load_battery -s chromeos8-row10-rack8-host46 -f pico.yaml
+INFO - dolos_load_battery.py:252:configure_connections : Connected
+INFO - dolos_load_battery.py:176:_configure_port : Detecting port
+INFO - dolos_load_battery.py:180:_configure_port : Using port 4
+INFO - dolos_load_battery.py:197:load_registers : Loading registers
+INFO - dolos_load_battery.py:201:load_registers : Progress 1/40 - Loading 'SB_MANUFACTURER_ACCESS'
 ...
-INFO - load_battery.py:201:load_registers : Progress 40/40 - Loading 'SB_PACK_STATUS'
-INFO - load_battery.py:209:export_table : Exporting yaml to:PosixPath('test.yaml')
-```
-
-Usage:
-
-```console
-program_cable -f aleena.yaml -d 24/4/23 -c
+INFO - dolos_load_battery.py:201:load_registers : Progress 40/40 - Loading 'SB_PACK_STATUS'
+INFO - dolos_load_battery.py:209:export_table : Exporting yaml to:PosixPath('test.yaml')
 ```
 
 Final steps:
@@ -134,8 +122,8 @@ Simply pass the `YAML` file in and provide fields to specify the date, and polar
 If the serial field is left empty, it'll preserve the existing serial.
 
 ```console
-(.venv) $ program_cable --help
-usage: program_cable [-h] -y YAML (-d DOLOS | -f) [-ns NEW_SERIAL] [-v]
+(.venv) $ dolos_program_cable --help
+usage: dolos_program_cable [-h] -y YAML (-d DOLOS | -f) [-ns NEW_SERIAL] [-v]
 
 options:
   -h, --help      show this help message and exit
@@ -148,31 +136,22 @@ options:
 
 Example using Dolos:
 ```console
-(.venv) $ program_cable -y jinlon.yaml -d any
-INFO - program_cable.py:30:load_table : Loading yaml: PosixPath('jinlon.yaml')
-INFO - program_cable.py:113:read : Reading cable
-INFO - program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
-INFO - program_cable.py:137:write : Programming cable
-INFO - program_cable.py:142:write : Verifying cable
-INFO - program_cable.py:113:read : Reading cable
-INFO - program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
-INFO - program_cable.py:145:write : Program success
+(.venv) $ dolos_program_cable -y pico.yaml -d any
+INFO - dolos_program_cable.py:30:load_table : Loading yaml: PosixPath('pico.yaml')
+INFO - dolos_program_cable.py:113:read : Reading cable
+INFO - dolos_program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
+INFO - dolos_program_cable.py:137:write : Programming cable
+INFO - dolos_program_cable.py:142:write : Verifying cable
+INFO - dolos_program_cable.py:113:read : Reading cable
+INFO - dolos_program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
+INFO - dolos_program_cable.py:145:write : Program success
 ```
 
 ```console
-(.venv) $ program_cable -y jinlon.yaml -d DOLOSV3-C-3320241234
+(.venv) $ dolos_program_cable -y pico.yaml -d DOLOSV3-C-3320241234
 ```
 
 Example using FTDI:
 ```console
-(.venv) $ program_cable -y jinlon.yaml -f
-```
-
-### Dry run export of binary data
-
-We can use the yamls to generate a copy of the binary data without a cable.
-
-Example:
-```console
-(.venv) $ program_cable -f akali.yaml --dry -e test.bin
+(.venv) $ dolos_program_cable -y pico.yaml -f
 ```
