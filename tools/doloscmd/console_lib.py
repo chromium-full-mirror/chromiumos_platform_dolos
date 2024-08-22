@@ -8,17 +8,19 @@
 """Code that abstracts the implementation of the Dolos serial console from users."""
 
 import logging
-from multiprocessing import Pool
 import os
 import pathlib
 import re
 import stat
 import subprocess
 import tempfile
+import time
+from multiprocessing import Pool
 
-from doloscmd.proto import doloscmd_pb2
 import requests
 import serial
+
+from doloscmd.proto import doloscmd_pb2
 
 FIRMWARE_URL = (
     "https://storage.googleapis.com/dolos-firmware/%(firmware_version)s/zephyr.txt"
@@ -45,52 +47,63 @@ class DolosConsole:
     or generic arguments.
     """
 
-    def __init__(self, uartname):
+    def __init__(self, uartname, open_timeout=1):
         """Creates a Dolos console from the uartname
 
         Opens a serial connection to a uartname. Connects to the device and
         issues a command to extract the serial number.
 
         Args:
-            uartname string: Uartname of the console
+            uartname (string): Uartname of the console
+            open_timeout (number): Timeout in seconds to open the console
 
         Raises:
             DolosConsoleException: We are unable to open the serial port
         """
         self.uartname = uartname
         self.console = None
-        self.serial = None
+        self._serial = None
 
         # Open the console to verify it exists
-        self.open()
+        self.open(open_timeout)
         try:
             # Sometimes there is junk output in the console from prior
             # activity. Wait until the console is clear before issuing a
             # command.
             self.run_firmware_command("", timeout=1)
-            self.update_serial()
         except DolosConsoleException as err:
             logging.debug(err)
 
-    def open(self):
+    def open(self, open_timeout=1):
         """Open a Dolos Serial console connection.
+
+        Args:
+            open_timeout (number): Timeout in seconds to open the console
 
         Raises:
             DolosConsoleException: Device failed to open.
         """
         path = SERIAL_PATH + self.uartname
-        try:
-            self.console = serial.Serial(
-                port=path,
-                baudrate=115200,
-                exclusive=True,
-                timeout=10,
-                write_timeout=10,
-            )
-        except (serial.SerialException, OSError) as err:
-            raise DolosConsoleException(
-                f"Unable to open serial device {path}.\rReason: {str(err)}",
-            ) from err
+        stop = time.monotonic() + open_timeout
+        while True:
+            try:
+                self.console = serial.Serial(
+                    port=path,
+                    baudrate=115200,
+                    exclusive=True,
+                    timeout=10,
+                    write_timeout=10,
+                )
+                break
+            except (serial.SerialException, OSError) as err:
+                # Check if we still have time
+                if time.monotonic() < stop:
+                    time.sleep(0.01)
+                else:
+                    # Timed out
+                    raise DolosConsoleException(
+                        f"Unable to open serial device {path}.\rReason: {str(err)}",
+                    ) from err
 
     def close(self):
         """Closes the dolos console serial connection."""
@@ -114,7 +127,7 @@ class DolosConsole:
         return ports
 
     @classmethod
-    def _safe_init(cls, uart):
+    def _safe_init(cls, uart, total_cnt):
         """Wraps the init call to catch exceptions.
 
         Handles the sequence to connect to a Dolos console, obtain it's serial,
@@ -128,8 +141,16 @@ class DolosConsole:
             DolosConsole: Dolos console in the closed state
             None: Exception prevented connecting to the device
         """
+
+        # It takes about 0.2 seconds to open a Dolos console load the serial.
+        # If N dolos are present and each doloscmd needs to find a serial at the
+        # same time N^2 calls will happen. These operations happen in parallel
+        # so the open timeout is proportional to N.
+        open_timeout = total_cnt * 0.5
         try:
-            console = DolosConsole(uart)
+            console = DolosConsole(uart, open_timeout)
+            # Get status also sets the serial
+            console.get_status()
             console.close()
             return console
         except DolosConsoleException as err:
@@ -148,12 +169,19 @@ class DolosConsole:
         """
         dolos = []
         uarts = cls._get_all_ftdi_uart_names()
+        # No devices found
+        if len(uarts) == 0:
+            logging.debug("No Dolos consoles found")
+            return []
 
-        # On labstation we have a 10-1 labstation to
-        with Pool(max(10, os.cpu_count())) as pool:
-            dolos = pool.map(cls._safe_init, uarts)
-            dolos = list(filter(None, dolos))
+        args = [(x, len(uarts)) for x in uarts]
+        # Labstations have low CPU counts but we want the command to run
+        # in parallel and _safe_init is I/O limited.
+        with Pool(len(uarts)) as pool:
+            dolos = pool.starmap(cls._safe_init, args)
+        dolos = list(filter(None, dolos))
 
+        logging.debug("%d Dolos consoles found", len(dolos))
         for d in dolos:
             logging.debug("Uart:%r, Serial:%r", d.uartname, d.serial)
         return dolos
@@ -414,6 +442,8 @@ class DolosConsole:
     def get_status(self):
         """Call status command on the UART.
 
+        This will update the serial number and return the status dictionary
+
         Returns:
             dict{string: string} : Mapping of status keys to values.
         """
@@ -421,7 +451,13 @@ class DolosConsole:
         logging.debug("Status results: %r", result)
         processed_results = result.splitlines()
         logging.debug("Status processed_results: %r", processed_results)
-        return self.dolos_status_output_to_dict(processed_results)
+        status_dict = self.dolos_status_output_to_dict(processed_results)
+        logging.debug(status_dict)
+        dolos_serial = self.fix_broken_serial(
+            status_dict.get("Serial number", "No Serial Number")
+        )
+        self._serial = dolos_serial
+        return status_dict
 
     def fix_broken_serial(self, dolos_serial_number):
         """Fix serial number format incorrectly written in manufacturing.
@@ -455,14 +491,12 @@ class DolosConsole:
 
         return dolos_serial_number
 
-    def update_serial(self):
-        """Get the serial number from the status output on the UART."""
-        status_dict = self.get_status()
-        logging.debug(status_dict)
-        dolos_serial = self.fix_broken_serial(
-            status_dict.get("Serial number", "No Serial Number")
-        )
-        self.serial = dolos_serial
+    @property
+    def serial(self):
+        """Fetch the serial number if not present and return it."""
+        if self._serial is None:
+            self.get_status()
+        return self._serial
 
     def update_firmware(self, firmware_version):
         """Update the Dolos firmware to a different version.
@@ -476,9 +510,7 @@ class DolosConsole:
         Args:
             firmware_version (string): version of the firmware to update to.
         """
-        with tempfile.TemporaryDirectory(
-            prefix="/usr/local/tmp/"
-        ) as temp_directory:
+        with tempfile.TemporaryDirectory(prefix="/usr/local/tmp/") as temp_directory:
             firmware_updater_filename = f"{temp_directory}/fw-updater"
             req = requests.get(
                 "https://storage.googleapis.com/dolos-firmware/fw-updater",
@@ -546,10 +578,7 @@ class DolosConsole:
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_NO_POWER_SUPPLIED
         if status_dict.get("E-Fuse Power", "") != "Good":
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED
-        if (
-            status_dict.get("BMS current state", "")
-            != "BMS_STATE_POWER_OUTPUT_ON"
-        ):
+        if status_dict.get("BMS current state", "") != "BMS_STATE_POWER_OUTPUT_ON":
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_BMS_STATE_INVALID
         if status_dict.get("SMBus communication", "") != "Detected":
             return doloscmd_pb2.DOLOS_STATUS.DOLOS_SMBUS_COMM_NOT_DETECTED
@@ -615,9 +644,7 @@ class DolosConsole:
                 return self._decode_eeprom(response)
             except DolosConsoleException as err:
                 logging.warning("EEPROM Read attempt %d error: %r", i, err)
-        raise DolosConsoleException(
-            f"Failed to read eeprom after {retry_cnt} attempts"
-        )
+        raise DolosConsoleException(f"Failed to read eeprom after {retry_cnt} attempts")
 
     def _eeprom_write_segment(self, addr, segment, retry_cnt=5):
         """Write and verify a segment is transferred.
@@ -641,12 +668,8 @@ class DolosConsole:
         for i in range(retry_cnt):
             try:
                 # EEPROM commands tend to be slow.
-                response = self.run_firmware_command(
-                    cmd, timeout=2, echo_timeout=2
-                )
-                m = re.search(
-                    r"address=(?P<addr>0x[\da-f]+)", response, re.IGNORECASE
-                )
+                response = self.run_firmware_command(cmd, timeout=2, echo_timeout=2)
+                m = re.search(r"address=(?P<addr>0x[\da-f]+)", response, re.IGNORECASE)
                 if m is None:
                     raise DolosConsoleException("Invalid response")
                 if int(m.group("addr"), 16) != addr:
@@ -655,9 +678,7 @@ class DolosConsole:
                     )
                 return
             except DolosConsoleException as err:
-                logging.warning(
-                    "EEPROM write segment attempt %d error: %r", i, err
-                )
+                logging.warning("EEPROM write segment attempt %d error: %r", i, err)
         raise DolosConsoleException(
             f"Failed to write eeprom after {retry_cnt} attempts"
         )
@@ -679,7 +700,7 @@ class DolosConsole:
                 segment = data[addr : addr + 16]
                 self._eeprom_write_segment(addr, segment)
         except DolosConsoleException as err:
-            logging.warning("EEPROM write attempt %d error: %r", i, err)
+            logging.warning("EEPROM write attempt error: %r", err)
 
     def eeprom_write(self, data, retry_cnt=5):
         """Write to the EEPROM cable and verify program is successful.
@@ -713,9 +734,7 @@ class DolosConsole:
                     break
                 raise DolosConsoleException("Verify failed")
             except DolosConsoleException as err:
-                logging.warning(
-                    "EEPROM write_verify attempt %d error: %r", i, err
-                )
+                logging.warning("EEPROM write_verify attempt %d error: %r", i, err)
         else:
             raise DolosConsoleException(
                 f"Failed to write and verify eeprom after {retry_cnt} attempts"
