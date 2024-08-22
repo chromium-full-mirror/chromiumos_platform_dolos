@@ -65,7 +65,9 @@ def mock_dolos_host(class_mocker):
                 ]
 
             # pylint
-            def mock_serial_open(self, port, baudrate, exclusive):
+            def mock_serial_open(
+                self, port, baudrate, exclusive, timeout, write_timeout
+            ):
                 if not os.path.basename(port) in self.usb_devices:
                     raise serial.SerialException(f"Device not found {port}.")
                 return self.usb_devices[os.path.basename(port)]
