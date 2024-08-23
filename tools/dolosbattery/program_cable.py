@@ -297,18 +297,21 @@ class Flash:
 
         data_section = self._create_data_section(table)
 
+        polarity = None
         polarity_setting = table.get("Polarity")
         if isinstance(polarity_setting, str):
             polarity_setting = polarity_setting.lower()
-        polarity_map = {
-            "low": 0,
-            "high": 1,
-            "float": 2,
-            "unknown": 0,
-        }
-        if polarity_setting == "unknown":
-            logging.warning("Polarity is unknown, using default")
-        polarity = polarity_map.get(polarity_setting)
+            polarity_map = {
+                "low": 0,
+                "high": 1,
+                "float": 2,
+                "unknown": 0,
+            }
+            if polarity_setting == "unknown":
+                logging.warning("Polarity is 'unknown', using default")
+            polarity = polarity_map.get(polarity_setting)
+        else:
+            logging.error("'Polarity' must be set to a string")
         if polarity is None:
             raise ProgramCableException(
                 "'Polarity' field invalid in yaml. Options: 'unknown', 'low', 'high', 'float'"

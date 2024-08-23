@@ -265,7 +265,7 @@ def main():
     parser.add_argument(
         "-c",
         dest="comment",
-        default="",
+        default="comment section",
         help="Optional comment data",
     )
     parser.add_argument(
@@ -274,7 +274,7 @@ def main():
     args = parser.parse_args()
     logs.set_config(args.verbose)
     i2c, shell = configure_connections(args.ftdi_i2c, args.ssh, args.i2c_port)
-    table = {"Comment": args.comment, "PolarityHigh": "Unknown"}
+    table = {"Comment": args.comment, "Version": 1, "Polarity": "unknown"}
     battery = BatteryRegisters(i2c, shell)
     table |= battery.load_registers()
     export_table(args.file, table)
