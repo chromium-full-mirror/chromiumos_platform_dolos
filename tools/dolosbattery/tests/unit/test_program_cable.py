@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-from dolosbattery.layout import REGISTERS
-from dolosbattery.program_cable import Flash
-from dolosbattery.program_cable import ProgramCableException
 import pytest
+
+from dolosbattery.layout import REGISTERS
+from dolosbattery.program_cable import Flash, ProgramCableException
 
 
 class EEPROMFixture:

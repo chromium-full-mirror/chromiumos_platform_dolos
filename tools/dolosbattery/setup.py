@@ -7,7 +7,6 @@
 
 from setuptools import setup
 
-
 setup(
     name="dolosbattery",
     version="0.1",

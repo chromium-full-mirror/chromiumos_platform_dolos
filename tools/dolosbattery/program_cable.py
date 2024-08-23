@@ -13,11 +13,10 @@ import re
 import struct
 import sys
 
-from dolosbattery import i2c_interface
-from dolosbattery import layout
-from dolosbattery import logs
-from doloscmd import console_lib
 import yaml
+
+from dolosbattery import i2c_interface, layout, logs
+from doloscmd import console_lib
 
 
 class ProgramCableException(Exception):
@@ -298,10 +297,21 @@ class Flash:
 
         data_section = self._create_data_section(table)
 
-        polarity_high = table.get("PolarityHigh")
-        if not isinstance(polarity_high, bool):
+        polarity_setting = table.get("Polarity")
+        if isinstance(polarity_setting, str):
+            polarity_setting = polarity_setting.lower()
+        polarity_map = {
+            "low": 0,
+            "high": 1,
+            "float": 2,
+            "unknown": 0,
+        }
+        if polarity_setting == "unknown":
+            logging.warning("Polarity is unknown, using default")
+        polarity = polarity_map.get(polarity_setting)
+        if polarity is None:
             raise ProgramCableException(
-                "'PolarityHigh' field invalid in yaml. This needs to be set manually."
+                "'Polarity' field invalid in yaml. Options: 'unknown', 'low', 'high', 'float'"
             )
 
         if self.dolos_serial is None:
@@ -311,7 +321,7 @@ class Flash:
         flash_data = struct.pack(
             "<BBBBHI1014s",
             self.dolos_serial["version"],
-            polarity_high,
+            polarity,
             self.dolos_serial["year"],
             self.dolos_serial["week"],
             self.dolos_serial["number"],

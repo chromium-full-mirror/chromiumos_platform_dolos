@@ -12,11 +12,9 @@ import pathlib
 import re
 import sys
 
-from dolosbattery import i2c_interface
-from dolosbattery import layout
-from dolosbattery import logs
-from dolosbattery import shell_interface
 import yaml
+
+from dolosbattery import i2c_interface, layout, logs, shell_interface
 
 
 class LoadBatteryException(Exception):
