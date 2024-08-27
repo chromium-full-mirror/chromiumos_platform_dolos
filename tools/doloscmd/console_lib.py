@@ -149,8 +149,8 @@ class DolosConsole:
         open_timeout = total_cnt * 0.5
         try:
             console = DolosConsole(uart, open_timeout)
-            # Get status also sets the serial
-            console.get_status()
+            # The serial is set the first time it's accessed
+            console.serial
             console.close()
             return console
         except DolosConsoleException as err:
@@ -495,7 +495,10 @@ class DolosConsole:
     def serial(self):
         """Fetch the serial number if not present and return it."""
         if self._serial is None:
-            self.get_status()
+            try:
+                self.get_status()
+            except DolosConsoleException as err:
+                logging.warning("Failed to load serial %s", err)
         return self._serial
 
     def update_firmware(self, firmware_version):
@@ -535,10 +538,11 @@ class DolosConsole:
                     download_file.write(chunk)
             try:
                 self.close()
+                true_path = str(pathlib.Path(SERIAL_PATH, self.uartname).resolve())
                 cmd = [
                     f"{temp_directory}/fw-updater",
                     "--uart",
-                    SERIAL_PATH + self.uartname,
+                    true_path,
                     f"{temp_directory}/zephyr.txt",
                 ]
                 proc = subprocess.run(
