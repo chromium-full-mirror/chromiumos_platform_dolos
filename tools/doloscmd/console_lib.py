@@ -75,6 +75,10 @@ class DolosConsole:
         except DolosConsoleException as err:
             logging.debug(err)
 
+    def __del__(self):
+        """Release resources."""
+        self.close()
+
     def open(self, open_timeout=1):
         """Open a Dolos Serial console connection.
 
