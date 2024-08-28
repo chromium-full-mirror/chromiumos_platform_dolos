@@ -23,7 +23,8 @@ import serial
 from doloscmd.proto import doloscmd_pb2
 
 FIRMWARE_URL = (
-    "https://storage.googleapis.com/dolos-firmware/%(firmware_version)s/zephyr.txt"
+    "https://storage.googleapis.com/dolos-firmware/"
+    "box_firmware/%(firmware_version)s/zephyr.txt"
 )
 SERIAL_PATH = "/dev/serial/by-id/"
 DOLOS_FTDI_GLOB = "usb-FTDI_FT232R_USB_UART_*"
