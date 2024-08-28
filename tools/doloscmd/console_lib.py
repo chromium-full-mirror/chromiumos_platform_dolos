@@ -543,7 +543,7 @@ class DolosConsole:
                 ]
                 proc = subprocess.run(
                     cmd,
-                    check=False,
+                    check=True,
                     capture_output=True,
                 )
                 logging.debug(
