@@ -519,7 +519,10 @@ class DolosConsole:
         Args:
             firmware_version (string): version of the firmware to update to.
         """
-        with tempfile.TemporaryDirectory(prefix="/usr/local/tmp/") as temp_directory:
+        temp_dir = "/usr/local/tmp/"
+        if not os.path.exists(temp_dir):
+            temp_dir = None
+        with tempfile.TemporaryDirectory(prefix=temp_dir) as temp_directory:
             firmware_updater_filename = f"{temp_directory}/fw-updater"
             req = requests.get(
                 "https://storage.googleapis.com/dolos-firmware/fw-updater",
@@ -544,11 +547,10 @@ class DolosConsole:
                     download_file.write(chunk)
             try:
                 self.close()
-                true_path = str(pathlib.Path(SERIAL_PATH, self.uartname).resolve())
                 cmd = [
                     f"{temp_directory}/fw-updater",
                     "--uart",
-                    true_path,
+                    SERIAL_PATH + self.uartname,
                     f"{temp_directory}/zephyr.txt",
                 ]
                 proc = subprocess.run(
