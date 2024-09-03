@@ -457,6 +457,7 @@ class DolosConsole:
         dolos_serial = self.fix_broken_serial(
             status_dict.get("Serial number", "No Serial Number")
         )
+        status_dict["Serial number"] = dolos_serial
         self._serial = dolos_serial
         return status_dict
 
