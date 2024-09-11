@@ -28,7 +28,7 @@ class EEPROMFixture:
 
 
 def create_table():
-    table = {"PolarityHigh": True}
+    table = {"Polarity": "High"}
     for reg in REGISTERS:
         value = reg.get("word", None)
         if value is not None:
@@ -125,15 +125,3 @@ class TestProgramCableFlash:
         flash.write(data)
         flash.read()
         assert start_serial == flash.dolos_serial
-
-    def test_verify_data_blocks(self):
-        eeprom = EEPROMFixture()
-        flash = Flash(eeprom)
-        flash.read()
-        data = flash.create_payload(create_table())
-        print("read_word_reg")
-        read_word_reg(data, 3)
-        print("read_block_reg")
-        read_block_reg(data, 3)
-        print("read_done")
-        assert False
