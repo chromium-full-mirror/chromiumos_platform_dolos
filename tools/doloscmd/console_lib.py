@@ -549,6 +549,7 @@ class DolosConsole:
                 self.close()
                 cmd = [
                     f"{temp_directory}/fw-updater",
+                    "-vvv",
                     "--uart",
                     SERIAL_PATH + self.uartname,
                     f"{temp_directory}/zephyr.txt",
