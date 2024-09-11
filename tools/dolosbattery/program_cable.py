@@ -31,10 +31,16 @@ def load_table(file):
 
     Returns:
         dict: Cable configuration
+
+    Raises:
+        ProgramCableException: Error reading or parsing the yaml file
     """
     logging.info("Loading yaml: %r", file)
-    text = file.read_text()
-    table = yaml.safe_load(text)
+    try:
+        text = file.read_text()
+        table = yaml.safe_load(text)
+    except (FileNotFoundError, yaml.scanner.ScannerError, yaml.YAMLError) as err:
+        raise ProgramCableException("Unable to read Yaml file %s", file) from err
     return table
 
 
@@ -439,7 +445,11 @@ def program_cable(programmer, table, new_serial=None):
 
 
 def main():
-    """Parse the args, load the table and program the cable."""
+    """Parse the args, load the table and program the cable.
+
+    Raises:
+        ProgramCableException() with diagnostic details on failure.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-y",
@@ -470,42 +480,30 @@ def main():
     args = parser.parse_args()
     logs.set_config(args.verbose)
 
-    try:
-        table = load_table(args.yaml)
-    except yaml.scanner.ScannerError as e:
-        logging.critical(e, exc_info=True)
-        logging.critical("Invalid Yaml file {args.file}")
-        return False
-    except yaml.YAMLError as e:
-        logging.critical(e, exc_info=True)
-        logging.critical("Unable to read Yaml file {args.file}")
-        return False
+    table = load_table(args.yaml)
 
     programmer = None
 
     if args.ftdi:
         try:
             programmer = i2c_interface.I2CFTDI()
-        except i2c_interface.I2CException as e:
-            logging.critical("Unable to connect to FTDI, is it connected?")
-            return False
+        except i2c_interface.I2CException as err:
+            raise ProgramCableException(
+                "Unable to connect to FTDI, is it connected?"
+            ) from err
     elif args.dolos:
         try:
             dolos_serial = args.dolos.upper()
             if dolos_serial == "ANY":
                 dolos_serial = None
             programmer = console_lib.DolosConsole.find_dolos_serial(dolos_serial)
-        except console_lib.DolosConsoleException as e:
-            logging.critical(e, exc_info=True)
-            logging.critical(
+        except console_lib.DolosConsoleException as err:
+            raise ProgramCableException(
                 "Unable connect to Dolos, is the serial correct and connected?"
-            )
-            return False
+            ) from err
 
     program_cable(programmer, table, args.new_serial)
 
-    return True
-
 
 if __name__ == "__main__":
-    sys.exit(int(not main()))
+    main()

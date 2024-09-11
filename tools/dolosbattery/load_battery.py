@@ -235,7 +235,11 @@ def configure_connections(ftdi_i2c=None, ssh=None, i2c_port=None):
 
 
 def main():
-    """Parse the args, load the battery registers, and save the table."""
+    """Parse the args, load the battery registers, and save the table.
+
+    Raises:
+        LoadBatteryException() with diagnostic details on failure.
+    """
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument(
@@ -278,8 +282,7 @@ def main():
     battery = BatteryRegisters(i2c, shell)
     table |= battery.load_registers()
     export_table(args.file, table)
-    return True
 
 
 if __name__ == "__main__":
-    sys.exit(int(not main()))
+    main()
