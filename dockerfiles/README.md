@@ -27,7 +27,6 @@ Build the firmware.
 export DOCKER_BUILDKIT=1
 docker build --output "./build_result" \
              --target copytohost \
-             --builder=buildkit \
              -f dockerfiles/Dockerfile.firmware .
 ```
 
@@ -36,7 +35,6 @@ Build the updater.
 ```shell
 docker build --output "./build_result" \
              --target copytohost \
-             --builder=buildkit \
              -f dockerfiles/Dockerfile.updater .
 ```
 

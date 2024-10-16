@@ -13,7 +13,7 @@ if(DEFINED CONFIG_MSPM0_IMAGE_OUTPUT_TI_TXT)
     PROPERTY
       extra_post_build_commands
       COMMAND
-      $ENV{CCS_BASE}/ccs/tools/compiler/ti-cgt-armllvm_3.2.0.LTS/bin/tiarmhex
+      $ENV{CCS_BASE}/ccs/tools/compiler/ti-cgt-armllvm_3.2.2.LTS/bin/tiarmhex
       ${CONFIG_KERNEL_BIN_NAME}.elf
       --ti_txt
       --diag_wrap=off

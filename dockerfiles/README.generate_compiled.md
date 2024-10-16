@@ -12,7 +12,7 @@ Then when in that shell run:
 ```shell
 apt-get update     && apt-get install -y     --no-install-recommends     ccache     cmake     device-tree-compiler     dfu-util     file     g++-multilib     gcc     gcc-multilib     git     gperf     libmagic1     libsdl2-dev     make     ninja-build     python3-dev     python3-pip     python3-setuptools     python3-tk     python3-wheel
 pip install west
-west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_cleanup /zephyrproject
+west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_dev_stable /zephyrproject
 cd /zephyrproject/
 west update
 cd zephyr/scripts/

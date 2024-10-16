@@ -18,13 +18,15 @@ RUN apt-get update \
 
 ######################################################################
 FROM downloader as zephyrfetch
+ARG ZEPHYR_VERSION=0.16.8
 
-RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.5-1/zephyr-sdk-0.16.5-1_linux-x86_64.tar.xz
-RUN tar xvf zephyr-sdk-0.16.5-1_linux-x86_64.tar.xz
+RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_VERSION}/zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
+RUN tar xvf zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
 
 #######################################################################
 FROM downloader as ccsfetch
-ARG CCS_VERSION=12.5.0
+ARG CCS_VERSION=12.8.1
+ARG CCS_REVISION=00005
 
 RUN apt-get update \
     && apt-get install -y \
@@ -32,16 +34,18 @@ RUN apt-get update \
     udev \
     libc6-i386
 
-RUN wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/${CCS_VERSION}/CCS${CCS_VERSION}.00007_linux-x64.tar.gz
-RUN tar xvf CCS${CCS_VERSION}.00007_linux-x64.tar.gz
+RUN wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/${CCS_VERSION}/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz
+
+RUN tar xvf CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz
 ENV CCS_BASE=/ti
-WORKDIR /CCS${CCS_VERSION}.00007_linux-x64
+WORKDIR /CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64
 RUN mkdir -p /etc/udev/rules.d/
-RUN ./ccs_setup_${CCS_VERSION}.00007.run --mode unattended --prefix /ti
+RUN ./ccs_setup_${CCS_VERSION}.${CCS_REVISION}.run --mode unattended --prefix /ti
 
 ######################################################################
 FROM downloader as dolos-firmware-builder
-ARG CCS_VERSION=12.5.0
+ARG CCS_VERSION=12.8.1
+ARG ZEPHYR_VERSION=0.16.8
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
@@ -69,7 +73,7 @@ RUN apt-get update \
 
 RUN pip install west
 
-RUN west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_cleanup /zephyrproject
+RUN west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_dev /zephyrproject
 
 WORKDIR /zephyrproject/zephyr
 
@@ -87,9 +91,9 @@ COPY dockerfiles/requirements.compiled .
 
 RUN pip install --require-hashes -r requirements.compiled
 
-WORKDIR /usr/local/zephyr-sdk-0.16.5-1
+WORKDIR /usr/local/zephyr-sdk-${ZEPHYR_VERSION}
 
-COPY --link --from=zephyrfetch /zephyr-sdk-0.16.5-1/ .
+COPY --link --from=zephyrfetch /zephyr-sdk-${ZEPHYR_VERSION}/ .
 
 RUN ./setup.sh -h -t all
 

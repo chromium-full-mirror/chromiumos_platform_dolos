@@ -13,7 +13,7 @@ with open("west.yml") as stream:
 
 for project in original["manifest"]["projects"]:
     if project["name"] == "hal_ti":
-        project["revision"] = "mspm0_support"
+        project["revision"] = "mspm0_dev"
         project["url"] = "https://github.com/msp-ti/hal_ti"
 
 with open("west.yml", "w") as file:
