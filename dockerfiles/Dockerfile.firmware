@@ -73,7 +73,7 @@ RUN apt-get update \
 
 RUN pip install west
 
-RUN west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_dev /zephyrproject
+RUN west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_dev_stable /zephyrproject
 
 WORKDIR /zephyrproject/zephyr
 

@@ -7,6 +7,7 @@
 
 #include <ti/mspm0g1x0x_g3x0x/mspm0g3507.dtsi>
 #include "mspm0g3507-pinctrl.dtsi"
+#include "dt-bindings/adc/mspm0_adc.h"
 
 #include <freq.h>
 

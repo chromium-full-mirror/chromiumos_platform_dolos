@@ -1,140 +1,115 @@
 #include <dt-bindings/pinctrl/mspm0-pinctrl.h>
-
 &pinctrl {
 	i2c0_sda_pa0: i2c0_sda_pa0 {
-		pinmux = <MSP_PINMUX(1,I2C0_SDA)>;
+		pinmux = <MSP_PINMUX(1,MSPM0_PIN_FUNCTION_3)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	i2c0_scl_pa1: i2c0_scl_pa1 {
-		pinmux = <MSP_PINMUX(2,I2C0_SCL)>;
+		pinmux = <MSP_PINMUX(2,MSPM0_PIN_FUNCTION_3)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pb2_pull_up: i2c1_scl_pb2_pull_up {
-		pinmux = <MSP_PINMUX(15,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(15,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pb3_pull_up: i2c1_sda_pb3_pull_up {
-		pinmux = <MSP_PINMUX(16,I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(16,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pb2: i2c1_scl_pb2 {
-		pinmux = <MSP_PINMUX(15,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(15,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pb3: i2c1_sda_pb3 {
-		pinmux = <MSP_PINMUX(16,I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(16,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pa11_pull_up: i2c1_scl_pa11_pull_up {
-		pinmux = <MSP_PINMUX(22,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(22,MSPM0_PIN_FUNCTION_8)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pa10_pull_up: i2c1_sda_pa10_pull_up {
-		pinmux = <MSP_PINMUX(21, I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(21,MSPM0_PIN_FUNCTION_8)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pa16_pull_up: i2c1_sda_pa16_pull_up {
-		pinmux = <MSP_PINMUX(38,I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(38,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pa17_pull_up: i2c1_scl_pa17_pull_up {
-		pinmux = <MSP_PINMUX(39,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(39,MSPM0_PIN_FUNCTION_4)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pa29_pull_up: i2c1_scl_pa29_pull_up {
-		pinmux = <MSP_PINMUX(4,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(4,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pa30_pull_up: i2c1_sda_pa30_pull_up {
-		pinmux = <MSP_PINMUX(5,I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(5,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 		bias-pull-up;
 		drive-open-drain;
 	};
-
 	i2c1_scl_pa29: i2c1_scl_pa29 {
-		pinmux = <MSP_PINMUX(4,I2C1_SCL)>;
+		pinmux = <MSP_PINMUX(4,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	i2c1_sda_pa30: i2c1_sda_pa30 {
-		pinmux = <MSP_PINMUX(5,I2C1_SDA)>;
+		pinmux = <MSP_PINMUX(5,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 		drive-open-drain;
 	};
-
 	uart0_tx_pa10: uart_tx_pa10 {
-		pinmux = <MSP_PINMUX(21,UART0_TX)>;
+		pinmux = <MSP_PINMUX(21,MSPM0_PIN_FUNCTION_2)>;
 	};
-
 	uart0_rx_pa11: uart_rx_pa11 {
-		pinmux = <MSP_PINMUX(22,UART0_RX)>;
+		pinmux = <MSP_PINMUX(22,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 	};
-
 	uart0_rts_pa15: uart0_rts_pa15{
-		pinmux = <MSP_PINMUX(37,UART0_RTS)>;
+		pinmux = <MSP_PINMUX(37,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 	};
-
 	uart0_cts_pa14: uart0_cts_pa14{
-		pinmux = <MSP_PINMUX(36,UART0_CTS)>;
+		pinmux = <MSP_PINMUX(36,MSPM0_PIN_FUNCTION_2)>;
 		input-enable;
 	};
-
 	adc0_pa25: adc0_pa25 {
-		pinmux = <MSP_PINMUX(55,UNCONNECTED)>;
+		pinmux = <MSP_PINMUX(55,MSPM0_PIN_FUNCTION_ANALOG)>;
 	};
-
 	adc0_pa26: adc0_pa26 {
-		pinmux = <MSP_PINMUX(59,UNCONNECTED)>;
+		pinmux = <MSP_PINMUX(59,MSPM0_PIN_FUNCTION_ANALOG)>;
 	};
-
 	adc0_pb24: adc0_pb24 {
-		pinmux = <MSP_PINMUX(52,UNCONNECTED)>;
+		pinmux = <MSP_PINMUX(52,MSPM0_PIN_FUNCTION_ANALOG)>;
 	};
-
 	adc1_pb19: adc1_pb19 {
-		pinmux = <MSP_PINMUX(45,UNCONNECTED)>;
+		pinmux = <MSP_PINMUX(45,MSPM0_PIN_FUNCTION_ANALOG)>;
 	};
-
 	can0_rx_pa13: can0_rx_pa13 {
-		pinmux = <MSP_PINMUX(35,CANFD0_CANRX)>;
+		pinmux = <MSP_PINMUX(35,MSPM0_PIN_FUNCTION_6)>;
 		input-enable;
 	};
-
 	can0_tx_pa12: can0_tx_pa12 {
-		pinmux = <MSP_PINMUX(34,CANFD0_CANTX)>;
+		pinmux = <MSP_PINMUX(34,MSPM0_PIN_FUNCTION_5)>;
 	};
-
 };
