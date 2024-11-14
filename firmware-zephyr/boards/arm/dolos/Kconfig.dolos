@@ -6,4 +6,4 @@
 
 config BOARD_DOLOS
 	bool "Google Dolos"
-	depends on SOC_MSPM0G3507
+	select SOC_MSPM0G3507

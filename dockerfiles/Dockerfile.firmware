@@ -23,25 +23,6 @@ ARG ZEPHYR_VERSION=0.16.8
 RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_VERSION}/zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
 RUN tar xvf zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
 
-#######################################################################
-FROM downloader as ccsfetch
-ARG CCS_VERSION=12.8.1
-ARG CCS_REVISION=00005
-
-RUN apt-get update \
-    && apt-get install -y \
-    --no-install-recommends \
-    udev \
-    libc6-i386
-
-RUN wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/${CCS_VERSION}/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz
-
-RUN tar xvf CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz
-ENV CCS_BASE=/ti
-WORKDIR /CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64
-RUN mkdir -p /etc/udev/rules.d/
-RUN ./ccs_setup_${CCS_VERSION}.${CCS_REVISION}.run --mode unattended --prefix /ti
-
 ######################################################################
 FROM downloader as dolos-firmware-builder
 ARG CCS_VERSION=12.8.1
@@ -97,13 +78,8 @@ COPY --link --from=zephyrfetch /zephyr-sdk-${ZEPHYR_VERSION}/ .
 
 RUN ./setup.sh -h -t all
 
-WORKDIR /ti
-COPY --link --from=ccsfetch /ti/ .
-
 #######################################################################
 FROM dolos-firmware-builder as build
-
-ENV CCS_BASE=/ti
 
 WORKDIR /dolos/.git
 COPY .git/ .
@@ -121,5 +97,5 @@ RUN bash build.sh
 #######################################################################
 FROM scratch as copytohost
 
-COPY --link --from=build /dolos/firmware-zephyr/build/zephyr/zephyr.txt /
+COPY --link --from=build /dolos/firmware-zephyr/build/zephyr/zephyr.elf /
 

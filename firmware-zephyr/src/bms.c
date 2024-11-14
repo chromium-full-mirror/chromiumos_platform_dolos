@@ -253,14 +253,14 @@ static void power_output_on_state_run(void *o)
 }
 
 static const struct smf_state bms_states[] = {
-	[BMS_STATE_POWER_OUTPUT_OFF] =
-		SMF_CREATE_STATE(NULL, power_output_off_state_run, NULL),
-	[BMS_STATE_TIMER] =
-		SMF_CREATE_STATE(timer_state_entry, timer_state_run, NULL),
-	[BMS_STATE_POWER_GOOD_WAIT] =
-		SMF_CREATE_STATE(NULL, power_good_wait_state_run, NULL),
-	[BMS_STATE_POWER_OUTPUT_ON] =
-		SMF_CREATE_STATE(NULL, power_output_on_state_run, NULL),
+	[BMS_STATE_POWER_OUTPUT_OFF] = SMF_CREATE_STATE(
+		NULL, power_output_off_state_run, NULL, NULL, NULL),
+	[BMS_STATE_TIMER] = SMF_CREATE_STATE(timer_state_entry, timer_state_run,
+					     NULL, NULL, NULL),
+	[BMS_STATE_POWER_GOOD_WAIT] = SMF_CREATE_STATE(
+		NULL, power_good_wait_state_run, NULL, NULL, NULL),
+	[BMS_STATE_POWER_OUTPUT_ON] = SMF_CREATE_STATE(
+		NULL, power_output_on_state_run, NULL, NULL, NULL),
 };
 
 /**

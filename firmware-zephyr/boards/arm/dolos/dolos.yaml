@@ -17,3 +17,6 @@ supported:
   - pinctrl
   - uart
 vendor: google
+socs:
+  - name: mspm0g3507
+
