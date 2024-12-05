@@ -19,4 +19,4 @@ echo "VERSION_MAJOR = ${VERSION_MAJOR}" > VERSION
         echo "EXTRAVERSION = ${EXTRAVERSION}"
 } >> VERSION
 
-west build -p always -b dolos
+west build -b dolos
