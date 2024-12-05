@@ -148,9 +148,3 @@
 		zephyr,resolution = <12>;
 	};
 };
-
-&clkmux {
-	clock-source = <&sysosc>;
-	clock-frequency = <DT_FREQ_M(32)>;
-	uclk-div = <1>;
-};
