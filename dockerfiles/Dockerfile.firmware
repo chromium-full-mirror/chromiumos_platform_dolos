@@ -1,101 +1,84 @@
-# syntax=docker/dockerfile:1.4
 # Copyright 2024 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 
 ######################################################################
-FROM ubuntu:jammy as downloader
+# Prepare base container
+FROM debian:bookworm-slim AS downloader
 
-WORKDIR /
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y \
-    --no-install-recommends \
-    wget \
-    ca-certificates \
-    xz-utils
+RUN apt update && apt upgrade && apt install -y --no-install-recommends \
+  wget git ca-certificates xz-utils python3-pip udev libc6-i386 git \
+  cmake ninja-build gperf ccache dfu-util device-tree-compiler \
+  python3-dev python3-pip python3-setuptools python3-tk python3-wheel \
+  python3-pyelftools xz-utils file make gcc gcc-multilib g++-multilib \
+  ninja-build && apt clean
 
 ######################################################################
-FROM downloader as zephyrfetch
+# Prepare Zephyr SDK
+FROM downloader AS zephyr-sdk
 ARG ZEPHYR_VERSION=0.16.8
 
-RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_VERSION}/zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
-RUN tar xvf zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz
+RUN wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v${ZEPHYR_VERSION}/zephyr-sdk-${ZEPHYR_VERSION}_linux-x86_64.tar.xz -O /tmp/zephyr.tar.xz &&\
+  tar xvf /tmp/zephyr.tar.xz -C /usr/local &&\
+  /usr/local/zephyr-sdk-${ZEPHYR_VERSION}/setup.sh -h -c &&\
+  rm /tmp/zephyr.tar.xz &&\
+  cd /usr/local/zephyr-sdk-${ZEPHYR_VERSION} &&\
+  rm -rf xtensa* arc* aarch* micro* mips* nios2* riscv* sparc*
 
 ######################################################################
-FROM downloader as dolos-firmware-builder
+# Prepare Zephyr repository
+FROM downloader AS zephyr-repo
+
+RUN mkdir /zephyr
+WORKDIR /zephyr
+RUN git clone -b mspm0_dev_stable https://github.com/msp-ti/zephyr.git
+
+WORKDIR /zephyr/zephyr
+RUN git checkout c034d1b1e9b2292a992e2b90ad00d58d372a37b2
+RUN python3 -m pip install west --break-system-packages
+RUN west init -l && west update hal_ti cmsis &&\
+  chmod +x /zephyr/zephyr/zephyr-env.sh &&\
+  chmod o+w /zephyr/.west/config
+
+######################################################################
+# Install CCS
+FROM downloader AS ti
+ENV CCS_BASE=/ti
 ARG CCS_VERSION=12.8.1
-ARG ZEPHYR_VERSION=0.16.8
+ARG CCS_REVISION=00005
 
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-    && apt-get install -y \
-    --no-install-recommends \
-    ccache \
-    cmake \
-    device-tree-compiler \
-    dfu-util \
-    file \
-    g++-multilib \
-    gcc \
-    gcc-multilib \
-    git \
-    gperf \
-    libmagic1 \
-    libsdl2-dev \
-    make \
-    ninja-build \
-    python3-dev \
-    python3-pip \
-    python3-setuptools \
-    python3-tk \
-    python3-wheel
+RUN wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/${CCS_VERSION}/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz -O /tmp/ccs.tar.gz &&\
+  tar xvf /tmp/ccs.tar.gz -C /tmp &&\
+  cd /tmp/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64 &&\
+  mkdir -p /etc/udev/rules.d/ &&\
+  echo "Install CCS..." &&\
+  ./ccs_setup_${CCS_VERSION}.${CCS_REVISION}.run --mode unattended --prefix /ti
 
-RUN pip install west
+######################################################################
+# Copy artifacts from previous stages
+FROM downloader AS builder
 
-RUN west init -m  https://github.com/msp-ti/zephyr.git --mr mspm0_dev_stable /zephyrproject
+RUN python3 -m pip install west --break-system-packages
 
-WORKDIR /zephyrproject/zephyr
+COPY --from=zephyr-sdk /usr/local/ /usr/local/
+COPY --from=zephyr-repo /zephyr /zephyr
+COPY --from=ti /ti/ccs/tools/compiler/ti-cgt-armllvm_*/bin/tiarmhex /usr/local/bin/
 
-COPY dockerfiles/zephyr_yaml_edit.py .
+######################################################################
+# Prepare scripts to build firmware
+RUN echo "\
+#!/bin/bash\n\
+export HOME=/tmp\n\
+git config --global --add safe.directory /zephyr/zephyr\n\
+source /zephyr/zephyr/zephyr-env.sh\n\
+cd /repo/firmware-zephyr\n\
+./src/build.sh && \
+tiarmhex /repo/firmware-zephyr/build/zephyr/zephyr.elf --ti_txt --diag_wrap=off -o /repo/firmware-zephyr/build/zephyr/zephyr.txt\n\
+" > /build.sh
+RUN chmod +x /build.sh
 
-RUN python3 zephyr_yaml_edit.py
-
-RUN west update
-
-ENV ZEPHYR_BASE=/zephyrproject/zephyr/
-
-RUN west zephyr-export
-
-COPY dockerfiles/requirements.compiled .
-
-RUN pip install --require-hashes -r requirements.compiled
-
-WORKDIR /usr/local/zephyr-sdk-${ZEPHYR_VERSION}
-
-COPY --link --from=zephyrfetch /zephyr-sdk-${ZEPHYR_VERSION}/ .
-
-RUN ./setup.sh -h -t all
-
-#######################################################################
-FROM dolos-firmware-builder as build
-
-WORKDIR /dolos/.git
-COPY .git/ .
-
-WORKDIR /dolos/sb-config
-COPY sb-config/ .
-
-WORKDIR /dolos/firmware-zephyr
-COPY firmware-zephyr/ .
-
-WORKDIR /dolos/firmware-zephyr/src
-
-RUN bash build.sh
-
-#######################################################################
-FROM scratch as copytohost
-
-COPY --link --from=build /dolos/firmware-zephyr/build/zephyr/zephyr.elf /
-
+WORKDIR /tmp
+RUN ln -s /tmp /zephyr/zephyr/.cache
+VOLUME /repo
+ENTRYPOINT /bin/bash /build.sh
