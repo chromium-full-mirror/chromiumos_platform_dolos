@@ -7,12 +7,31 @@
 # Prepare base container
 FROM debian:bookworm-slim AS downloader
 
-RUN apt update && apt upgrade && apt install -y --no-install-recommends \
-  wget git ca-certificates xz-utils python3-pip udev libc6-i386 git \
-  cmake ninja-build gperf ccache dfu-util device-tree-compiler \
-  python3-dev python3-pip python3-setuptools python3-tk python3-wheel \
-  python3-pyelftools xz-utils file make gcc gcc-multilib g++-multilib \
-  ninja-build && apt clean
+RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
+  ca-certificates \
+  ccache \
+  cmake \
+  device-tree-compiler \
+  dfu-util \
+  file \
+  g++-multilib \
+  gcc \
+  gcc-multilib \
+  git \
+  gperf \
+  libc6-i386 \
+  make \
+  ninja-build \
+  python3-dev \
+  python3-pip \
+  python3-pyelftools \
+  python3-setuptools \
+  python3-tk \
+  python3-wheel \
+  udev \
+  wget \
+  xz-utils \
+  && apt clean
 
 ######################################################################
 # Prepare Zephyr SDK
@@ -67,18 +86,10 @@ COPY --from=ti /ti/ccs/tools/compiler/ti-cgt-armllvm_*/bin/tiarmhex /usr/local/b
 
 ######################################################################
 # Prepare scripts to build firmware
-RUN echo "\
-#!/bin/bash\n\
-export HOME=/tmp\n\
-git config --global --add safe.directory /zephyr/zephyr\n\
-source /zephyr/zephyr/zephyr-env.sh\n\
-cd /repo/firmware-zephyr\n\
-./src/build.sh && \
-tiarmhex /repo/firmware-zephyr/build/zephyr/zephyr.elf --ti_txt --diag_wrap=off -o /repo/firmware-zephyr/build/zephyr/zephyr.txt\n\
-" > /build.sh
-RUN chmod +x /build.sh
+COPY dockerfiles/firmware_build.sh /build.sh
+RUN chmod 777 /build.sh
+RUN ln -s /tmp /zephyr/zephyr/.cache
 
 WORKDIR /tmp
-RUN ln -s /tmp /zephyr/zephyr/.cache
 VOLUME /repo
 ENTRYPOINT /bin/bash /build.sh

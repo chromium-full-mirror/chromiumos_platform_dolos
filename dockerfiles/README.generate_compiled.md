@@ -1,4 +1,3 @@
-
 To regenate the compiled files ( should be updated reasonably frequently )
 
 run the command
@@ -25,5 +24,5 @@ cp requirements.txt /tmp/pip/requirements.compiled
 Then exit the container or in another shell :
 
 ```shell
-cp /tmp/pip/requrirments.compiled <dolos_src>/dockerfiles/requriements.compiled
+cp /tmp/pip/requirements.compiled <dolos_src>/dockerfiles/requirements.compiled
 ```
