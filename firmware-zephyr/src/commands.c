@@ -265,11 +265,10 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	shell_print(sh, "    SMBus communication: %s",
 		    smbus_target_is_communication_detected() ? "Detected" :
 							       "Not detected");
-	if (strcmp(eeprom_status, "Successful") == 0) {
+	if (strcmp(eeprom_status, "EEPROM Read Error.") != 0) {
 		shell_print(sh,
-			    "    Serial number      : DOLOSV%d-C-%02d20%02d%04d",
-			    eeprom_get_version(), eeprom_get_week(),
-			    eeprom_get_year(), eeprom_get_serial_no());
+			    "    Serial number      : DOLOSV1-C-%02d20%02d%04d",
+			    eeprom_get_week(), eeprom_get_year(), eeprom_get_serial_no());
 	} else {
 		shell_print(
 			sh,

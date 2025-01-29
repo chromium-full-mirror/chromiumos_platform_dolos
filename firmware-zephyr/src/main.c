@@ -17,11 +17,13 @@ int main(void)
 	printk("Starting Dolos\n");
 
 	dled_program_led_turn_on();
-	if (eeprom_read_data() != 0) {
-		dled_error_led_turn_on();
-	}
 
-	if (eeprom_crc32_check() != 0) {
+	// EEPROM checks
+	if (eeprom_read_data() != 0) {
+		// We can not read the EEPROM
+		dled_error_led_turn_on();
+	} else if (eeprom_crc32_check() != 0) {
+		// EEPROM CRC is invalid
 		dled_error_led_turn_on();
 	}
 

@@ -237,3 +237,41 @@ class TestDolosCmdGetStatus:
             assert '{\n  "status": "DOLOS_NOT_PRESENT"\n}\n' == out
             assert SystemExit == pytest_wrapped_e.type
             assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
+
+    def test_get_status_bad_crc(self, monkeypatch, mock_host_with_one_dolos, capfd):
+        status = DolosStatus()
+        status.serial_number = "DOLOSV1-C-2403140001"
+        status.eeprom = "CRC Failure."
+        mock_host_with_one_dolos(status=status)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                sys,
+                "argv",
+                ["dolos-cmd", "get-status", "--serial", "DOLOSV1-C-2403140001"],
+            )
+            with pytest.raises(SystemExit) as pytest_wrapped_e:
+                main()
+            out, unused_err = capfd.readouterr()
+            assert '{\n  "status": "DOLOS_EEPROM_FAILURE"\n}\n' == out
+            assert SystemExit == pytest_wrapped_e.type
+            assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
+
+    def test_get_status_bad_eeprom(self, monkeypatch, mock_host_with_one_dolos, capfd):
+        status = DolosStatus()
+        status.serial_number = "No cable - can't read serial."
+        status.eeprom = "EEPROM Read Error."
+        mock_host_with_one_dolos(status=status)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                sys,
+                "argv",
+                ["dolos-cmd", "get-status", "--serial", "DOLOSV1-C-2403140001"],
+            )
+            with pytest.raises(SystemExit) as pytest_wrapped_e:
+                main()
+            out, unused_err = capfd.readouterr()
+            assert '{\n  "status": "DOLOS_NOT_PRESENT"\n}\n' == out
+            assert SystemExit == pytest_wrapped_e.type
+            assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
