@@ -10,7 +10,6 @@ import argparse
 import logging
 import pathlib
 import re
-import sys
 
 import yaml
 

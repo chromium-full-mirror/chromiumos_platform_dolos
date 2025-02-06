@@ -11,7 +11,6 @@ import logging
 import pathlib
 import re
 import struct
-import sys
 
 import yaml
 
@@ -40,7 +39,7 @@ def load_table(file):
         text = file.read_text()
         table = yaml.safe_load(text)
     except (FileNotFoundError, yaml.scanner.ScannerError, yaml.YAMLError) as err:
-        raise ProgramCableException("Unable to read Yaml file %s", file) from err
+        raise ProgramCableException(f"Unable to read Yaml file {file}") from err
     return table
 
 
