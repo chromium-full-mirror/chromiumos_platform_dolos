@@ -123,15 +123,21 @@ If the serial field is left empty, it'll preserve the existing serial.
 
 ```console
 (.venv) $ dolos_program_cable --help
-usage: dolos_program_cable [-h] -y YAML (-d DOLOS | -f) [-ns NEW_SERIAL] [-v]
+usage: dolos_program_cable [-h] (-y YAML | -yn YAML_NETWORK) (-d DOLOS | -f) [-ns NEW_SERIAL] [-v]
 
 options:
   -h, --help      show this help message and exit
   -y YAML         File path of imported yaml data
+  -yn YAML_NETWORK  Load the latest config from the storage bucket
   -d DOLOS        Use Dolos to program: 'any' is used if the serial number does not matter.
   -f              Use FTDI to program: Fails if more than 1 device is found.
   -ns NEW_SERIAL  Optional overwrite serial number
   -v              Enable verbose logging
+```
+
+Example arguments using Dolos to fetch the latest meep config
+```console
+(.venv) $ dolos_program_cable -yn meep -d any
 ```
 
 Example using Dolos:

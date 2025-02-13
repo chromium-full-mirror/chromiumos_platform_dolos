@@ -14,7 +14,7 @@ import struct
 
 import yaml
 
-from dolosbattery import i2c_interface, layout, logs
+from dolosbattery import i2c_interface, layout, logs, download
 from doloscmd import console_lib
 
 
@@ -450,21 +450,26 @@ def main():
         ProgramCableException() with diagnostic details on failure.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    group_cfg = parser.add_mutually_exclusive_group(required=True)
+    group_cfg.add_argument(
         "-y",
         dest="yaml",
         type=pathlib.Path,
-        required=True,
         help="File path of imported yaml data",
     )
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
+    group_cfg.add_argument(
+        "-yn",
+        dest="yaml_network",
+        help="Load the latest config from the storage bucket",
+    )
+    group_prog = parser.add_mutually_exclusive_group(required=True)
+    group_prog.add_argument(
         "-d",
         dest="dolos",
         type=str,
         help="Use Dolos to program: 'any' is used if the serial number does not matter.",
     )
-    group.add_argument(
+    group_prog.add_argument(
         "-f",
         dest="ftdi",
         action="store_true",
@@ -479,7 +484,15 @@ def main():
     args = parser.parse_args()
     logs.set_config(args.verbose)
 
-    table = load_table(args.yaml)
+    table = None
+
+    if args.yaml:
+        table = load_table(args.yaml)
+    elif args.yaml_network:
+        try:
+            table = download.load_latest_config(args.yaml_network)
+        except download.DownloadException as err:
+            raise ProgramCableException(err) from err
 
     programmer = None
 
