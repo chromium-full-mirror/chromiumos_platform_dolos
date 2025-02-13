@@ -7,7 +7,6 @@
 import xml.etree.ElementTree as ET
 import re
 import requests
-import yaml
 
 BUCKET_URL = "https://storage.googleapis.com/dolos-firmware"
 CABLE_DIR = "cable_eeprom/"
@@ -53,6 +52,8 @@ def load_cable_list(model=None):
         model (str): Optional filter for the model
     Returns:
         List strings: List of file paths for cable configs
+    Raises:
+        DownloadException: Response returned an error or no cables found
     """
 
     # The bucket URL response is an XML entry with <Key> tags mapping to
@@ -72,6 +73,9 @@ def load_cable_list(model=None):
     prefix = prefix.lower()
     cables = [x for x in file_list if x.lower().startswith(prefix)]
 
+    if len(cables) == 0:
+        raise DownloadException("No matching entries found")
+
     return cables
 
 
@@ -85,8 +89,10 @@ def find_latest_config(configs):
         configs: List strings with config paths
     Returns:
         string: Path name of the highest version of the yaml config matching
-            the model.
+            the model
     """
+    if len(configs) == 0:
+        return []
 
     def natsort(path):
         """Simple natural sort function used to find the version name"""
@@ -96,23 +102,3 @@ def find_latest_config(configs):
         return -1
 
     return sorted(configs, key=natsort, reverse=True)[0]
-
-
-def load_latest_config(model):
-    """Loads the yaml describing the battery cable configuration.
-
-    Args:
-        model (string): Model name to load
-    Returns:
-        dict: Cable configuration
-    Raises:
-        DownloadException: Error reading or parsing the yaml file
-    """
-    config_list = load_cable_list(model)
-    latest_path = find_latest_config(config_list)
-    txt = load_config_file(latest_path)
-    try:
-        table = yaml.safe_load(txt)
-        return table
-    except yaml.YAMLError as err:
-        raise DownloadException(f"Unable to parse yaml file {model}") from err

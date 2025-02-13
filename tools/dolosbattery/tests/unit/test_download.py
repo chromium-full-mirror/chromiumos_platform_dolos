@@ -26,12 +26,10 @@ class TestDownloader:
     def test_find_cfg(self, mock_storage_response):
         """Verify we can fetch file lists and model filtering works."""
         cfg_list = download.load_cable_list("model_a")
+        assert len(cfg_list) == 1
+
+        cfg_list = download.load_cable_list("model_b")
         assert len(cfg_list) == 2
 
-        cfg_list = download.load_cable_list("model_missing")
-        assert len(cfg_list) == 0
-
-    def test_find_cfg(self, mock_storage_response):
-        """Verify we find the latest config."""
-        cfg = download.load_latest_config("model_a")
-        assert cfg["FileName"] == "model_a_v2.yaml"
+        with pytest.raises(download.DownloadException):
+            cfg_list = download.load_cable_list("model_missing")

@@ -25,7 +25,7 @@ FILE_LIST_RESPONSE = """<?xml version='1.0' encoding='UTF-8'?>
     <Size>1175</Size>
   </Contents>
   <Contents>
-    <Key>cable_eeprom/model_a/model_a_v2.yaml</Key>
+    <Key>cable_eeprom/model_b/model_b_v1.yaml</Key>
     <Generation>1724433648145180</Generation>
     <MetaGeneration>1</MetaGeneration>
     <LastModified>2024-08-23T17:20:48.260Z</LastModified>

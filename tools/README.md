@@ -91,10 +91,10 @@ Final steps:
 
 PolarityHigh can not be extracted automatically. We need to test it with full
 DUT-Cable-Dolos setup to confirm it is correct. It needs to be set to be set to
-`True` or `False`.
+`low` or `high`.
 
 ```yaml
-PolarityHigh: False
+Polarity: high
 ```
 
 When the DUT is powered on, we can see the correct state using the `status` command
@@ -107,7 +107,7 @@ System present     : Absent (signal HIGH, polarity LOW)
 If the DUT is active and `signal HIGH` is reported, we need to adjust the Polarity.
 
 ```yaml
-PolarityHigh: True
+Polarity: high
 ```
 
 ```console
@@ -123,7 +123,7 @@ If the serial field is left empty, it'll preserve the existing serial.
 
 ```console
 (.venv) $ dolos_program_cable --help
-usage: dolos_program_cable [-h] (-y YAML | -yn YAML_NETWORK) (-d DOLOS | -du DOLOS_UART | -f) [-ns NEW_SERIAL] [-v]
+usage: dolos_program_cable [-h] (-y YAML | -yn YAML_NETWORK) (-d DOLOS | -du DOLOS_UART | -f) [-ns NEW_SERIAL] [-v] [-id HWID]
 
 options:
   -h, --help        show this help message and exit
@@ -134,11 +134,17 @@ options:
   -f                Use FTDI to program: Fails if more than 1 device is found.
   -ns NEW_SERIAL    Optional overwrite serial number
   -v                Enable verbose logging
+  -id HWID          Optional hwid field
 ```
 
 Example arguments using Dolos to fetch the latest meep config
 ```console
 (.venv) $ dolos_program_cable -yn meep -d any
+```
+
+Example arguments using Dolos with HWID using a yaml created from unit tests
+```console
+dolos_program_cable -y test.yaml -d any -id "MODEL A2B-A2A-B2G"
 ```
 
 Example using Dolos:

@@ -12,35 +12,13 @@ import pathlib
 import re
 import struct
 
-import yaml
-
-from dolosbattery import i2c_interface, layout, logs, download
+from dolosbattery import i2c_interface, layout, logs
+from dolosbattery.config import Config, ConfigException
 from doloscmd import console_lib
 
 
 class ProgramCableException(Exception):
     """General exception errors when programming the cable."""
-
-
-def load_table(file):
-    """Loads the yaml describing the battery cable configuration.
-
-    Args:
-        file (pathlib.Path): File to load
-
-    Returns:
-        dict: Cable configuration
-
-    Raises:
-        ProgramCableException: Error reading or parsing the yaml file
-    """
-    logging.info("Loading yaml: %r", file)
-    try:
-        text = file.read_text()
-        table = yaml.safe_load(text)
-    except (FileNotFoundError, yaml.scanner.ScannerError, yaml.YAMLError) as err:
-        raise ProgramCableException(f"Unable to read Yaml file {file}") from err
-    return table
 
 
 class FTDIProgrammer:
@@ -487,18 +465,33 @@ def main():
     parser.add_argument(
         "-v", dest="verbose", action="store_true", help="Enable verbose logging"
     )
+    parser.add_argument(
+        "-id",
+        dest="hwid",
+        help="Optional hwid field",
+    )
     args = parser.parse_args()
     logs.set_config(args.verbose)
 
     table = None
 
-    if args.yaml:
-        table = load_table(args.yaml)
-    elif args.yaml_network:
-        try:
-            table = download.load_latest_config(args.yaml_network)
-        except download.DownloadException as err:
-            raise ProgramCableException(err) from err
+    config = Config()
+
+    try:
+        # Update the HWID if it is present
+        if args.hwid:
+            config.set_hwid(args.hwid)
+
+        # Load the yaml
+        if args.yaml:
+            config.load_config_file(args.yaml)
+        elif args.yaml_network:
+            config.load_latest_config(args.yaml_network)
+
+        table = config.extract_table()
+
+    except ConfigException as err:
+        raise ProgramCableException(err) from err
 
     programmer = None
 
