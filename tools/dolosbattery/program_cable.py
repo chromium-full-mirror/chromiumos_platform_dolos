@@ -467,7 +467,13 @@ def main():
         "-d",
         dest="dolos",
         type=str,
-        help="Use Dolos to program: 'any' is used if the serial number does not matter.",
+        help="Use Dolos' serial to program: 'any' is used if the serial number does not matter.",
+    )
+    group_prog.add_argument(
+        "-du",
+        dest="dolos_uart",
+        type=str,
+        help="Use Dolos' UART to program: This allows programming when serials can't be used.",
     )
     group_prog.add_argument(
         "-f",
@@ -503,12 +509,15 @@ def main():
             raise ProgramCableException(
                 "Unable to connect to FTDI, is it connected?"
             ) from err
-    elif args.dolos:
+    elif args.dolos or args.dolos_uart:
         try:
-            dolos_serial = args.dolos.upper()
-            if dolos_serial == "ANY":
-                dolos_serial = None
-            programmer = console_lib.DolosConsole.find_dolos_serial(dolos_serial)
+            if args.dolos:
+                dolos_serial = args.dolos.upper()
+                if dolos_serial == "ANY":
+                    dolos_serial = None
+                programmer = console_lib.DolosConsole.find_dolos_serial(dolos_serial)
+            else:
+                programmer = console_lib.DolosConsole(args.dolos_uart)
         except console_lib.DolosConsoleException as err:
             raise ProgramCableException(
                 "Unable connect to Dolos, is the serial correct and connected?"
