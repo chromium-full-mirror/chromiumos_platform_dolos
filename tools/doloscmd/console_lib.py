@@ -34,6 +34,7 @@ CONSOLE_PROMPT = "dolos:~> \x1b[m"
 CONSOLE_CLEAR = chr(0x15)  # Ctrl-U metakey clears any text
 CONSOLE_ENTER = "\n"
 EEPROM_SIZE = 1024
+EEPROM_WRITE_SIZE = 16
 
 
 class DolosConsoleException(Exception):
@@ -155,7 +156,7 @@ class DolosConsole:
         try:
             console = DolosConsole(uart, open_timeout)
             # The serial is set the first time it's accessed
-            console.serial
+            _ = console.serial
             console.close()
             return console
         except DolosConsoleException as err:
@@ -672,11 +673,14 @@ class DolosConsole:
             DolosConsoleException: We failed to write the segment
         """
 
-        if addr % 16 != 0 or addr < 0 or EEPROM_SIZE <= addr:
+        if addr < 0 or EEPROM_SIZE <= addr:
             raise DolosConsoleException(f"Invalid address {addr}")
 
+        if len(segment) > EEPROM_WRITE_SIZE:
+            raise DolosConsoleException(f"Invalid cunk size {len(segment)}")
+
         segment_hex = " ".join([hex(x) for x in segment])
-        cmd = f"eeprom writen {hex(addr)} 16 {segment_hex}"
+        cmd = f"eeprom writen {hex(addr)} {len(segment)} {segment_hex}"
 
         for i in range(retry_cnt):
             try:
@@ -696,24 +700,33 @@ class DolosConsole:
             f"Failed to write eeprom after {retry_cnt} attempts"
         )
 
-    def _eeprom_write(self, data):
-        """Write the eeprom data.
-
-        Splits the write operation up and handles the individual transactions
-        to write each page of EEPROM data.
+    def _optimize_writes(self, current, target):
+        """Optimize the writes by finding deltas and merging segments
 
         Args:
-            data (bytes): 1024B data segment to write
-
-        Raises:
-            DolosConsoleException: Write failed.
+            current (bytes): Current data array
+            target (bytes): Target data array
         """
-        try:
-            for addr in range(0, EEPROM_SIZE, 16):
-                segment = data[addr : addr + 16]
-                self._eeprom_write_segment(addr, segment)
-        except DolosConsoleException as err:
-            logging.warning("EEPROM write attempt error: %r", err)
+        segments = []
+        cur_seg = None
+        for i in range(EEPROM_SIZE):
+            if cur_seg is None:
+                # No active segments are present
+                if current[i] == target[i]:
+                    continue
+
+                # Start a new segment
+                cur_seg = [i, i]
+                segments.append(cur_seg)
+            else:
+                # If the delta continues then update the end of the segmets
+                if current[i] != target[i]:
+                    cur_seg[1] = i
+                # Cap the length of a segment at the max write
+                length = 1 + i - cur_seg[0]
+                if length == EEPROM_WRITE_SIZE:
+                    cur_seg = None
+        return segments
 
     def eeprom_write(self, data, retry_cnt=5):
         """Write to the EEPROM cable and verify program is successful.
@@ -735,20 +748,26 @@ class DolosConsole:
                 f"Invalid eeprom size {len(data)}B of {EEPROM_SIZE}B",
             )
 
-        verify = self.eeprom_read()
-        if data == verify:
+        read_data = self.eeprom_read()
+        if data == read_data:
+            logging.info("EEPROM already programmed")
             return
 
         for i in range(retry_cnt):
+
+            segments = self._optimize_writes(read_data, data)
+
+            read_data = self.eeprom_read()
+            if data == read_data:
+                logging.info("EEPROM verified")
+                return
+
             try:
-                self._eeprom_write(data)
-                verify = self.eeprom_read()
-                if data == verify:
-                    break
-                raise DolosConsoleException("Verify failed")
+                for seg in segments:
+                    data_seg = data[seg[0] : seg[1] + 1]
+                    self._eeprom_write_segment(seg[0], data_seg)
             except DolosConsoleException as err:
                 logging.warning("EEPROM write_verify attempt %d error: %r", i, err)
-        else:
-            raise DolosConsoleException(
-                f"Failed to write and verify eeprom after {retry_cnt} attempts"
-            )
+        raise DolosConsoleException(
+            f"Failed to write and verify eeprom after {retry_cnt} attempts"
+        )

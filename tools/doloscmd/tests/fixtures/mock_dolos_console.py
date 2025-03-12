@@ -13,6 +13,7 @@ import re
 from doloscmd.console_lib import CONSOLE_CLEAR
 from doloscmd.console_lib import CONSOLE_ENTER
 from doloscmd.console_lib import EEPROM_SIZE
+from doloscmd.console_lib import EEPROM_WRITE_SIZE
 import pytest
 
 
@@ -68,6 +69,7 @@ class DolosStatus:  # pylint: disable=too-many-instance-attributes, too-few-publ
 class DolosEEPROM:
     def __init__(self):
         self.data = bytearray([x % 256 for x in range(EEPROM_SIZE)])
+        self.write_cnt = 0
 
     def readall(self, cmd):
         response = [cmd, "EEPROM data:"]
@@ -82,6 +84,7 @@ class DolosEEPROM:
         return response
 
     def writen(self, cmd):
+        self.write_cnt += 1
         invalid_length = "Invalid provided data length, expected 1 entries"
         failed_write = "Failed to write data to EEPROM"
         response = [cmd]
@@ -92,7 +95,7 @@ class DolosEEPROM:
         addr = int(args[2], 16)
         length = int(args[3])
         data = [int(x, 16) for x in args[4:]]
-        assert len(data) == length
+        assert len(data) == length and len(data) <= EEPROM_WRITE_SIZE
         for offset, val in enumerate(data):
             self.data[addr + offset] = val
         response.append(f"Wrote data to address={hex(addr)}")

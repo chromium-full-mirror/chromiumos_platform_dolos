@@ -11,9 +11,10 @@
 
 from doloscmd.console_lib import DolosConsole
 from doloscmd.console_lib import DolosConsoleException
-from doloscmd.console_lib import EEPROM_SIZE
+from doloscmd.console_lib import EEPROM_SIZE, EEPROM_WRITE_SIZE
 from doloscmd.tests.fixtures.mock_dolos_console import DolosEEPROM
 import pytest
+import random
 
 
 class TestEEPROM:
@@ -44,5 +45,38 @@ class TestEEPROM:
         console.eeprom_write(inverted)
         data = console.eeprom_read()
         assert data == inverted
+        # Verify no extra transactions were needed
+        assert eeprom.write_cnt == (EEPROM_SIZE / EEPROM_WRITE_SIZE)
         assert isinstance(data, bytes)
         assert bytes(eeprom.data) == inverted
+
+    def test_eeprom_optimization(self, mock_dolos_host, mock_dolos_console):
+
+        eeprom = DolosEEPROM()
+
+        # Replace random portions of the data to add variable deltas
+        write_data = bytearray(eeprom.data)
+
+        random.seed(0)
+        for i in range(80):
+            start = random.randint(1, EEPROM_SIZE - 1)
+            length = random.randint(1, 10)
+            length = min(length, EEPROM_SIZE - start)
+            end = start + length
+            write_data[start:end] = bytearray(range(length))
+
+        dolos_host = mock_dolos_host()
+        dolos_console = mock_dolos_console(eeprom=eeprom)
+        dolos_host.set_usb_devices(
+            {"usb-FTDI_FT232R_USB_UART_B001I258-if00-port0": dolos_console}
+        )
+        console = DolosConsole.find_dolos_serial()
+        assert isinstance(console, DolosConsole)
+        data = console.eeprom_read()
+        console.eeprom_write(write_data)
+        data = console.eeprom_read()
+
+        # If the optimization worked, then we should have reduced the transfer
+        # count.
+        assert eeprom.write_cnt < (EEPROM_SIZE / EEPROM_WRITE_SIZE)
+        assert data == bytes(write_data)
