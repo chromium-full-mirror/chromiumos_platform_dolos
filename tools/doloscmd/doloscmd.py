@@ -101,7 +101,7 @@ def _update_firmware(args):
     console = None
     try:
         console = console_lib.DolosConsole.find_dolos_by_args(args)
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.FirmwareUpdateResponse(
                 response=doloscmd_pb2.Response(
@@ -125,7 +125,7 @@ def version(args):
     console = None
     try:
         console = console_lib.DolosConsole.find_dolos_by_args(args)
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.GetVersionResponse(
                 response=doloscmd_pb2.Response(
@@ -138,7 +138,7 @@ def version(args):
     logging.debug("version uartname %r", console.uartname)
     try:
         fw_version = console.get_version()
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.GetVersionResponse(
                 response=doloscmd_pb2.Response(
@@ -160,7 +160,7 @@ def repair(args):
     console = None
     try:
         console = console_lib.DolosConsole.find_dolos_by_args(args)
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.GetRepairResponse(
                 response=doloscmd_pb2.Response(
@@ -171,7 +171,7 @@ def repair(args):
         return
     try:
         console.repair()
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.GetRepairResponse(
                 response=doloscmd_pb2.Response(
@@ -193,7 +193,7 @@ def get_status(args):
     console = None
     try:
         console = console_lib.DolosConsole.find_dolos_by_args(args)
-    except console_lib.DolosConsoleException:
+    except console_lib.DolosConsoleError:
         _do_exit(
             doloscmd_pb2.GetStatusResponse(
                 status=doloscmd_pb2.DOLOS_STATUS.DOLOS_NOT_PRESENT
@@ -204,7 +204,7 @@ def get_status(args):
         status = console.determine_status(console.get_status())
 
         _do_exit(doloscmd_pb2.GetStatusResponse(status=status))
-    except console_lib.DolosConsoleException:
+    except console_lib.DolosConsoleError:
         _do_exit(
             doloscmd_pb2.GetStatusResponse(
                 status=doloscmd_pb2.DOLOS_STATUS.DOLOS_NO_COMMUNICATION
@@ -231,7 +231,7 @@ def find_uartname(args):
     console = None
     try:
         console = console_lib.DolosConsole.find_dolos_by_args(args)
-    except console_lib.DolosConsoleException:
+    except console_lib.DolosConsoleError:
         _do_exit(
             doloscmd_pb2.FindUartNameResponse(
                 response=doloscmd_pb2.Response(
@@ -273,7 +273,7 @@ def main():
                     )
                 )
             )
-    except console_lib.DolosConsoleException as error:
+    except console_lib.DolosConsoleError as error:
         _do_exit(
             doloscmd_pb2.GenericResponse(
                 response=doloscmd_pb2.Response(

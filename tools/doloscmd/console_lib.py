@@ -21,6 +21,7 @@ import requests
 import serial
 
 from doloscmd.proto import doloscmd_pb2
+from doloscmd.error import DolosConsoleError
 
 FIRMWARE_URL = (
     "https://storage.googleapis.com/dolos-firmware/"
@@ -35,10 +36,6 @@ CONSOLE_CLEAR = chr(0x15)  # Ctrl-U metakey clears any text
 CONSOLE_ENTER = "\n"
 EEPROM_SIZE = 1024
 EEPROM_WRITE_SIZE = 16
-
-
-class DolosConsoleException(Exception):
-    """General exception thrown when a error occurs dealing with the console."""
 
 
 class DolosConsole:
@@ -60,7 +57,7 @@ class DolosConsole:
             open_timeout (number): Timeout in seconds to open the console
 
         Raises:
-            DolosConsoleException: We are unable to open the serial port
+            DolosConsoleError: We are unable to open the serial port
         """
         self.uartname = uartname
         self.console = None
@@ -73,7 +70,7 @@ class DolosConsole:
             # activity. Wait until the console is clear before issuing a
             # command.
             self.run_firmware_command("", timeout=1)
-        except DolosConsoleException as err:
+        except DolosConsoleError as err:
             logging.debug(err)
 
     def __del__(self):
@@ -87,7 +84,7 @@ class DolosConsole:
             open_timeout (number): Timeout in seconds to open the console
 
         Raises:
-            DolosConsoleException: Device failed to open.
+            DolosConsoleError: Device failed to open.
         """
         path = SERIAL_PATH + self.uartname
         stop = time.monotonic() + open_timeout
@@ -107,7 +104,7 @@ class DolosConsole:
                     time.sleep(0.01)
                 else:
                     # Timed out
-                    raise DolosConsoleException(
+                    raise DolosConsoleError(
                         f"Unable to open serial device {path}.\rReason: {str(err)}",
                     ) from err
 
@@ -159,7 +156,7 @@ class DolosConsole:
             _ = console.serial
             console.close()
             return console
-        except DolosConsoleException as err:
+        except DolosConsoleError as err:
             logging.debug("Uart:%r, Error:%r", uart, err)
             return None
 
@@ -213,7 +210,7 @@ class DolosConsole:
             DolosConsole: DolosConsole instance
 
         Raises:
-            DolosConsoleException: We did not find exactly 1 match
+            DolosConsoleError: We did not find exactly 1 match
         """
         consoles = cls.get_all_dolos_consoles()
 
@@ -229,7 +226,7 @@ class DolosConsole:
             console.open()
             return console
 
-        raise DolosConsoleException(f"Found {len(consoles)} dolos devices.")
+        raise DolosConsoleError(f"Found {len(consoles)} dolos devices.")
 
     @classmethod
     def find_dolos_by_args(cls, args):
@@ -242,13 +239,13 @@ class DolosConsole:
             DolosConsole: Open Dolos console
 
         Raises:
-            DolosConsoleException: Failed to find the device
+            DolosConsoleError: Failed to find the device
         """
         if args.uartname:
             return DolosConsole(args.uartname)
         if args.serial:
             return cls.find_dolos_serial(args.serial)
-        raise DolosConsoleException("Missing serial and uartname")
+        raise DolosConsoleError("Missing serial and uartname")
 
     def read_console(self, timeout=1):
         """Reads the console and decodes the output
@@ -263,11 +260,11 @@ class DolosConsole:
             string: Dolos console output
 
         Raises:
-            DolosConsoleException: Reading failed
+            DolosConsoleError: Reading failed
         """
 
         if self.console is None:
-            raise DolosConsoleException("Console closed")
+            raise DolosConsoleError("Console closed")
 
         self.console.timeout = timeout
 
@@ -275,7 +272,7 @@ class DolosConsole:
             results = self.console.read_until(CONSOLE_PROMPT.encode("utf-8"))
         except (serial.SerialException, OSError) as err:
             logging.debug("Serial read fail %r", err)
-            raise DolosConsoleException(f"Serial read fail {err}") from err
+            raise DolosConsoleError(f"Serial read fail {err}") from err
 
         results = results.decode("utf-8", "replace")
         results = re.sub(r"[\r\n]+", "\n", results)
@@ -302,7 +299,7 @@ class DolosConsole:
             string: The start of the response after the command echo is complete.
 
         Raises:
-            DolosConsoleException: Command echo not in the response indicating
+            DolosConsoleError: Command echo not in the response indicating
                 it may not have started.
         """
         cmd = cmd + "\n"
@@ -317,7 +314,7 @@ class DolosConsole:
                 return response[start:]
             # Trim the next newline.
             response = response.replace("\n", "", 1)
-        raise DolosConsoleException("Device failed to echo command")
+        raise DolosConsoleError("Device failed to echo command")
 
     def _confirm_ready(self, response):
         return CONSOLE_PROMPT in response
@@ -342,11 +339,11 @@ class DolosConsole:
             string: The output read from the console.
 
         Raises:
-            DolosConsoleException: Command failed to start
+            DolosConsoleError: Command failed to start
         """
 
         if self.console is None:
-            raise DolosConsoleException("Console closed")
+            raise DolosConsoleError("Console closed")
 
         self.console.reset_output_buffer()
         self.console.reset_input_buffer()
@@ -362,9 +359,9 @@ class DolosConsole:
             response += self.read_console(timeout=echo_timeout)
             try:
                 return self._find_response_start(cmd, response)
-            except DolosConsoleException:
+            except DolosConsoleError:
                 pass
-        raise DolosConsoleException("Device failed to echo command")
+        raise DolosConsoleError("Device failed to echo command")
 
     def run_firmware_command(self, cmd, timeout=1, echo_timeout=0.2):
         """Issue a command to the UART console and read back the result.
@@ -378,7 +375,7 @@ class DolosConsole:
             string: The output read from the console.
 
         Raises:
-            DolosConsoleException: Command failed to start or complete
+            DolosConsoleError: Command failed to start or complete
         """
 
         # Run the command and read the response to confirm it's started
@@ -388,7 +385,7 @@ class DolosConsole:
         if not self._confirm_ready(response):
             response += self.read_console(timeout=timeout)
         if not self._confirm_ready(response):
-            raise DolosConsoleException(
+            raise DolosConsoleError(
                 f"Command: {repr(cmd)} Timeout: {timeout} "
                 + f" expired waiting for response {repr(response)}"
             )
@@ -405,7 +402,7 @@ class DolosConsole:
         match = re.search(r"Dolos version (.*)\n", result)
         if match:
             return match.group(1)
-        raise DolosConsoleException("Failed to find version")
+        raise DolosConsoleError("Failed to find version")
 
     def repair(self):
         """Call reset command on the UART.
@@ -504,7 +501,7 @@ class DolosConsole:
         if self._serial is None:
             try:
                 self.get_status()
-            except DolosConsoleException as err:
+            except DolosConsoleError as err:
                 logging.warning("Failed to load serial %s", err)
         return self._serial
 
@@ -568,7 +565,7 @@ class DolosConsole:
                 )
             except subprocess.CalledProcessError as err:
                 logging.debug(str(err))
-                raise DolosConsoleException(str(err)) from err
+                raise DolosConsoleError(str(err)) from err
             finally:
                 self.open()
 
@@ -613,7 +610,7 @@ class DolosConsole:
             bytes: 1024B data segment of the EEPROM flash
 
         Raises:
-            DolosConsoleException: Decoding showed a validation failure
+            DolosConsoleError: Decoding showed a validation failure
         """
         data = b""
         for line in response.splitlines():
@@ -631,7 +628,7 @@ class DolosConsole:
                 break
             data += segment
         if len(data) != EEPROM_SIZE:
-            raise DolosConsoleException(
+            raise DolosConsoleError(
                 f"Incomplete eeprom read {len(data)}B of {EEPROM_SIZE}B",
             )
         return data
@@ -646,7 +643,7 @@ class DolosConsole:
             bytes: 1024B data segment of the EEPROM flash
 
         Raises:
-            DolosConsoleException: Read failed.
+            DolosConsoleError: Read failed.
         """
 
         for i in range(retry_cnt):
@@ -656,9 +653,9 @@ class DolosConsole:
                     "eeprom readall", timeout=5, echo_timeout=2
                 )
                 return self._decode_eeprom(response)
-            except DolosConsoleException as err:
+            except DolosConsoleError as err:
                 logging.warning("EEPROM Read attempt %d error: %r", i, err)
-        raise DolosConsoleException(f"Failed to read eeprom after {retry_cnt} attempts")
+        raise DolosConsoleError(f"Failed to read eeprom after {retry_cnt} attempts")
 
     def _eeprom_write_segment(self, addr, segment, retry_cnt=5):
         """Write and verify a segment is transferred.
@@ -670,14 +667,14 @@ class DolosConsole:
             segment (bytes): 16B Data segment
 
         Raises:
-            DolosConsoleException: We failed to write the segment
+            DolosConsoleError: We failed to write the segment
         """
 
         if addr < 0 or EEPROM_SIZE <= addr:
-            raise DolosConsoleException(f"Invalid address {addr}")
+            raise DolosConsoleError(f"Invalid address {addr}")
 
         if len(segment) > EEPROM_WRITE_SIZE:
-            raise DolosConsoleException(f"Invalid cunk size {len(segment)}")
+            raise DolosConsoleError(f"Invalid cunk size {len(segment)}")
 
         segment_hex = " ".join([hex(x) for x in segment])
         cmd = f"eeprom writen {hex(addr)} {len(segment)} {segment_hex}"
@@ -688,17 +685,15 @@ class DolosConsole:
                 response = self.run_firmware_command(cmd, timeout=2, echo_timeout=2)
                 m = re.search(r"address=(?P<addr>0x[\da-f]+)", response, re.IGNORECASE)
                 if m is None:
-                    raise DolosConsoleException("Invalid response")
+                    raise DolosConsoleError("Invalid response")
                 if int(m.group("addr"), 16) != addr:
-                    raise DolosConsoleException(
+                    raise DolosConsoleError(
                         "Incorrect response address",
                     )
                 return
-            except DolosConsoleException as err:
+            except DolosConsoleError as err:
                 logging.warning("EEPROM write segment attempt %d error: %r", i, err)
-        raise DolosConsoleException(
-            f"Failed to write eeprom after {retry_cnt} attempts"
-        )
+        raise DolosConsoleError(f"Failed to write eeprom after {retry_cnt} attempts")
 
     def _optimize_writes(self, current, target):
         """Optimize the writes by finding deltas and merging segments
@@ -740,11 +735,11 @@ class DolosConsole:
             retry_cnt: Number of times to attempt
 
         Raises:
-            DolosConsoleException: Write and verify failed after the retries.
+            DolosConsoleError: Write and verify failed after the retries.
         """
 
         if len(data) != EEPROM_SIZE:
-            raise DolosConsoleException(
+            raise DolosConsoleError(
                 f"Invalid eeprom size {len(data)}B of {EEPROM_SIZE}B",
             )
 
@@ -766,8 +761,8 @@ class DolosConsole:
                 for seg in segments:
                     data_seg = data[seg[0] : seg[1] + 1]
                     self._eeprom_write_segment(seg[0], data_seg)
-            except DolosConsoleException as err:
+            except DolosConsoleError as err:
                 logging.warning("EEPROM write_verify attempt %d error: %r", i, err)
-        raise DolosConsoleException(
+        raise DolosConsoleError(
             f"Failed to write and verify eeprom after {retry_cnt} attempts"
         )

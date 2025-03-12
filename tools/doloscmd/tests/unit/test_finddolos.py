@@ -10,7 +10,7 @@
 # pylint: disable=missing-function-docstring
 
 from doloscmd.console_lib import DolosConsole
-from doloscmd.console_lib import DolosConsoleException
+from doloscmd.error import DolosConsoleError
 import pytest
 
 
@@ -61,7 +61,7 @@ class TestFindDolosWithoutArgs:
     def test_find_without_serial_none(self, mock_dolos_host):
         dolos_host = mock_dolos_host()
         dolos_host.clear_usb_devices()
-        with pytest.raises(DolosConsoleException):
+        with pytest.raises(DolosConsoleError):
             console = DolosConsole.find_dolos_serial()
 
     def test_find_without_serial_one(self, mock_host_with_one_dolos):
@@ -71,5 +71,5 @@ class TestFindDolosWithoutArgs:
 
     def test_find_without_serial_two(self, mock_host_with_multiple_dolos):
         dolos_host = mock_host_with_multiple_dolos()
-        with pytest.raises(DolosConsoleException):
+        with pytest.raises(DolosConsoleError):
             console = DolosConsole.find_dolos_serial()

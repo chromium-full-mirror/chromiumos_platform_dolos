@@ -158,7 +158,7 @@ class DolosProgrammer:
         """
         try:
             return self._console.eeprom_read()
-        except console_lib.DolosConsoleException as err:
+        except console_lib.DolosConsoleError as err:
             raise ProgramCableException("Unable to Read flash") from err
 
     def write(self, data):
@@ -172,7 +172,7 @@ class DolosProgrammer:
         """
         try:
             self._console.eeprom_write(data)
-        except console_lib.DolosConsoleException as err:
+        except console_lib.DolosConsoleError as err:
             raise ProgramCableException("Unable to write flash") from err
 
 
@@ -511,7 +511,7 @@ def main():
                 programmer = console_lib.DolosConsole.find_dolos_serial(dolos_serial)
             else:
                 programmer = console_lib.DolosConsole(args.dolos_uart)
-        except console_lib.DolosConsoleException as err:
+        except console_lib.DolosConsoleError as err:
             raise ProgramCableException(
                 "Unable connect to Dolos, is the serial correct and connected?"
             ) from err

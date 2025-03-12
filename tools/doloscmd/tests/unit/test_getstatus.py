@@ -11,7 +11,7 @@
 
 from doloscmd.console_lib import DolosConsole
 from doloscmd.tests.fixtures.mock_dolos_console import DolosStatus
-from doloscmd.console_lib import DolosConsoleException
+from doloscmd.error import DolosConsoleError
 import pytest
 
 
