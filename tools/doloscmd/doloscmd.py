@@ -15,6 +15,7 @@
 import argparse
 import logging
 import sys
+import pathlib
 
 from doloscmd import console_lib
 from doloscmd.proto import doloscmd_pb2
@@ -56,11 +57,19 @@ def parse_args(args):
             "get-status",
             "repair",
             "version",
+            "program-cable",
         ],
     )
     parser.add_argument("--serial")
     parser.add_argument("--uartname")
     parser.add_argument("--firmware_version")
+    parser.add_argument(
+        "--hwid", help="Optional model name or full HWID when programming cable"
+    )
+    parser.add_argument("--file", help="Optional file path", type=pathlib.Path)
+    parser.add_argument(
+        "--new_serial", help="Optional replacement serial when programming cable"
+    )
 
     return parser.parse_args(args)
 
@@ -249,6 +258,39 @@ def find_uartname(args):
     )
 
 
+def program_cable(args):
+    """Update dolos to a new firmware version.
+
+    Args:
+        args (Namespace): parsed command line arguments.
+    """
+    _exit_if_no_serial(args, doloscmd_pb2.FirmwareUpdateResponse)
+    console = None
+    try:
+        console = console_lib.DolosConsole.find_dolos_by_args(args)
+    except console_lib.DolosConsoleError as error:
+        _do_exit(
+            doloscmd_pb2.FirmwareUpdateResponse(
+                response=doloscmd_pb2.Response(
+                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.NOT_FOUND
+                )
+            )
+        )
+        return
+    try:
+        console.program_cable(args.hwid, args.file, args.new_serial)
+    except console_lib.DolosConsoleError as error:
+        _do_exit(
+            doloscmd_pb2.FirmwareUpdateResponse(
+                response=doloscmd_pb2.Response(
+                    msg=str(error), code=doloscmd_pb2.ERROR_CODE.NOT_FOUND
+                )
+            )
+        )
+        return
+    _do_exit(doloscmd_pb2.GetVersionResponse())
+
+
 def main():
     """Parse the args and call the correct function for command specified."""
     args = parse_args(sys.argv[1:])
@@ -264,6 +306,8 @@ def main():
             repair(args)
         elif args.command == "version":
             version(args)
+        elif args.command == "program-cable":
+            program_cable(args)
         else:
             _do_exit(
                 doloscmd_pb2.GenericResponse(

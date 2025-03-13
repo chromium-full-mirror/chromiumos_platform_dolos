@@ -8,12 +8,11 @@ import xml.etree.ElementTree as ET
 import re
 import requests
 
+
+from doloscmd.error import DolosConsoleError
+
 BUCKET_URL = "https://storage.googleapis.com/dolos-firmware"
 CABLE_DIR = "cable_eeprom/"
-
-
-class DownloadException(Exception):
-    """General exception for file download errors."""
 
 
 def get_response(url):
@@ -24,7 +23,7 @@ def get_response(url):
     Returns:
         bytes: Response payload
     Raises:
-        DownloadException: Response returned an error
+        DolosConsoleError: Response returned an error
     """
     req = requests.get(
         url=url,
@@ -32,7 +31,7 @@ def get_response(url):
         timeout=180,
     )
     if req.status_code != 200:
-        raise DownloadException(f"Request response: {req.status_code}")
+        raise DolosConsoleError(f"Request response: {req.status_code}")
     parts = []
     for chunk in req.iter_content(chunk_size=1024):
         parts.append(chunk)
@@ -53,7 +52,7 @@ def load_cable_list(model=None):
     Returns:
         List strings: List of file paths for cable configs
     Raises:
-        DownloadException: Response returned an error or no cables found
+        DolosConsoleError: Response returned an error or no cables found
     """
 
     # The bucket URL response is an XML entry with <Key> tags mapping to
@@ -67,14 +66,14 @@ def load_cable_list(model=None):
     # Filter the list response to include only the cable directory
     prefix = CABLE_DIR
     if model:
-        prefix += model
+        prefix = f"{prefix}{model}/"
 
     # Ignoring case
     prefix = prefix.lower()
     cables = [x for x in file_list if x.lower().startswith(prefix)]
 
     if len(cables) == 0:
-        raise DownloadException("No matching entries found")
+        raise DolosConsoleError("No matching entries found")
 
     return cables
 

@@ -116,55 +116,21 @@ System present     : Present (signal HIGH, polarity HIGH)
 
 ## Programming The Cable
 
-We can program the EEPROM in the Dolos cable using a Dolos or FTDI board like the FT4232H.
-Simply pass the `YAML` file in and provide fields to specify the date, and polarity.
+Example arguments using Dolos to fetch the latest meep config and use a generic or specific hwid
 
-If the serial field is left empty, it'll preserve the existing serial.
-
-```console
-(.venv) $ dolos_program_cable --help
-usage: dolos_program_cable [-h] (-y YAML | -yn YAML_NETWORK) (-d DOLOS | -du DOLOS_UART | -f) [-ns NEW_SERIAL] [-v] [-id HWID]
-
-options:
-  -h, --help        show this help message and exit
-  -y YAML           File path of imported yaml data
-  -yn YAML_NETWORK  Load the latest config from the storage bucket
-  -d DOLOS          Use Dolos' serial to program: 'any' is used if the serial number does not matter.
-  -du DOLOS_UART    Use Dolos' UART to program: This allows programming when serials can't be used.
-  -f                Use FTDI to program: Fails if more than 1 device is found.
-  -ns NEW_SERIAL    Optional overwrite serial number
-  -v                Enable verbose logging
-  -id HWID          Optional hwid field
-```
-
-Example arguments using Dolos to fetch the latest meep config
-```console
-(.venv) $ dolos_program_cable -yn meep -d any
-```
-
-Example arguments using Dolos with HWID using a yaml created from unit tests
-```console
-dolos_program_cable -y test.yaml -d any -id "MODEL A2B-A2A-B2G"
-```
-
-Example using Dolos:
-```console
-(.venv) $ dolos_program_cable -y pico.yaml -d any
-INFO - dolos_program_cable.py:30:load_table : Loading yaml: PosixPath('pico.yaml')
-INFO - dolos_program_cable.py:113:read : Reading cable
-INFO - dolos_program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
-INFO - dolos_program_cable.py:137:write : Programming cable
-INFO - dolos_program_cable.py:142:write : Verifying cable
-INFO - dolos_program_cable.py:113:read : Reading cable
-INFO - dolos_program_cable.py:132:read : Serial 'DOLOSV187-C-120251234'
-INFO - dolos_program_cable.py:145:write : Program success
-```
+When you know the model but not the hwid the lowest index is used.
 
 ```console
-(.venv) $ dolos_program_cable -y pico.yaml -d DOLOSV3-C-3320241234
+(.venv) $ doloscmd program-cable --serial DOLOSV1-C-1520240019 --hwid "meep"
 ```
 
-Example using FTDI:
+If you provide the full HWID we can fetch the model from the name.
+
 ```console
-(.venv) $ dolos_program_cable -y pico.yaml -f
+(.venv) $ doloscmd program-cable --serial DOLOSV1-C-1520240019 --hwid "MEEP C4B-A2H-F4K-G9G-Z2J"
 ```
+
+Testing a local file does not require a hwid information.
+
+```console
+(.venv) $ doloscmd program-cable --serial DOLOSV1-C-1520240019 --file meep.yaml

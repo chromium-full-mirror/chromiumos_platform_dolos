@@ -4,7 +4,8 @@
 
 import pytest
 
-from dolosbattery.hwid import HWIDV3, HWIDException
+from doloscmd.hwid import HWIDV3
+from doloscmd.error import DolosConsoleError
 
 
 class TestHWID:
@@ -32,7 +33,7 @@ class TestHWID:
             "MODEL A2AA2AA2AA2A",  # Bad checksum
         ]
         for serial in test_serials:
-            with pytest.raises(HWIDException):
+            with pytest.raises(DolosConsoleError):
                 hwid = HWIDV3(serial)
 
     def test_revision_id(self):
@@ -75,14 +76,14 @@ class TestHWID:
             "MODEL A2AA2AA2AA2AA2AY82": 8,
             "MODEL A2AA2AA2AA2AE2AY6N": 10,
             # Requires final bit trimming to be parsed correctly
-            "MODEL B2BB2BC2CB2KB3IA47": 0,
+            "MODEL B2BB2BC2CB2KB3IA8H": 0,
             "MODEL D4BF4EF3FB2KL3IQ2Q": 5,
         }
         for serial, exp_val in test_serials.items():
             hwid = HWIDV3(serial)
-            assert hwid.read_bitfield(patterns) == exp_val
+            assert hwid.read_bitfield(patterns) == exp_val, serial
 
-    def test_single_pattern_battery_extraction(self):
+    def test_multi_pattern_battery_extraction(self):
         """Verify the id detection works with patterns."""
         patterns = [
             {"ids": (0,), "bits": ()},
@@ -91,18 +92,18 @@ class TestHWID:
             {"ids": (15,), "bits": (37,)},
         ]
         test_serials = {
-            "MODEL A2AA9AA2AA2AA2AI7Q": 0,
+            "MODEL A2AA9AA2AA2AA2AI7Q": None,
             "MODEL B2AA4AA2AA2AA2AI7M": 2,
             "MODEL C2AA5AA2AA2AA2AI4S": 3,
             "MODEL D2AA2AA2BA2AA2AI4L": 1,
             "MODEL P2AA2AA2CA2AA2AI8M": 1,
-            "MODEL Z2AA2AA2AA2AA2AI65": None,  # Raises exception
+            "MODEL Z2AA2AA2AA2AA2AI65": DolosConsoleError,
         }
 
         for serial, exp_val in test_serials.items():
             hwid = HWIDV3(serial)
-            if exp_val is not None:
-                assert hwid.read_bitfield(patterns) == exp_val
+            if exp_val is not DolosConsoleError:
+                assert hwid.read_bitfield(patterns) == exp_val, serial
             else:
-                with pytest.raises(HWIDException):
+                with pytest.raises(DolosConsoleError):
                     hwid.read_bitfield(patterns)

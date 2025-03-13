@@ -4,8 +4,9 @@
 
 import pytest
 
-from dolosbattery.layout import REGISTERS
-from dolosbattery.program_cable import Flash, ProgramCableException
+from doloscmd.registers import REGISTERS
+from doloscmd.eeprom_layout import EEPROMLayout
+from doloscmd.error import DolosConsoleError
 
 
 class EEPROMFixture:
@@ -17,14 +18,6 @@ class EEPROMFixture:
             data = [x % 256 for x in range(self.FLASH_SIZE)]
         assert len(data) == self.FLASH_SIZE
         self.data = bytes(data)
-
-    def read(self):
-        return self.data
-
-    def write(self, data):
-        assert len(data) == self.FLASH_SIZE
-        assert isinstance(data, bytes)
-        self.data = data
 
 
 def create_table():
@@ -61,24 +54,21 @@ def read_word_reg(data, index):
 
 class TestProgramCableFlash:
     def test_valid_serial(self):
-        eeprom = EEPROMFixture()
-        flash = Flash(eeprom)
-        flash.read()
-        assert flash.dolos_serial is not None
+        fixture = EEPROMFixture()
+        eeprom = EEPROMLayout(fixture.data)
+        assert eeprom.dolos_serial is not None
 
     def test_detect_invalid_serial(self):
-        eeprom = EEPROMFixture([5] * EEPROMFixture.FLASH_SIZE)
-        flash = Flash(eeprom)
-        flash.read()
-        assert flash.dolos_serial is None
+        fixture = EEPROMFixture([5] * EEPROMFixture.FLASH_SIZE)
+        eeprom = EEPROMLayout(fixture.data)
+        assert eeprom.dolos_serial is None
 
     def test_parse_serial_text(self):
-        eeprom = EEPROMFixture()
-        flash = Flash(eeprom)
-        flash.read()
+        fixture = EEPROMFixture()
+        eeprom = EEPROMLayout(fixture.data)
         text = "DOLOSV1-C-1520240123"
-        flash.update_serial(text)
-        assert flash.dolos_serial == {
+        eeprom.update_serial(text)
+        assert eeprom.dolos_serial == {
             "text": text,
             "version": 1,
             "year": 24,
@@ -87,17 +77,14 @@ class TestProgramCableFlash:
         }
 
     def test_serial_update(self):
-        eeprom = EEPROMFixture()
-        flash = Flash(eeprom)
-        flash.read()
-        start_serial = flash.dolos_serial
+        fixture = EEPROMFixture()
+        eeprom = EEPROMLayout(fixture.data)
+        start_serial = eeprom.dolos_serial
         text = "DOLOSV1-C-1520240123"
-        flash.update_serial(text)
-        data = flash.create_payload(create_table())
-        flash.write(data)
-        flash.read()
-        assert start_serial != flash.dolos_serial
-        assert flash.dolos_serial == {
+        eeprom.update_serial(text)
+        data = eeprom.create_payload(create_table())
+        assert start_serial != eeprom.dolos_serial
+        assert eeprom.dolos_serial == {
             "text": text,
             "version": 1,
             "year": 24,
@@ -106,22 +93,16 @@ class TestProgramCableFlash:
         }
 
     def test_require_valid_serial(self):
-        eeprom = EEPROMFixture([5] * EEPROMFixture.FLASH_SIZE)
-        flash = Flash(eeprom)
-        flash.read()
-        with pytest.raises(ProgramCableException):
-            data = flash.create_payload(create_table())
-        flash.update_serial("DOLOSV1-C-1520240123")
-        data = flash.create_payload(create_table())
-        flash.write(data)
-        flash.read()
+        fixture = EEPROMFixture([5] * EEPROMFixture.FLASH_SIZE)
+        eeprom = EEPROMLayout(fixture.data)
+        with pytest.raises(DolosConsoleError):
+            data = eeprom.create_payload(create_table())
+        eeprom.update_serial("DOLOSV1-C-1520240123")
+        data = eeprom.create_payload(create_table())
 
     def test_verify_serial_unchanged(self):
-        eeprom = EEPROMFixture()
-        flash = Flash(eeprom)
-        flash.read()
-        start_serial = flash.dolos_serial
-        data = flash.create_payload(create_table())
-        flash.write(data)
-        flash.read()
-        assert start_serial == flash.dolos_serial
+        fixture = EEPROMFixture()
+        eeprom_start = EEPROMLayout(fixture.data)
+        data = eeprom_start.create_payload(create_table())
+        eeprom_end = EEPROMLayout(data)
+        assert eeprom_start.dolos_serial == eeprom_end.dolos_serial

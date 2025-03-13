@@ -22,6 +22,8 @@ import serial
 
 from doloscmd.proto import doloscmd_pb2
 from doloscmd.error import DolosConsoleError
+from doloscmd.config import Config
+from doloscmd.eeprom_layout import EEPROMLayout
 
 FIRMWARE_URL = (
     "https://storage.googleapis.com/dolos-firmware/"
@@ -752,17 +754,44 @@ class DolosConsole:
 
             segments = self._optimize_writes(read_data, data)
 
-            read_data = self.eeprom_read()
-            if data == read_data:
-                logging.info("EEPROM verified")
-                return
-
             try:
                 for seg in segments:
                     data_seg = data[seg[0] : seg[1] + 1]
                     self._eeprom_write_segment(seg[0], data_seg)
+
+                read_data = self.eeprom_read()
+                if data == read_data:
+                    logging.info("EEPROM verified")
+                    return
+
             except DolosConsoleError as err:
-                logging.warning("EEPROM write_verify attempt %d error: %r", i, err)
+                logging.warning("EEPROM write verify attempt %d error: %r", i, err)
         raise DolosConsoleError(
             f"Failed to write and verify eeprom after {retry_cnt} attempts"
         )
+
+    def program_cable(self, model_hwid, file=None, new_serial=None):
+        """Program the Dolos cable
+
+        [description]
+
+        Args:
+            model_hwid ([type]): hwid or model name
+            file ([type]): Path to config file (default: `None`)
+            new_serial ([type]): New dolos serial (default: `None`)
+        """
+
+        # Generate the new config table
+        config = Config(model_hwid)
+        config.load_config(file)
+        table = config.extract_table()
+
+        read_data = self.eeprom_read()
+        eeprom = EEPROMLayout(read_data)
+
+        if new_serial:
+            eeprom.update_serial(new_serial)
+
+        write_data = eeprom.create_payload(table)
+
+        self.eeprom_write(write_data)

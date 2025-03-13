@@ -19,7 +19,6 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "dolos_program_cable=dolosbattery.program_cable:main",
             "dolos_load_battery=dolosbattery.load_battery:main",
         ]
     },

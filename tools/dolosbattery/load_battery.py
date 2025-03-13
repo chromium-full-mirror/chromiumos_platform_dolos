@@ -13,7 +13,8 @@ import re
 
 import yaml
 
-from dolosbattery import i2c_interface, layout, logs, shell_interface
+from dolosbattery import i2c_interface, logs, shell_interface
+from doloscmd import registers
 
 
 class LoadBatteryException(Exception):
@@ -103,7 +104,7 @@ class BatteryRegisters:
         self._i2c.port = port
         if quick:
             try:
-                chem = self._read_field(layout.find_register("SB_DEVICE_CHEMISTRY"))
+                chem = self._read_field(registers.find_register("SB_DEVICE_CHEMISTRY"))
                 chem = chem.decode(errors="replace")
             except i2c_interface.I2CException:
                 return False
@@ -118,7 +119,7 @@ class BatteryRegisters:
                 "SB_DESIGN_VOLTAGE",
             ]
             for name in validation_registers:
-                register = layout.find_register(name)
+                register = registers.find_register(name)
                 try:
                     value = self._read_field(register)
                 except i2c_interface.I2CException:
@@ -171,9 +172,11 @@ class BatteryRegisters:
         """
         logging.info("Loading registers")
         table = {}
-        for i, field in enumerate(layout.REGISTERS, 1):
+        for i, field in enumerate(registers.REGISTERS, 1):
             name = field["name"]
-            logging.info("Progress %d/%d - Loading %r", i, len(layout.REGISTERS), name)
+            logging.info(
+                "Progress %d/%d - Loading %r", i, len(registers.REGISTERS), name
+            )
             try:
                 value = self._read_field(field)
             except i2c_interface.I2CException:

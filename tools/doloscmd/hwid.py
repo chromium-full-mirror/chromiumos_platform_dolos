@@ -6,9 +6,7 @@
 
 from zlib import crc32
 
-
-class HWIDException(Exception):
-    """General exception for HWID related errors."""
+from doloscmd.error import DolosConsoleError
 
 
 class HWIDV3:
@@ -24,12 +22,12 @@ class HWIDV3:
             hwid (str): Input HWID
 
         Raises:
-            HWIDException: Validation has failed
+            DolosConsoleError: Validation has failed
         """
         hwid_parts = hwid.upper().split()
         # Verify all parts of the ID field are included
         if len(hwid_parts) == 1:
-            raise HWIDException("HWID {hwid!r} is missing components")
+            raise DolosConsoleError("HWID {hwid!r} is missing components")
 
         # Everything before the final space is part of the full model string
         self.full_model_str = " ".join(hwid_parts[:-1])
@@ -39,6 +37,11 @@ class HWIDV3:
         # Decoded bits store HWID data fields as individual bits
         self.decoded_bits = self._parse_id()
         self._validate_checksum()
+
+    @property
+    def full_hwid_str(self):
+        """Return the full hwid string."""
+        return f"{self.full_model_str} {self.encoded_str}"
 
     @property
     def model(self):
@@ -65,7 +68,7 @@ class HWIDV3:
 
         # Verify the data segment is complete
         if len(self.encoded_str) % 3 != 0:
-            raise HWIDException(
+            raise DolosConsoleError(
                 f"Hardware ID {self.encoded_str!r} is not multiples of 3"
             )
 
@@ -83,7 +86,7 @@ class HWIDV3:
                 else:
                     delta_bits = f"{self.BASE8_ALPHABET.index(char):03b}"
             except ValueError as err:
-                raise HWIDException(
+                raise DolosConsoleError(
                     f"Invalid HWID character: {char!r} at index {i}"
                 ) from err
             decoded_bits += delta_bits
@@ -102,6 +105,7 @@ class HWIDV3:
         if data_str is None:
             data_str = self.data_str
         crc_input = f"{self.full_model_str} {data_str}"
+        print("CRC input", crc_input)
         crc8 = crc32(crc_input.encode("utf-8")) & 0xFF
         crc = self.BASE8_ALPHABET[crc8 >> 5]
         crc += self.BASE32_ALPHABET[crc8 & ((1 << 5) - 1)]
@@ -112,8 +116,8 @@ class HWIDV3:
         exp_crc = self._calculate_checksum()
         act_crc = self.encoded_str[-2:]
         if exp_crc != act_crc:
-            raise HWIDException(
-                f"CRC Error: Expected {exp_crc!r} and Actual {act_crc!r}"
+            raise DolosConsoleError(
+                f"CRC Error: HWID:{self.full_hwid_str} Expected {exp_crc!r} and Actual {act_crc!r}"
             )
 
     def _read_bitfield(self, idxs):
@@ -136,11 +140,15 @@ class HWIDV3:
         Example input: [{'ids': (0, 1, 2, 3, 4), 'bits': (65, 61, 54, 55)}]
 
         Returns:
-            Numeric field value
+            Numeric field value or None if the bitfield is empty
         Raises:
             Exception: HWID revision field is unknown
         """
         for pattern in patterns:
             if self.revision_id in pattern["ids"]:
-                return self._read_bitfield(pattern["bits"])
-        raise HWIDException(f"Unknown revision id {self.revision_id}")
+                bits = pattern["bits"]
+                if bits:
+                    return self._read_bitfield(pattern["bits"])
+                return None
+
+        raise DolosConsoleError(f"Unknown revision id {self.revision_id}")

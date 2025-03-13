@@ -17,4 +17,5 @@ from doloscmd.tests.fixtures.mock_dolos_host_with_consoles import (
 from doloscmd.tests.fixtures.mock_dolos_host_with_consoles import (
     mock_host_with_one_dolos,
 )
+from doloscmd.tests.fixtures.mock_requests import mock_storage_response
 import pytest

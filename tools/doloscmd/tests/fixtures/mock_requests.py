@@ -5,7 +5,7 @@
 import pytest
 import requests
 
-from dolosbattery.download import BUCKET_URL
+from doloscmd.download import BUCKET_URL
 
 FILE_LIST_RESPONSE = """<?xml version='1.0' encoding='UTF-8'?>
 <ListBucketResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'>
@@ -62,6 +62,4 @@ def mock_requests_get(url):
 
 @pytest.fixture()
 def mock_storage_response(class_mocker):
-    class_mocker.patch(
-        "dolosbattery.download.get_response", side_effect=mock_requests_get
-    )
+    class_mocker.patch("doloscmd.download.get_response", side_effect=mock_requests_get)

@@ -21,6 +21,5 @@ pip install --require-hashes -r requirements.txt -q
 # Install the dolos tools if they are missing. These commands take longer
 # to run so for now we'll only run once.
 if ! [ -x "$(command -v doloscmd)" ]; then
-	pip install --no-deps --no-index ./doloscmd
-	pip install --no-deps --no-index ./dolosbattery
+	pip install --no-deps --no-index ./doloscmd ./dolosbattery
 fi

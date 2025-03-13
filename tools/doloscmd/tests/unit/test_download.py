@@ -4,7 +4,8 @@
 
 import pytest
 
-from dolosbattery import download
+from doloscmd import download
+from doloscmd.error import DolosConsoleError
 
 
 class TestDownloader:
@@ -31,5 +32,5 @@ class TestDownloader:
         cfg_list = download.load_cable_list("model_b")
         assert len(cfg_list) == 2
 
-        with pytest.raises(download.DownloadException):
+        with pytest.raises(DolosConsoleError):
             cfg_list = download.load_cable_list("model_missing")
