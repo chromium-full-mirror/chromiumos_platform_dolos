@@ -732,6 +732,9 @@ class DolosConsole:
         Write the EEPROM and verify. If a failure happens then it will
         reattempt retry_cnt times.
 
+        After it successfully programs, it will reset the Dolos to apply
+        the changes.
+
         Args:
             data (bytes): 1024B data segment to write
             retry_cnt: Number of times to attempt
@@ -762,6 +765,10 @@ class DolosConsole:
                 read_data = self.eeprom_read()
                 if data == read_data:
                     logging.info("EEPROM verified")
+                    logging.info("Resetting Dolos to apply changes")
+
+                    # Reboot the device to load the new configs
+                    self.run_firmware_command("reset", timeout=5)
                     return
 
             except DolosConsoleError as err:
