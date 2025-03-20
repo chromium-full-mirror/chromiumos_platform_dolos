@@ -34,7 +34,7 @@ enum bq_reg_space {
 /*
  * bit[0-7] = 0    Reserved
  * bit[8-14] = 127 IIN_DPM: 12.7A
- * bit[16] = 0     Reserved
+ * bit[15] = 0     Reserved
  */
 #define BQ_REG_INPUT_CURRENT_LIM_VALUE 0x7F00
 
