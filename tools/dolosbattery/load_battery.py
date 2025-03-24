@@ -13,8 +13,9 @@ import re
 
 import yaml
 
-from dolosbattery import i2c_interface, logs, shell_interface
 from doloscmd import registers
+
+from dolosbattery import i2c_interface, logs, shell_interface
 
 
 class LoadBatteryException(Exception):

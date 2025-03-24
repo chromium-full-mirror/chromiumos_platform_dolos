@@ -20,6 +20,7 @@ setup(
     entry_points={
         "console_scripts": [
             "dolos_load_battery=dolosbattery.load_battery:main",
+            "dolos_process_configs=dolosbattery.process_configs:main",
         ]
     },
     description="Dolos command tools for reading batteries and programming cables.",

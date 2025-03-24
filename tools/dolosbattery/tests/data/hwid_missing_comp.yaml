@@ -1,0 +1,49 @@
+project: TEST
+
+pattern:
+- image_ids:
+  - 0
+  - 1
+  fields:
+  - a_field: 5
+  - b_field: 0
+  - c_field: 5
+  - battery_field: 1
+  - d_field: 0
+  - battery_field: 1
+- image_ids:
+  - 3
+  fields:
+  - a_field: 5
+  - b_field: 0
+  - c_field: 5
+  - battery_field: 2
+  - battery_field: 1
+  - d_field: 5
+
+encoded_fields:
+  region_field: !region_field
+  - us
+  cellular_field:
+    0:
+      cellular: null
+  battery_field:
+    0:
+      battery: battery_default
+    1:
+      battery: battery_1
+    1:
+      battery: battery_2
+
+components:
+  battery:
+    items:
+      battery_default:
+        status: unsupported
+        values: null
+      battery_1:
+        status: supported
+        values:
+          manufacturer: BAT_PREFIX
+          model_name: BAT_PREFIX
+          technology: LiP
