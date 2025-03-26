@@ -279,7 +279,9 @@ int sb_reg_write(uint8_t addr, const uint8_t *buf, uint8_t buf_size)
 void sb_update_registers(void)
 {
 	uint16_t voltage_mv = pac1954_get_voltage_mv();
-	uint16_t current_ma = pac1954_get_current_ma();
+	// The PAC1954 and SB_CURRENT have opposite current polarity
+	int16_t current_ma = pac1954_get_current_ma();
+	current_ma = -current_ma;
 	uint16_t temperature = temperature_get_k() * 10;
 	sb_reg_write(SB_VOLTAGE, (uint8_t *)&voltage_mv, sizeof(voltage_mv));
 	sb_reg_write(SB_CURRENT, (uint8_t *)&current_ma, sizeof(current_ma));
