@@ -33,6 +33,10 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends \
   xz-utils \
   && apt clean
 
+# There are other packages required for Zephyr tooling, e.g. twister, best to install them now
+COPY dockerfiles/requirements.compiled .
+RUN pip install --break-system-packages --require-hashes -r requirements.compiled
+
 ######################################################################
 # Prepare Zephyr SDK
 FROM downloader AS zephyr-sdk
@@ -55,7 +59,6 @@ RUN git clone -b mspm0_dev_stable https://github.com/msp-ti/zephyr.git
 
 WORKDIR /zephyr/zephyr
 RUN git checkout c034d1b1e9b2292a992e2b90ad00d58d372a37b2
-RUN python3 -m pip install west --break-system-packages
 RUN west init -l && west update hal_ti cmsis &&\
   chmod +x /zephyr/zephyr/zephyr-env.sh &&\
   chmod o+w /zephyr/.west/config
@@ -77,8 +80,6 @@ RUN wget https://dr-download.ti.com/software-development/ide-configuration-compi
 ######################################################################
 # Copy artifacts from previous stages
 FROM downloader AS builder
-
-RUN python3 -m pip install west --break-system-packages
 
 COPY --from=zephyr-sdk /usr/local/ /usr/local/
 COPY --from=zephyr-repo /zephyr /zephyr
