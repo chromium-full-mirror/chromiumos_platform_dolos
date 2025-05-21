@@ -32,11 +32,19 @@ enum bq_reg_space {
 #define BQ_REG_CHARGE_OPTION_2_VALUE 0x0037
 
 /*
- * bit[0-7] = 0    Reserved
- * bit[8-14] = 127 IIN_DPM: 12.7A
- * bit[15] = 0     Reserved
+ * Determined values based on Output Voltage and Over Current
+ * limits specified in Dolos specification point - 6.3.
+ * For Input current limits also converted from decimal values
+ * to HEX value expected by BQ25731 7bit wide register.
  */
-#define BQ_REG_INPUT_CURRENT_LIM_VALUE 0x7F00
+#define BQ_REG_INPUT_CURRENT_LIM_11500_MA 0x7300
+#define BQ_REG_INPUT_CURRENT_LIM_8000_MA 0x5000
+#define BQ_REG_INPUT_CURRENT_LIM_6000_MA 0x3C00
+#define BQ_MAX_DESIGN_VOLTAGE_1S_MV 4200
+#define BQ_MAX_DESIGN_VOLTAGE_2S_MV 8400
+#define BQ_MAX_DESIGN_VOLTAGE_3S_MV 13200
+#define BQ_MAX_DESIGN_VOLTAGE_4S_MV 17600
+
 
 #define BQ_REG_CHARGE_VOLTAGE_MASK 0x7ff8
 #define BQ_REG_CHARGE_CURRENT_MASK 0x1fc0
@@ -75,7 +83,7 @@ static int bq25731_write_config(enum bq_reg_space reg_address, uint16_t value)
  * @brief Writes BQ25731 ChargeCurrent register from DesignCapacity smart
  * battery register
  *
- * @retval 0 on succcess
+ * @retval 0 on success
  * @retval Negative on failure
  */
 static int bq25731_write_charge_current_sb(void)
@@ -114,7 +122,7 @@ static int bq25731_write_charge_current_sb(void)
  * @brief Writes BQ25731 ChargeVoltage register from DesignVoltage smart
  * battery register
  *
- * @retval 0 on succcess
+ * @retval 0 on success
  * @retval Negative on failure
  */
 static int bq25731_write_charge_voltage_sb(void)
@@ -155,6 +163,55 @@ static int bq25731_write_charge_voltage_sb(void)
 	return 0;
 }
 
+/**
+ * @brief Writes BQ25731 Input current limit register basing on
+ * DesignVoltage smart battery register
+ *
+ * @retval 0 on success
+ * @retval different then 0 on failure
+ */
+static int bq25731_write_current_limit_sb(void)
+{
+	int ret;
+	uint16_t design_voltage;
+	uint16_t input_current_limit_ma;
+
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	if (ret < 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to read register SB_DESIGN_VOLTAGE from smart battery, err=%d",
+			ret);
+		return ret;
+	}
+
+	/*
+	 * Implements limits specified in Dolos specification point - 6.3.
+	 */
+	if (design_voltage <= BQ_MAX_DESIGN_VOLTAGE_2S_MV) {
+		input_current_limit_ma = BQ_REG_INPUT_CURRENT_LIM_11500_MA;
+	} else if (design_voltage <= BQ_MAX_DESIGN_VOLTAGE_3S_MV) {
+		input_current_limit_ma = BQ_REG_INPUT_CURRENT_LIM_8000_MA;
+	} else {
+		input_current_limit_ma = BQ_REG_INPUT_CURRENT_LIM_6000_MA;
+	}
+
+	ret = bq25731_write_config(BQ_REG_INPUT_CURRENT_LIM, input_current_limit_ma);
+
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed write BQ_REG_INPUT_CURRENT_LIM , bq_addr=0x%02x, data=0x%04x, err=%d",
+			BQ_REG_INPUT_CURRENT_LIM, input_current_limit_ma, ret);
+		return ret;
+	}
+
+	LOG_DBG("Wrote BQ BQ_REG_INPUT_CURRENT_LIM basing on smart battery register SB_DESIGN_VOLTAGE, bq_addr=0x%02x, data=0x%04x",
+		BQ_REG_INPUT_CURRENT_LIM, input_current_limit_ma);
+
+	return 0;
+}
+
 /* Initialize the buckboost option registers to the following:
  * Update the BIT3 RSNS_RAC bit to use 10m ohm in the ChargeOption1 Register
  * Disable the  EN_EXTILIM bit in ChargeOption2 register to allow current output
@@ -166,7 +223,6 @@ int bq25731_init(void)
 
 	struct bq_reg_config config[] = {
 		{ BQ_REG_CHARGE_OPTION_0, BQ_REG_CHARGE_OPTION_0_VALUE },
-        { BQ_REG_INPUT_CURRENT_LIM, BQ_REG_INPUT_CURRENT_LIM_VALUE},
 		{ BQ_REG_CHARGE_OPTION_1, BQ_REG_CHARGE_OPTION_1_VALUE },
 		{ BQ_REG_CHARGE_OPTION_2, BQ_REG_CHARGE_OPTION_2_VALUE },
 	};
@@ -182,6 +238,16 @@ int bq25731_init(void)
 				      ret);
 			return ret;
 		}
+	}
+
+	/* Initialize BQ Over Current Protection limit */
+	ret = bq25731_write_current_limit_sb();
+	if (ret != 0) {
+		DOLOS_LOG_ERR(
+			ERROR_BUCKBOOST, ret,
+			"Failed to initialize buck boost, could not initialize INPUT_CURRENT_LIM register, err=%d",
+			ret);
+		return ret;
 	}
 
 	/* Initialize BQ ChargeVoltage and ChargeCurrent registers from smart
