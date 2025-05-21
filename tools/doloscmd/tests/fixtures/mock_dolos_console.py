@@ -110,6 +110,8 @@ def mock_dolos_console():
         class MockDolosConsole(contextlib.AbstractContextManager):
             def __init__(self, status=status, eeprom=eeprom):
                 self.last_write = ""
+                self.write_history = []
+                self.sys_pres_state = "Off"
                 self.status = status
                 self.eeprom = eeprom
                 # Console responses are an ordered lookup. The first
@@ -129,6 +131,9 @@ def mock_dolos_console():
                     ),
                     "eeprom readall": self.eeprom.readall,
                     "eeprom writen": self.eeprom.writen,
+                    "sys_pres on": self.sys_pres,
+                    "sys_pres disable": self.sys_pres,
+
                 }
 
             def reset_input_buffer(self):
@@ -144,6 +149,7 @@ def mock_dolos_console():
                     start = text.rfind(CONSOLE_CLEAR) + len(CONSOLE_CLEAR)
                     self.last_write = text[start:]
                     return
+                self.write_history.append(text)
                 self.last_write += text
 
             def read(self):
@@ -176,6 +182,20 @@ def mock_dolos_console():
 
             def reset_output_buffer(self):
                 pass
+
+            def sys_pres(self, state):
+                state = state.strip()
+                self.sys_pres_state = state
+                if state == "sys_pres on":
+                    return ("sys_pres on\r\n"
+                            "Forcing system to be always present\r\n"
+                            "\x1b[1;32mdolos:~> \x1b[m"
+                    )
+                return ("sys_pres disable\r\n"
+                        "Forcing system to be always absent\r\n"
+                        "\x1b[1;32mdolos:~> \x1b[m"
+                )
+
 
             def __exit__(self, exc_type, exc_value, traceback):
                 pass

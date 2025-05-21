@@ -8,6 +8,7 @@
 """Code that abstracts the implementation of the Dolos serial console from users."""
 
 import logging
+from multiprocessing import Pool
 import os
 import pathlib
 import re
@@ -15,15 +16,14 @@ import stat
 import subprocess
 import tempfile
 import time
-from multiprocessing import Pool
 
+from doloscmd.config import Config
+from doloscmd.eeprom_layout import EEPROMLayout
+from doloscmd.error import DolosConsoleError
+from doloscmd.proto import doloscmd_pb2
 import requests
 import serial
 
-from doloscmd.proto import doloscmd_pb2
-from doloscmd.error import DolosConsoleError
-from doloscmd.config import Config
-from doloscmd.eeprom_layout import EEPROMLayout
 
 FIRMWARE_URL = (
     "https://storage.googleapis.com/dolos-firmware/"
@@ -316,7 +316,7 @@ class DolosConsole:
                 return response[start:]
             # Trim the next newline.
             response = response.replace("\n", "", 1)
-        raise DolosConsoleError("Device failed to echo command")
+        raise DolosConsoleError(f"Device failed to echo command {cmd}")
 
     def _confirm_ready(self, response):
         return CONSOLE_PROMPT in response
@@ -363,7 +363,7 @@ class DolosConsole:
                 return self._find_response_start(cmd, response)
             except DolosConsoleError:
                 pass
-        raise DolosConsoleError("Device failed to echo command")
+        raise DolosConsoleError(f"Device failed to echo command {cmd}")
 
     def run_firmware_command(self, cmd, timeout=1, echo_timeout=0.2):
         """Issue a command to the UART console and read back the result.
@@ -406,7 +406,24 @@ class DolosConsole:
             return match.group(1)
         raise DolosConsoleError("Failed to find version")
 
-    def repair(self):
+
+    def repair_output_power_failed(self):
+        """Attempts to repair Dolos by forcing sys_pres on and then off.
+
+        Turn on/off sys_pres on the console to work around what we believe are
+        occasional race conditions on boot up that cause DOLOS_OUTPUT_POWER_FAILED
+        conditions (rarely)
+
+        Raises:
+            DolosConsoleError: If sending commands to the console fails.
+        """
+        self.run_firmware_command("sys_pres on", timeout=5)
+        time.sleep(10)
+        self.run_firmware_command("sys_pres disable", timeout=5)
+        time.sleep(5)
+
+
+    def repair(self, status=None):
         """Call reset command on the UART.
 
         This function was specifically not called reset as in the future more console
@@ -416,7 +433,13 @@ class DolosConsole:
             string: Any output read from the console during the reset
         """
         # Extended timeout allows blocks us until the console restores
-        return self.run_firmware_command("reset", timeout=5)
+        reset_text = self.run_firmware_command("reset", timeout=5)
+        time.sleep(3)
+        if not status:
+            status = self.determine_status(self.get_status())
+        if status == doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED:
+            self.repair_output_power_failed()
+        return reset_text
 
     def dolos_status_output_to_dict(self, lines):
         """Convert the raw bytes from the status console command to a dictionary of strings.

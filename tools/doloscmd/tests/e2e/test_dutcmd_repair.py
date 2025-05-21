@@ -17,7 +17,7 @@ from doloscmd.doloscmd import main
 from doloscmd.proto import doloscmd_pb2
 from doloscmd.tests.fixtures.mock_dolos_console import DolosStatus
 import pytest
-
+import unittest
 
 class TestDolosCmdRepair:
     def test_repair_no_serial_flag(self, monkeypatch, mock_host_with_one_dolos, capfd):
@@ -76,3 +76,32 @@ class TestDolosCmdRepair:
             assert out.strip() == "{}"
             assert SystemExit == pytest_wrapped_e.type
             assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
+
+    def test_repair_efuse_fail(self, monkeypatch, mock_host_with_one_dolos, capfd):
+        status = DolosStatus()
+        status.efuse = "Not good"
+        host = mock_host_with_one_dolos(status=status)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(
+                sys,
+                "argv",
+                [
+                    "dolos-cmd",
+                    "repair",
+                    "--uartname",
+                    "usb-FTDI_FT232R_USB_UART_B001I258-if00-port0",
+                ],
+            )
+            with pytest.raises(SystemExit) as pytest_wrapped_e:
+                main()
+            out, unused_err = capfd.readouterr()
+            assert out.strip() == "{}"
+            assert SystemExit == pytest_wrapped_e.type
+            assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
+            unittest.TestCase().assertCountEqual(host.usb_devices["usb-FTDI_FT232R_USB_UART_B001I258-if00-port0"].write_history,
+             ['', '\n',
+              'status', '\n',
+              'sys_pres on', '\n',
+              'sys_pres disable', '\n',
+              'reset', '\n'])
