@@ -5,11 +5,11 @@
 """Provides a mechanism to load the configs and map the HWID correctly."""
 
 import logging
-import yaml
 
 from doloscmd import download
-from doloscmd.hwid import HWIDV3
 from doloscmd.error import DolosConsoleError
+from doloscmd.hwid import HWIDV3
+import yaml
 
 
 class Config:

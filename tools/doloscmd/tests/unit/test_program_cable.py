@@ -2,11 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import pytest
-
-from doloscmd.registers import REGISTERS
 from doloscmd.eeprom_layout import EEPROMLayout
 from doloscmd.error import DolosConsoleError
+from doloscmd.registers import REGISTERS
+import pytest
 
 
 class EEPROMFixture:

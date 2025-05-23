@@ -2,9 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from doloscmd.config import Config
+from doloscmd.config import DolosConsoleError
 import pytest
-
-from doloscmd.config import Config, DolosConsoleError
 
 
 class TestConfig:

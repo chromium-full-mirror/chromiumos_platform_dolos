@@ -10,8 +10,8 @@
 # pylint: disable=missing-function-docstring
 
 from doloscmd.console_lib import DolosConsole
-from doloscmd.tests.fixtures.mock_dolos_console import DolosStatus
 from doloscmd.error import DolosConsoleError
+from doloscmd.tests.fixtures.mock_dolos_console import DolosStatus
 import pytest
 
 

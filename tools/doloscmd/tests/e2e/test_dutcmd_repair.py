@@ -12,12 +12,13 @@
 # pylint: disable=no-member
 
 import sys
+import unittest
 
 from doloscmd.doloscmd import main
 from doloscmd.proto import doloscmd_pb2
 from doloscmd.tests.fixtures.mock_dolos_console import DolosStatus
 import pytest
-import unittest
+
 
 class TestDolosCmdRepair:
     def test_repair_no_serial_flag(self, monkeypatch, mock_host_with_one_dolos, capfd):

@@ -2,10 +2,10 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from doloscmd.download import BUCKET_URL
 import pytest
 import requests
 
-from doloscmd.download import BUCKET_URL
 
 FILE_LIST_RESPONSE = """<?xml version='1.0' encoding='UTF-8'?>
 <ListBucketResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'>

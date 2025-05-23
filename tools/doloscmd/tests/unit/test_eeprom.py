@@ -9,12 +9,14 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=missing-function-docstring
 
+import random
+
 from doloscmd.console_lib import DolosConsole
+from doloscmd.console_lib import EEPROM_SIZE
+from doloscmd.console_lib import EEPROM_WRITE_SIZE
 from doloscmd.error import DolosConsoleError
-from doloscmd.console_lib import EEPROM_SIZE, EEPROM_WRITE_SIZE
 from doloscmd.tests.fixtures.mock_dolos_console import DolosEEPROM
 import pytest
-import random
 
 
 class TestEEPROM:

@@ -2,10 +2,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import pytest
-
-from doloscmd.hwid import HWIDV3
 from doloscmd.error import DolosConsoleError
+from doloscmd.hwid import HWIDV3
+import pytest
 
 
 class TestHWID:

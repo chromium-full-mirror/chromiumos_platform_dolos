@@ -14,8 +14,8 @@
 
 import argparse
 import logging
-import sys
 import pathlib
+import sys
 
 from doloscmd import console_lib
 from doloscmd.proto import doloscmd_pb2

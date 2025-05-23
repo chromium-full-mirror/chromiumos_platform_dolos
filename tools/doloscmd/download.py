@@ -4,12 +4,12 @@
 
 """Provides a mechanism to download the latest files from the storage bucket."""
 
-import xml.etree.ElementTree as ET
 import re
-import requests
-
+import xml.etree.ElementTree as ET
 
 from doloscmd.error import DolosConsoleError
+import requests
+
 
 BUCKET_URL = "https://storage.googleapis.com/dolos-firmware"
 CABLE_DIR = "cable_eeprom/"

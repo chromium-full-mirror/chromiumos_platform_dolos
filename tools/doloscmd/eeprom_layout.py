@@ -6,13 +6,11 @@
 
 import binascii
 import logging
+import re
 import struct
 
-import re
-
-from doloscmd.error import DolosConsoleError
-
 from doloscmd import registers
+from doloscmd.error import DolosConsoleError
 
 
 class EEPROMLayout:
