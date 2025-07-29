@@ -64,26 +64,12 @@ RUN west init -l && west update hal_ti cmsis &&\
   chmod o+w /zephyr/.west/config
 
 ######################################################################
-# Install CCS
-FROM downloader AS ti
-ENV CCS_BASE=/ti
-ARG CCS_VERSION=12.8.1
-ARG CCS_REVISION=00005
-
-RUN wget https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/${CCS_VERSION}/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64.tar.gz -O /tmp/ccs.tar.gz &&\
-  tar xvf /tmp/ccs.tar.gz -C /tmp &&\
-  cd /tmp/CCS${CCS_VERSION}.${CCS_REVISION}_linux-x64 &&\
-  mkdir -p /etc/udev/rules.d/ &&\
-  echo "Install CCS..." &&\
-  ./ccs_setup_${CCS_VERSION}.${CCS_REVISION}.run --mode unattended --prefix /ti
-
-######################################################################
 # Copy artifacts from previous stages
 FROM downloader AS builder
 
 COPY --from=zephyr-sdk /usr/local/ /usr/local/
 COPY --from=zephyr-repo /zephyr /zephyr
-COPY --from=ti /ti/ccs/tools/compiler/ti-cgt-armllvm_*/bin/tiarmhex /usr/local/bin/
+COPY tools/formatconverter/converter.py /usr/local/bin/converter.py
 
 ######################################################################
 # Prepare scripts to build firmware

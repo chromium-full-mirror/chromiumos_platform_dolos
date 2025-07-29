@@ -28,3 +28,5 @@ src/generated/**
 src/ui/node_modules/**
 src/ui/package-lock.json
 src/ui/src/proto/**
+
+build_result/**
