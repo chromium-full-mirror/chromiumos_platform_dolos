@@ -94,9 +94,7 @@ def test_smbus(fw_cmd):
         f"{second_smart_battery_write_fail_value}smart battery"
         f" write failures observed"
     )
-    actual_diff = (
-        second_smbus_read_success_value - first_smbus_read_success_value
-    )
+    actual_diff = second_smbus_read_success_value - first_smbus_read_success_value
     assert (
         actual_diff > expected_diff
     ), f"{actual_diff} is the difference between the number of reads"

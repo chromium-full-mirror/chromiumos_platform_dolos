@@ -82,9 +82,7 @@ def get_serial_number(serial_port):
 def get_version(serial_port):
     """Sends version command to firmware and returns the response as string"""
     output = send_command("version", serial_port)
-    version_elements = [
-        element for element in output if element.startswith("version")
-    ]
+    version_elements = [element for element in output if element.startswith("version")]
     for element in version_elements:
         if element != "version":
             return element
@@ -126,9 +124,13 @@ def main():
     """
     baudrate: int = 115200
     zephyr_mode = False
-    parser = argparse.ArgumentParser(description="Run factory tests on the connected Dolos")
+    parser = argparse.ArgumentParser(
+        description="Run factory tests on the connected Dolos"
+    )
     parser.add_argument("--baudrate", type=int, default=115200, help="Set the baudrate")
-    parser.add_argument("--zephyr", action="store_true", help="Run Zephyr-specific tests")
+    parser.add_argument(
+        "--zephyr", action="store_true", help="Run Zephyr-specific tests"
+    )
     args = parser.parse_args()
 
     baudrate = args.baudrate
@@ -158,7 +160,7 @@ def main():
                     version = get_version(serial_port)
                     serial_no = get_serial_number(serial_port)
                     if serial_no == "ERROR":
-                        run_pytests_without_eeprom(port.device, baudrate,zephyr_mode)
+                        run_pytests_without_eeprom(port.device, baudrate, zephyr_mode)
                     else:
                         run_all_pytests(port.device, baudrate, zephyr_mode)
                         print(serial_no)

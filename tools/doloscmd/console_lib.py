@@ -406,7 +406,6 @@ class DolosConsole:
             return match.group(1)
         raise DolosConsoleError("Failed to find version")
 
-
     def repair_output_power_failed(self):
         """Attempts to repair Dolos by forcing sys_pres on and then off.
 
@@ -421,7 +420,6 @@ class DolosConsole:
         time.sleep(10)
         self.run_firmware_command("sys_pres disable", timeout=5)
         time.sleep(5)
-
 
     def repair(self, status=None):
         """Call reset command on the UART.

@@ -20,4 +20,4 @@ def fw_cmd(request):
 def pytest_addoption(parser):
     parser.addoption("--uart", action="store", default="/dev/ttyUSB0")
     parser.addoption("--baudrate", action="store", default="115200")
-    parser.addoption("--zephyr", action="store_true" ,help="Run Zephyr-specific tests")
+    parser.addoption("--zephyr", action="store_true", help="Run Zephyr-specific tests")

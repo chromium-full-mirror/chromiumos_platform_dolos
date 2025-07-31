@@ -133,7 +133,6 @@ def mock_dolos_console():
                     "eeprom writen": self.eeprom.writen,
                     "sys_pres on": self.sys_pres,
                     "sys_pres disable": self.sys_pres,
-
                 }
 
             def reset_input_buffer(self):
@@ -187,15 +186,16 @@ def mock_dolos_console():
                 state = state.strip()
                 self.sys_pres_state = state
                 if state == "sys_pres on":
-                    return ("sys_pres on\r\n"
-                            "Forcing system to be always present\r\n"
-                            "\x1b[1;32mdolos:~> \x1b[m"
-                    )
-                return ("sys_pres disable\r\n"
-                        "Forcing system to be always absent\r\n"
+                    return (
+                        "sys_pres on\r\n"
+                        "Forcing system to be always present\r\n"
                         "\x1b[1;32mdolos:~> \x1b[m"
+                    )
+                return (
+                    "sys_pres disable\r\n"
+                    "Forcing system to be always absent\r\n"
+                    "\x1b[1;32mdolos:~> \x1b[m"
                 )
-
 
             def __exit__(self, exc_type, exc_value, traceback):
                 pass

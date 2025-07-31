@@ -54,11 +54,9 @@ class FwUart:
         else:
             chrg_output = self.send_command("gpio chrg-ok")
         chrg_ok_pin_value = int(
-            [
-                s.split(":")[-1].strip()
-                for s in chrg_output
-                if "CHRG_OK pin state" in s
-            ][0]
+            [s.split(":")[-1].strip() for s in chrg_output if "CHRG_OK pin state" in s][
+                0
+            ]
         )
         return byte_value, chrg_ok_pin_value
 
@@ -74,11 +72,7 @@ class FwUart:
             output = self.send_command("gpio efuse-pg")
 
         efuse_pin = int(
-            [
-                s.split(":")[-1].strip()
-                for s in output
-                if "EFSUE_PG pin state" in s
-            ][0]
+            [s.split(":")[-1].strip() for s in output if "EFSUE_PG pin state" in s][0]
         )
         return efuse_pin
 
@@ -105,11 +99,9 @@ class FwUart:
         """
         output = self.send_command("temp")
         temp_in_cel = float(
-            [
-                s.split(":")[1]
-                for s in output
-                if s.startswith("Temperature in Celsius")
-            ][0]
+            [s.split(":")[1] for s in output if s.startswith("Temperature in Celsius")][
+                0
+            ]
         )
         return temp_in_cel
 
@@ -122,11 +114,7 @@ class FwUart:
         """
         output = self.send_command("stats smbus")
         smbus_read_success_value = int(
-            [
-                s.split(":")[-1].strip()
-                for s in output
-                if "SMBus Read success" in s
-            ][0]
+            [s.split(":")[-1].strip() for s in output if "SMBus Read success" in s][0]
         )
         smart_battery_read_fail_value = int(
             [

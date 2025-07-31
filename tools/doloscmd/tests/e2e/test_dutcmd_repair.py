@@ -100,9 +100,20 @@ class TestDolosCmdRepair:
             assert out.strip() == "{}"
             assert SystemExit == pytest_wrapped_e.type
             assert doloscmd_pb2.ERROR_CODE.OK == pytest_wrapped_e.value.code
-            unittest.TestCase().assertCountEqual(host.usb_devices["usb-FTDI_FT232R_USB_UART_B001I258-if00-port0"].write_history,
-             ['', '\n',
-              'status', '\n',
-              'sys_pres on', '\n',
-              'sys_pres disable', '\n',
-              'reset', '\n'])
+            unittest.TestCase().assertCountEqual(
+                host.usb_devices[
+                    "usb-FTDI_FT232R_USB_UART_B001I258-if00-port0"
+                ].write_history,
+                [
+                    "",
+                    "\n",
+                    "status",
+                    "\n",
+                    "sys_pres on",
+                    "\n",
+                    "sys_pres disable",
+                    "\n",
+                    "reset",
+                    "\n",
+                ],
+            )

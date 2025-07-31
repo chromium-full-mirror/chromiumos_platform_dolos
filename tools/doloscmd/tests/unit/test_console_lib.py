@@ -36,13 +36,14 @@ class ConsoleLibTestBase:
     @pytest.fixture
     def console_instance_genai(self, mock_serial_port, mock_console_init_run_cmd_genai):
         """
-        Provides a DolosConsole instance with __init__ dependencies mocked.
-        The mock_serial_port and mock_console_init_run_cmd_genai
- fixtures ensure
-        that the DolosConsole can be instantiated without real hardware interaction.
+               Provides a DolosConsole instance with __init__ dependencies mocked.
+               The mock_serial_port and mock_console_init_run_cmd_genai
+        fixtures ensure
+               that the DolosConsole can be instantiated without real hardware interaction.
         """
         console = DolosConsole("dummy_uartname_for_test")
         return console
+
     @pytest.fixture
     def mock_console_init_run_cmd_genai(self, mocker):
         """
@@ -58,23 +59,24 @@ class ConsoleLibTestBase:
     @pytest.fixture
     def console_instance_genai(self, mock_serial_port, mock_console_init_run_cmd_genai):
         """
-        Provides a DolosConsole instance with __init__ dependencies mocked.
-        The mock_serial_port and mock_console_init_run_cmd_genai
- fixtures ensure
-        that the DolosConsole can be instantiated without real hardware interaction.
+               Provides a DolosConsole instance with __init__ dependencies mocked.
+               The mock_serial_port and mock_console_init_run_cmd_genai
+        fixtures ensure
+               that the DolosConsole can be instantiated without real hardware interaction.
         """
         console = DolosConsole("dummy_uartname_for_test")
         return console
 
+
 class TestDolosConsoleRepairNoPowerSuppliedGenAI(ConsoleLibTestBase):
 
-    def test_repair_genai(
-        self, mocker, console_instance_genai
-    ):
+    def test_repair_genai(self, mocker, console_instance_genai):
         """
         Tests that repair commands are run if status is DOLOS_OUTPUT_POWER_FAILED.
         """
-        mock_run_cmd = mocker.patch.object(console_instance_genai, "run_firmware_command")
+        mock_run_cmd = mocker.patch.object(
+            console_instance_genai, "run_firmware_command"
+        )
         mock_sleep = mocker.patch("doloscmd.console_lib.time.sleep")
 
         console_instance_genai.repair_output_power_failed()
@@ -87,7 +89,9 @@ class TestDolosConsoleRepairNoPowerSuppliedGenAI(ConsoleLibTestBase):
         assert mock_run_cmd.call_count == 2
         mock_sleep.assert_has_calls([call(10), call(5)])
 
-    def test_repair_propagates_error_from_first_command_genai(self, mocker, console_instance_genai):
+    def test_repair_propagates_error_from_first_command_genai(
+        self, mocker, console_instance_genai
+    ):
         """Tests that an error from run_firmware_command is propagated."""
         mocker.patch.object(
             console_instance_genai,
@@ -243,7 +247,9 @@ class TestDolosConsoleRepairGenAI(ConsoleLibTestBase):
         mocker.patch.object(console_instance_genai, "run_firmware_command")
         mocker.patch("doloscmd.console_lib.time.sleep")
         mocker.patch.object(
-            console_instance_genai, "get_status", side_effect=DolosConsoleError("GetStatus failed")
+            console_instance_genai,
+            "get_status",
+            side_effect=DolosConsoleError("GetStatus failed"),
         )
 
         with pytest.raises(DolosConsoleError, match="GetStatus failed"):
@@ -255,8 +261,16 @@ class TestDolosConsoleRepairGenAI(ConsoleLibTestBase):
         """Tests error propagation from repair_output_power_failed."""
         mocker.patch.object(console_instance_genai, "run_firmware_command")
         mocker.patch.object(console_instance_genai, "get_status")
-        mocker.patch.object(console_instance_genai, "determine_status", return_value=doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED)
-        mocker.patch.object(console_instance_genai, "repair_output_power_failed", side_effect=DolosConsoleError("Sub-repair failed"))
+        mocker.patch.object(
+            console_instance_genai,
+            "determine_status",
+            return_value=doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED,
+        )
+        mocker.patch.object(
+            console_instance_genai,
+            "repair_output_power_failed",
+            side_effect=DolosConsoleError("Sub-repair failed"),
+        )
 
         with pytest.raises(DolosConsoleError, match="Sub-repair failed"):
             console_instance_genai.repair()
