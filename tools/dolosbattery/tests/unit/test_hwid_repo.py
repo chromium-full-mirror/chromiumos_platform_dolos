@@ -3,13 +3,11 @@
 # found in the LICENSE file.
 
 import pathlib
-
-import pytest
 import re
 
-
-from dolosbattery.hwid_repo import HWIDModel
 from dolosbattery.error import DolosBatteryError
+from dolosbattery.hwid_repo import HWIDModel
+import pytest
 
 
 class TestHWIDModel:

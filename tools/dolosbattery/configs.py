@@ -5,13 +5,12 @@
 """Provides a mechanism to operate on a config directory."""
 
 import logging
-import re
 from multiprocessing import Pool
+import re
 
-import yaml
-
-from dolosbattery.hwid_repo import HWIDModel
 from dolosbattery.error import DolosBatteryError
+from dolosbattery.hwid_repo import HWIDModel
+import yaml
 
 
 class Config:

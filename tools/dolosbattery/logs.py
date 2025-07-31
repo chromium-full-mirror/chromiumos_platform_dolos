@@ -6,6 +6,7 @@
 
 import logging
 
+
 LOG_FORMAT = "%(levelname)s - %(filename)s:%(lineno)d:%(funcName)s : %(message)s"
 
 

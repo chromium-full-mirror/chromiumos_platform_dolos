@@ -4,6 +4,7 @@
 # Copyright 2024 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+import argparse
 import getopt
 import os
 import re
@@ -13,8 +14,6 @@ import time
 
 import pytest
 import serial.tools.list_ports
-import argparse
-
 
 
 def run_all_pytests(serial_port, baudrate, is_zephyr=False):

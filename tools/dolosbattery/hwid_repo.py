@@ -5,14 +5,12 @@
 
 """Parse HWID repo"""
 
-import re
 import logging
-
 from multiprocessing import Pool
-
-import yaml
+import re
 
 from dolosbattery.error import DolosBatteryError
+import yaml
 
 
 class HWIDModel:

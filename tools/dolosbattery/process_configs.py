@@ -7,16 +7,14 @@
 """Processes the Battery Configs."""
 
 import argparse
-import pathlib
 import logging
-
 from multiprocessing import Pool
-
-from doloscmd import download
+import pathlib
 
 from dolosbattery import logs
-from dolosbattery.hwid_repo import HWIDModel
 from dolosbattery.configs import Config
+from dolosbattery.hwid_repo import HWIDModel
+from doloscmd import download
 
 
 def _download_config(args):
