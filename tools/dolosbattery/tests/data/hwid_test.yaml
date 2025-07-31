@@ -32,7 +32,7 @@ encoded_fields:
       battery: battery_default
     1:
       battery: battery_1
-    1:
+    2:
       battery: battery_2
 
 components:

@@ -5,6 +5,7 @@
 import pathlib
 
 import pytest
+import re
 
 
 from dolosbattery.hwid_repo import HWIDModel
@@ -29,18 +30,36 @@ class TestHWIDModel:
         EXP_BAT_MAP = {
             0: {},
             1: {
+                "manufacturer": "BAT_PREFIX",
+                "model_name": "BAT_PREFIX",
+                "technology": "LiP",
+            },
+            2: {
                 "manufacturer": "BAT_REGEX",
-                "model_name": "BAT[0-9]_TEST.*",
+                "model_name": re.compile("BAT[0-9]_TEST.*"),
                 "technology": "Li-poly",
             },
         }
 
         EXP_BAT_REGS = {
-            "SB_MANUFACTURER_NAME": {"HWIDv3-1": [66, 65, 84, 95, 82, 69, 71, 69, 88]},
-            "SB_DEVICE_NAME": {
-                "HWIDv3-1": [66, 65, 84, 91, 48, 45, 57, 93, 95, 84, 69, 83, 84, 46, 42]
+            "SB_MANUFACTURER_NAME": {
+                # from battery_1, 'BAT_PREFIX'
+                "HWIDv3-1": [66, 65, 84, 95, 80, 82, 69, 70, 73, 88],
+                # from battery_2, 'BAT_REGEX'
+                "HWIDv3-2": [66, 65, 84, 95, 82, 69, 71, 69, 88],
             },
-            "SB_DEVICE_CHEMISTRY": {"HWIDv3-1": [76, 105, 45, 112, 111, 108, 121]},
+            "SB_DEVICE_NAME": {
+                # from battery_1, 'BAT_PREFIX'
+                "HWIDv3-1": [66, 65, 84, 95, 80, 82, 69, 70, 73, 88],
+                # from battery_2, the compiled regex object
+                "HWIDv3-2": re.compile("BAT[0-9]_TEST.*"),
+            },
+            "SB_DEVICE_CHEMISTRY": {
+                # from battery_1, 'LiP'
+                "HWIDv3-1": [76, 105, 80],
+                # from battery_2, 'Li-poly'
+                "HWIDv3-2": [76, 105, 45, 112, 111, 108, 121],
+            },
         }
 
         EXP_CFG = {
@@ -48,11 +67,18 @@ class TestHWIDModel:
                 {"ids": [0, 1], "bits": [16, 15]},
                 {"ids": [3], "bits": [17, 15, 16]},
             ],
-            "SB_MANUFACTURER_NAME": {"HWIDv3-1": [66, 65, 84, 95, 82, 69, 71, 69, 88]},
-            "SB_DEVICE_NAME": {
-                "HWIDv3-1": [66, 65, 84, 91, 48, 45, 57, 93, 95, 84, 69, 83, 84, 46, 42]
+            "SB_MANUFACTURER_NAME": {
+                "HWIDv3-1": [66, 65, 84, 95, 80, 82, 69, 70, 73, 88],
+                "HWIDv3-2": [66, 65, 84, 95, 82, 69, 71, 69, 88],
             },
-            "SB_DEVICE_CHEMISTRY": {"HWIDv3-1": [76, 105, 45, 112, 111, 108, 121]},
+            "SB_DEVICE_NAME": {
+                "HWIDv3-1": [66, 65, 84, 95, 80, 82, 69, 70, 73, 88],
+                "HWIDv3-2": re.compile("BAT[0-9]_TEST.*"),
+            },
+            "SB_DEVICE_CHEMISTRY": {
+                "HWIDv3-1": [76, 105, 80],
+                "HWIDv3-2": [76, 105, 45, 112, 111, 108, 121],
+            },
         }
 
         assert hwid_model.model == "test"
