@@ -22,6 +22,17 @@ git clone https://chromium.googlesource.com/chromiumos/platform/dolos
 cd dolos
 ```
 
+Please also configure your git hooks, these are obligatory to use in this repo:
+```shell
+pip install pre-commit --break-system-packages
+pre-commit install
+```
+
+To upload your changes to gerrit you can use:
+```shell
+git push origin HEAD:refs/for/main
+```
+
 Build the docker image used to compile firmware. This may take some time, please
 be patient. It is only needed to call this once, NOT everytime the build is
 done.
