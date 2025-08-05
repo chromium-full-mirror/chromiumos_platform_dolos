@@ -123,8 +123,8 @@ static int bq25731_write_charge_voltage_sb(void)
 	uint16_t design_voltage;
 	uint16_t charge_voltage;
 
-	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, NULL);
-	if (ret != 0) {
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_BUCKBOOST, ret,
 			"Failed to read register SB_DESIGN_VOLTAGE from smart battery, err=%d",

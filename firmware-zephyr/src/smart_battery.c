@@ -20,6 +20,7 @@
 LOG_MODULE_REGISTER(smart_battery, LOG_LEVEL_ERR);
 
 #define SB_BATTERY_MODE_CAPACITY_MODE_MASK (1 << 15)
+#define WORD_SIZE 2
 
 static uint32_t design_capacity_10mWh;
 static uint32_t design_capacity_mAh;
@@ -54,7 +55,7 @@ int sb_curr_reg_get_length(uint8_t *size)
 
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0) {
+	if (reg == NULL || reg->length == 0 || size == NULL) {
 		return -EINVAL;
 	}
 
@@ -74,7 +75,7 @@ int sb_curr_reg_set_length(uint8_t size)
 
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0) {
+	if (reg == NULL || reg->length == 0) {
 		return -EINVAL;
 	}
 
@@ -87,7 +88,7 @@ static int sb_curr_reg_read_word(uint8_t offset, uint8_t *data)
 {
 	struct sb_word_register *reg = eeprom_get_word_reg(offset);
 
-	if (!reg->present) {
+	if (reg == NULL || !reg->present || data == NULL) {
 		return -EINVAL;
 	}
 
@@ -104,7 +105,7 @@ static int sb_curr_reg_read_block(uint8_t offset, uint8_t *data)
 {
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0) {
+	if (reg == NULL || reg->length == 0 || data == NULL) {
 		return -EINVAL;
 	}
 
@@ -131,7 +132,7 @@ static int sb_curr_reg_write_word(uint8_t offset, uint8_t data)
 {
 	struct sb_word_register *reg = eeprom_get_word_reg(offset);
 
-	if (!reg->present) {
+	if (reg == NULL || !reg->present) {
 		return -EINVAL;
 	}
 
@@ -148,7 +149,7 @@ static int sb_curr_reg_write_block(uint8_t offset, uint8_t data)
 {
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0xff) {
+	if (reg == NULL || reg->length == 0xff) {
 		return -EINVAL;
 	}
 
@@ -181,45 +182,39 @@ bool sb_curr_reg_is_read_only(void)
 	return false;
 }
 
-static int sb_reg_read_word(uint8_t offset, uint8_t *buf, uint8_t *read_size)
+static int sb_reg_read_word(uint8_t offset, uint8_t *buf, uint8_t buf_size)
 {
 	struct sb_word_register *reg = eeprom_get_word_reg(offset);
 
-	if (!reg->present) {
-		buf = NULL;
-		if(read_size != NULL) {
-			*read_size = 0;
-		}
+	if (reg == NULL || !reg->present || buf == NULL) {
 		return -EINVAL;
 	}
 
-	memcpy(buf, &reg->data, 2);
-	if(read_size != NULL) {
-		*read_size = sizeof(reg->data);
+	if(buf_size < WORD_SIZE) {
+		return -EOVERFLOW;
 	}
-	return 0;
+
+	memcpy(buf, &reg->data, WORD_SIZE);
+	return WORD_SIZE;
 }
 
-static int sb_reg_read_block(uint8_t offset, uint8_t *buf, uint8_t *read_size)
+static int sb_reg_read_block(uint8_t offset, uint8_t *buf, uint8_t buf_size)
 {
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0) {
-		buf = NULL;
-		if(read_size != NULL) {
-			*read_size = 0;
-		}
+	if (reg == NULL || reg->length == 0 || buf == NULL) {
 		return -EINVAL;
 	}
 
-	memcpy(buf, reg->data, reg->length);
-	if(read_size != NULL) {
-		*read_size = reg->length;
+	if(buf_size < reg->length) {
+		return -EOVERFLOW;
 	}
-	return 0;
+
+	memcpy(buf, reg->data, reg->length);
+	return reg->length;
 }
 
-int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *read_size)
+int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t buf_size)
 {
 	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
@@ -228,9 +223,9 @@ int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *read_size)
 	uint8_t offset = sb_get_block_register_offset(addr);
 
 	if (offset == 0xff) {
-		return sb_reg_read_word(addr, buf, read_size);
+		return sb_reg_read_word(addr, buf, buf_size);
 	} else {
-		return sb_reg_read_block(offset, buf, read_size);
+		return sb_reg_read_block(offset, buf, buf_size);
 	}
 }
 
@@ -239,7 +234,7 @@ static int sb_reg_write_word(uint8_t offset, const uint8_t *buf,
 {
 	struct sb_word_register *reg = eeprom_get_word_reg(offset);
 
-	if (!reg->present) {
+	if (reg == NULL || !reg->present || buf == NULL) {
 		return -EINVAL;
 	}
 
@@ -256,7 +251,7 @@ static int sb_reg_write_block(uint8_t offset, const uint8_t *buf,
 {
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
-	if (reg->length == 0 || buf_size == 0) {
+	if (reg == NULL || reg->length == 0 || buf == NULL || buf_size == 0) {
 		return -EINVAL;
 	}
 
@@ -299,7 +294,7 @@ void sb_update_registers(void)
 
 int sb_reg_is_read_only(uint8_t addr, bool *is_read_only)
 {
-	if (!sb_is_valid_address(addr)) {
+	if (!sb_is_valid_address(addr) || is_read_only == NULL) {
 		return -EINVAL;
 	}
 
@@ -307,7 +302,7 @@ int sb_reg_is_read_only(uint8_t addr, bool *is_read_only)
 	return 0;
 }
 
-int sb_reg_is_word(uint8_t addr, bool *is_word)
+int sb_reg_is_word(uint8_t addr)
 {
 	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
@@ -331,8 +326,12 @@ static int sb_get_capacity_mode(uint8_t *capacity_mode)
 	uint16_t batt_mode;
 	int ret;
 
-	ret = sb_reg_read(SB_BATTERY_MODE, (uint8_t *)&batt_mode, NULL);
-	if (ret != 0) {
+	if(capacity_mode == NULL) {
+		return -EINVAL;
+	}
+
+	ret = sb_reg_read(SB_BATTERY_MODE, (uint8_t *)&batt_mode, sizeof(batt_mode));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to get CAPACITY_MODE from SB_BATTERY_MODE register, err=%d",
@@ -363,7 +362,7 @@ static int sb_reg_calc_capacity(void)
 	int ret;
 
 	ret = sb_get_capacity_mode(&capacity_mode);
-	if (ret != 0) {
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to calculate smart battery capacity, could not read CAPACITY_MODE, err=%d",
@@ -371,8 +370,8 @@ static int sb_reg_calc_capacity(void)
 		return ret;
 	}
 
-	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, NULL);
-	if (ret != 0) {
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to calculate smart battery capacity, could not read SB_DESIGN_VOLTAGE, err=%d",
@@ -381,8 +380,8 @@ static int sb_reg_calc_capacity(void)
 	}
 
 	ret = sb_reg_read(SB_DESIGN_CAPACITY, (uint8_t *)&design_capacity,
-			  NULL);
-	if (ret != 0) {
+			  sizeof(design_capacity));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to calculate smart battery capacity, could not read SB_DESIGN_CAPACITY, err=%d",
@@ -391,8 +390,8 @@ static int sb_reg_calc_capacity(void)
 	}
 
 	ret = sb_reg_read(SB_REMAINING_CAPACITY, (uint8_t *)&remaining_capacity,
-			  NULL);
-	if (ret != 0) {
+			  sizeof(remaining_capacity));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to calculate smart battery capacity, could not read SB_REMAINING_CAPACITY, err=%d",
@@ -401,8 +400,8 @@ static int sb_reg_calc_capacity(void)
 	}
 
 	ret = sb_reg_read(SB_FULL_CHARGE_CAPACITY,
-			  (uint8_t *)&full_charge_capacity, NULL);
-	if (ret != 0) {
+			  (uint8_t *)&full_charge_capacity, sizeof(full_charge_capacity));
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to calculate smart battery capacity, could not read SB_FULL_CHARGE_CAPACITY, err=%d",
@@ -445,7 +444,7 @@ int sb_init(void)
 	int ret;
 
 	ret = sb_reg_calc_capacity();
-	if (ret != 0) {
+	if (ret < 0) {
 		DOLOS_LOG_ERR(ERROR_SMART_BATTERY, ret,
 			      "Failed to initialize smart battery, err=%d",
 			      ret);
@@ -469,7 +468,7 @@ static int sb_battery_mode_write_handler(void)
 	uint8_t capacity_mode;
 
 	ret = sb_get_capacity_mode(&capacity_mode);
-	if (ret != 0) {
+	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
 			"Failed to execute SB_BATTERY_MODE write handler, couldn't read CAPACITY_MODE bit, err=%d",
@@ -592,9 +591,17 @@ static inline void cmd_sb_reg_print(const struct shell *sh, uint8_t addr)
 	uint8_t offset = sb_get_block_register_offset(addr);
 	if (offset == 0xff) {
 		struct sb_word_register *reg = eeprom_get_word_reg(addr);
+		if(reg == NULL) {
+			shell_print(sh, "Failed to read register");
+			return;
+		}
 		shell_print(sh, "Data (word): 0x%04x", reg->data);
 	} else {
 		struct sb_block_register *reg = eeprom_get_block_reg(offset);
+		if(reg == NULL) {
+			shell_print(sh, "Failed to read block");
+			return;
+		}
 		shell_print(sh, "Data (block): length=%d", reg->length);
 		shell_hexdump(sh, reg->data, reg->length);
 	}
