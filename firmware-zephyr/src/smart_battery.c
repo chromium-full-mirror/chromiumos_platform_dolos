@@ -181,37 +181,45 @@ bool sb_curr_reg_is_read_only(void)
 	return false;
 }
 
-static int sb_reg_read_word(uint8_t offset, uint8_t *buf, uint8_t *buf_size)
+static int sb_reg_read_word(uint8_t offset, uint8_t *buf, uint8_t *read_size)
 {
 	struct sb_word_register *reg = eeprom_get_word_reg(offset);
 
 	if (!reg->present) {
 		buf = NULL;
-		*buf_size = 0;
+		if(read_size != NULL) {
+			*read_size = 0;
+		}
 		return -EINVAL;
 	}
 
 	memcpy(buf, &reg->data, 2);
-	*buf_size = sizeof(reg->data);
+	if(read_size != NULL) {
+		*read_size = sizeof(reg->data);
+	}
 	return 0;
 }
 
-static int sb_reg_read_block(uint8_t offset, uint8_t *buf, uint8_t *buf_size)
+static int sb_reg_read_block(uint8_t offset, uint8_t *buf, uint8_t *read_size)
 {
 	struct sb_block_register *reg = eeprom_get_block_reg(offset);
 
 	if (reg->length == 0) {
 		buf = NULL;
-		*buf_size = 0;
+		if(read_size != NULL) {
+			*read_size = 0;
+		}
 		return -EINVAL;
 	}
 
 	memcpy(buf, reg->data, reg->length);
-	*buf_size = reg->length;
+	if(read_size != NULL) {
+		*read_size = reg->length;
+	}
 	return 0;
 }
 
-int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *buf_size)
+int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *read_size)
 {
 	if (!sb_is_valid_address(addr)) {
 		return -EINVAL;
@@ -220,9 +228,9 @@ int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *buf_size)
 	uint8_t offset = sb_get_block_register_offset(addr);
 
 	if (offset == 0xff) {
-		return sb_reg_read_word(addr, buf, buf_size);
+		return sb_reg_read_word(addr, buf, read_size);
 	} else {
-		return sb_reg_read_block(offset, buf, buf_size);
+		return sb_reg_read_block(offset, buf, read_size);
 	}
 }
 

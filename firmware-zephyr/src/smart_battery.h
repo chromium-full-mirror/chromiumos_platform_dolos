@@ -92,16 +92,16 @@ bool sb_curr_reg_is_read_only(void);
  *
  * @param addr Register address
  * @param data Pointer to the register data buffer
- * @param buf_size Pointer to the register data buffer size
+ * @param read_size Pointer to the register data buffer size
  *
  * @retval 0 on success
  * @retval -EINVAL if the register does not exist or is not present
  * @retval -EOVERFLOW if the register does not exist
  */
-int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *buf_size);
+int sb_reg_read(uint8_t addr, uint8_t *buf, uint8_t *read_size);
 
 /**
- * @brief Reads the value of a smart battery register
+ * @brief Writes the value in the buffer to a smart battery register
  *
  * @param addr Register address
  * @param buf Pointer to the register data buffer
