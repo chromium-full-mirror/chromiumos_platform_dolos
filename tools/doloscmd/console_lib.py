@@ -20,6 +20,7 @@ import time
 from doloscmd.config import Config
 from doloscmd.eeprom_layout import EEPROMLayout
 from doloscmd.error import DolosConsoleError
+from doloscmd.error import DolosConsoleNoEchoError
 from doloscmd.proto import doloscmd_pb2
 import requests
 import serial
@@ -206,7 +207,8 @@ class DolosConsole:
 
         Args:
             dolos_serial (optional string): Optional Dolos serial number to find.
-                            When None, this will connect to Dolos if only 1 device is found.
+                            When None, this will connect to Dolos if only 1 device is
+                            found.
 
         Returns:
             DolosConsole: DolosConsole instance
@@ -363,7 +365,8 @@ class DolosConsole:
                 return self._find_response_start(cmd, response)
             except DolosConsoleError:
                 pass
-        raise DolosConsoleError(f"Device failed to echo command {cmd}")
+
+        raise DolosConsoleNoEchoError(f"Device failed to echo command {cmd}")
 
     def run_firmware_command(self, cmd, timeout=1, echo_timeout=0.2):
         """Issue a command to the UART console and read back the result.
@@ -431,19 +434,23 @@ class DolosConsole:
             string: Any output read from the console during the reset
         """
         # Extended timeout allows blocks us until the console restores
-        reset_text = self.run_firmware_command("reset", timeout=5)
+        try:
+            self.run_firmware_command("reset", timeout=5)
+        except DolosConsoleNoEchoError:
+            # Running a command requires the command to echo back - this does not work
+            # for reset.
+            pass
         time.sleep(3)
         if not status:
             status = self.determine_status(self.get_status())
         if status == doloscmd_pb2.DOLOS_STATUS.DOLOS_OUTPUT_POWER_FAILED:
             self.repair_output_power_failed()
-        return reset_text
 
     def dolos_status_output_to_dict(self, lines):
-        """Convert the raw bytes from the status console command to a dictionary of strings.
+        """Convert raw bytes from the status console command to dictionary of strings.
 
-        The status command outputs several likes of information, parse that and put it in
-        and indexable format.
+        The status command outputs several likes of information, parse that and put it
+        in and indexable format.
 
         See the template in tests/fixtures/mock_dolos_console.py for example of input
         format.
@@ -531,11 +538,11 @@ class DolosConsole:
     def update_firmware(self, firmware_version):
         """Update the Dolos firmware to a different version.
 
-        Both the updater and the firmware are posted on a public Google Cloud bucket, fetch
-        both into a temporary directory and run the updater.
+        Both the updater and the firmware are posted on a public Google Cloud bucket,
+        fetch both into a temporary directory and run the updater.
 
-        Both the updater and firmware are very small so cost of download is not high enough to
-        warrant a complex caching strategy.
+        Both the updater and firmware are very small so cost of download is not high
+        enough to warrant a complex caching strategy.
 
         Args:
             firmware_version (string): version of the firmware to update to.
@@ -588,6 +595,8 @@ class DolosConsole:
                 )
             except subprocess.CalledProcessError as err:
                 logging.debug(str(err))
+                logging.debug(err.stderr)
+                logging.debug(err.stdout)
                 raise DolosConsoleError(str(err)) from err
             finally:
                 self.open()
@@ -597,11 +606,12 @@ class DolosConsole:
 
         This maps status command values to the correct external error status.
 
-        There are other error status's that are not dependent on the console status output
-        they are implemented elsewhere.
+        There are other error status's that are not dependent on the console status
+        output they are implemented elsewhere.
 
         Args:
-            status_dict (dict{string: string}): Mapping of status console keys to values.
+            status_dict (dict{string: string}): Mapping of status console keys to
+            values.
 
         Returns:
             DOLOS_STATUS: The calculated status of the Dolos.

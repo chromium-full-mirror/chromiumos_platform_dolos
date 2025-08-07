@@ -7,3 +7,6 @@
 
 class DolosConsoleError(Exception):
     """General exception thrown when a error occurs dealing with the console."""
+
+class DolosConsoleNoEchoError(DolosConsoleError):
+    """Thrown when a command to the console fails to echo back the commands."""
