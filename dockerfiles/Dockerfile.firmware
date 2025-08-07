@@ -58,7 +58,7 @@ WORKDIR /zephyr
 RUN git clone -b mspm0_dev_stable https://github.com/msp-ti/zephyr.git
 
 WORKDIR /zephyr/zephyr
-RUN git checkout 111d93f7620cc62ad1c25673759f2c7857312c82
+RUN git checkout 51ee856187cd0f5350af54b1d0b9ab4cf2ce154b
 RUN west init -l && west update hal_ti cmsis &&\
   chmod +x /zephyr/zephyr/zephyr-env.sh &&\
   chmod o+w /zephyr/.west/config
