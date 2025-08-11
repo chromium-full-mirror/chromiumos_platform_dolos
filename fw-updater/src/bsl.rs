@@ -5,9 +5,10 @@
 /// Implements API to send/receive commands/response to Ti BSL (Bootstrap Loader).
 /// Spec: https://www.ti.com/lit/ug/slau887/slau887.pdf
 use std::iter;
+use std::process::exit;
 
 use anyhow::{bail, Result};
-use log::{debug, trace};
+use log::{debug, trace, error};
 
 use crate::uart::Uart;
 
@@ -115,12 +116,16 @@ impl Bsl {
 
     pub fn connect(&mut self) -> Result<()> {
         debug!("Establishing Connection");
-        let _ = self.issue_command(
+        if let Err(_) = self.issue_command(
             BslCoreCommandCode::Connection as _,
             None,
             None,
             false,
-        )?;
+        ) {
+            error!("Unable to connect to BSL");
+            error!("Check if device is in BSL mode or if another process holds the connection");
+            exit(1)
+        }
         Ok(())
     }
 

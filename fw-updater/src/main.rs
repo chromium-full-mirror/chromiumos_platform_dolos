@@ -5,10 +5,11 @@
 use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
+use std::process::exit;
 
 use anyhow::Result;
 use clap::Parser;
-use log::{debug, info, trace};
+use log::{debug, info, trace, error};
 use regex::Regex;
 
 use fw_updater::bsl;
@@ -101,6 +102,12 @@ fn firmware_version(uart: &mut Uart) -> Result<String> {
     uart.write_all("version\r".as_bytes())?;
     sleep(Duration::from_millis(APP_FIRMWARE_DELAY_MSEC));
     uart.read_all(&mut version_buf)?;
+
+    ///Check if was able to read version
+    if version_buf.iter().all(|&x| x == 0) {
+        error!("Unable to read from UART. Maybe another process is holding the connection?");
+        exit(1);
+    }
 
     // Get the version from the output string
     let version_str = String::from_utf8(version_buf).unwrap();
