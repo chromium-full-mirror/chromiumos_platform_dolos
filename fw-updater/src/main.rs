@@ -145,10 +145,11 @@ pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
     let uart = Uart::open(path, baud_rate)?;
     let mut bsl = bsl::Bsl::open(uart)?;
 
-    bsl.erase()?;
-    info!("Successfully erased flash");
-
     for section in &image.sections {
+        //Last byte in section start address is start + len - 1
+        let end_address: u32 = (section.address + section.data.len() as u32) - 1;
+        bsl.erase(section.address, end_address)?;
+        info!("Successfully erased flash from {0:#x} to {end_address:#x}", section.address);
         trace!(
             "Programming section @{:#x} with {}bytes",
             section.address,

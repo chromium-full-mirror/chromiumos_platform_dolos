@@ -31,12 +31,13 @@ Notes:
  **/
 use std::fs::File;
 use std::io::{self, BufRead};
+use std::process::exit;
 
 use anyhow::{Context, Result};
-use log::{debug, trace};
+use log::{debug, trace, error};
 
 const FLASH_ALIGN_SIZE: u32 = 8;
-
+const FLASH_MAX_SIZE: u32 = 128 * 1024;
 #[derive(Clone, Debug, Default)]
 pub struct TiSection {
     pub address: u32,
@@ -87,20 +88,37 @@ pub fn parse(path: &String) -> Result<TiTxt> {
     let mut result = TiTxt::default();
     let file = File::open(path).with_context(|| format!("Failed to open input file:: {path}"))?;
     let lines = io::BufReader::new(file).lines();
+    let mut start_address: u32 = 0;
     let mut cur_address: u32 = 0;
     let mut cur_data: Vec<u8> = Vec::new();
+    //Process the input file line by line
     for ref line in lines.flatten() {
         trace!("Line = [{line}]");
         if is_end_of_previous_section(line) {
-            if cur_data.is_empty() {
-                continue;
+            if is_start_of_section(line) {
+                if cur_data.is_empty() {
+                    //Handle first section in file
+                    cur_address = parse_address(line)?;
+                    start_address = cur_address;
+                    debug!("New section started for address {cur_address:#x}");
+                    continue;
+                }
+                let new_address: u32 = parse_address(line)?;
+                debug!("New section found with start address {new_address:#x}");
+                if new_address == cur_address {
+                    ///Merge sections if possible to minimise erase calls
+                    debug!("Section can be merged with previous section");
+                    continue;
+                }
             }
+            //Only get here if end of section and cannot be merged with previous section
             debug!(
-                "Section end reached for address {cur_address:#x} size {}",
+                "Section end reached for address {start_address:#x} size {}",
                 cur_data.len()
             );
-            let pre_pad_count = cur_address % FLASH_ALIGN_SIZE;
-            cur_address = cur_address - pre_pad_count;
+            //Pad section if necessary to write block size
+            let pre_pad_count = start_address % FLASH_ALIGN_SIZE;
+            start_address = start_address - pre_pad_count;
             assert!(pre_pad_count < FLASH_ALIGN_SIZE);
             if pre_pad_count != 0 {
                 let zero_vec = vec![0u8; pre_pad_count as usize];
@@ -112,23 +130,32 @@ pub fn parse(path: &String) -> Result<TiTxt> {
                 let mut zero_vec = vec![0u8; (FLASH_ALIGN_SIZE as usize - post_pad_size) as usize];
                 cur_data.append(&mut zero_vec);
             }
+            if start_address + cur_data.len() as u32 > FLASH_MAX_SIZE {
+                error!("Section in input file has end address outside flash memory");
+                exit(1);
+            }
             result.sections.push(TiSection {
-                address: cur_address,
+                address: start_address,
                 data: cur_data.clone(),
             });
-            cur_address = 0;
+            start_address = 0;
             cur_data.clear();
         }
         if is_end_of_sections(line) {
+            //End of processing
             debug!("End of sections reached");
             break;
         } else if is_start_of_section(line) {
+            // Only get here if is start and cannot be merged with previous section
             cur_address = parse_address(line)?;
-            trace!("New section started for address {cur_address}");
+            start_address = cur_address;
+            debug!("New section started for address {cur_address:#x}");
         } else {
+            //Process data line
             let mut data = parse_data(line)?;
+            cur_address += data.len() as u32;
             trace!("Parsed {} hex bytes", data.len());
-            cur_data.append(&mut data)
+            cur_data.append(&mut data);
         }
     }
 

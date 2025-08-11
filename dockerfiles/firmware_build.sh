@@ -20,4 +20,6 @@ git config --global --add safe.directory /zephyr/zephyr
 source /zephyr/zephyr/zephyr-env.sh
 cd /repo/firmware-zephyr
 ./src/build.sh
-python3 /usr/local/bin/converter.py /repo/firmware-zephyr/build/zephyr/zephyr.bin /repo/firmware-zephyr/build/zephyr/zephyr.txt
+# TODO(b/438110087): Adjust flags when converting the default flow
+python3 /usr/local/imgtool/imgtool.py pad --legacy /repo/firmware-zephyr/build/zephyr/zephyr.bin /repo/firmware-zephyr/build/zephyr/zephyr.padded.bin
+python3 /usr/local/bin/converter.py /repo/firmware-zephyr/build/zephyr/zephyr.padded.bin /repo/firmware-zephyr/build/zephyr/zephyr.txt

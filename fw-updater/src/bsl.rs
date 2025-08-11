@@ -188,15 +188,14 @@ impl Bsl {
         }
     }
     /// Erase the flash
-    pub fn erase(&mut self) -> Result<()> {
-        debug!("Erasing flash");
-        let program_start_address: u32 = 0;
-        let program_end_address: Vec<u8> = 0x1dc00u32.to_le_bytes().to_vec();
+    pub fn erase(&mut self, start_address: u32, end_address: u32) -> Result<()> {
+        debug!("Erasing flash from @{start_address:#x} to @{end_address:#x}");
+        let erase_end_address: Vec<u8> = end_address.to_le_bytes().to_vec();
         let result = self
             .issue_command(
                 BslCoreCommandCode::FlashRangeErase as _,
-                Some(program_start_address),
-                Some(program_end_address),
+                Some(start_address),
+                Some(erase_end_address),
                 true,
             )?
             .unwrap();

@@ -70,6 +70,7 @@ FROM downloader AS builder
 COPY --from=zephyr-sdk /usr/local/ /usr/local/
 COPY --from=zephyr-repo /zephyr /zephyr
 COPY tools/formatconverter/converter.py /usr/local/bin/converter.py
+COPY tools/imgtool/ /usr/local/imgtool/
 
 ######################################################################
 # Prepare scripts to build firmware
