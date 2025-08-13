@@ -80,4 +80,4 @@ RUN ln -s /tmp /zephyr/zephyr/.cache
 
 WORKDIR /tmp
 VOLUME /repo
-ENTRYPOINT /bin/bash /build.sh
+ENTRYPOINT ["/bin/bash", "/build.sh"]
