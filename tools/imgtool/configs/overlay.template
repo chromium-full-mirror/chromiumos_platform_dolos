@@ -1,0 +1,35 @@
+// Copyright 2025 The ChromiumOS Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+/ {
+	chosen {
+		zephyr,code-partition = &{CODE_PARTITION};
+		zephyr,flash = &flash0;
+		zephyr,flash-controller = &flashctl;
+	};
+};
+
+&flashctl {
+	flash0: nv-flash@0 {
+		compatible = "ti,mspm0-nv-flash", "soc-nv-flash";
+		erase-block-size = <1024>;
+		write-block-size = <8>;
+		reg = <0x0 DT_SIZE_K(128)>;
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			boot_partition: partition@0 {
+				label = "bootloader";
+				reg = <0x0 {BOOT_PARTITION_SIZE}>;
+			};
+
+			firmware_partition: partition@{FIRMWARE_PARTITION_START_ADDR_NO_PREFIX} {
+				label = "firmware_partition";
+				reg = <{FIRMWARE_PARTITION_START_ADDR} {FIRMWARE_PARTITION_SIZE}>;
+			};
+		};
+	};
+};

@@ -8,6 +8,65 @@
 
 # shellcheck disable=SC1091
 
+IMGTOOL="/usr/local/imgtool/imgtool.py"
+CONVERTER="/usr/local/bin/converter.py"
+FIRMWARE_BINARY="/repo/firmware-zephyr/build/zephyr/zephyr.bin"
+LEGACY_FINAL="/repo/firmware-zephyr/build/zephyr/zephyr.txt"
+FIRMWARE_FINAL="/repo/firmware-zephyr/build/zephyr/firmware.txt"
+BOOTLOADER_BINARY="/repo/bootloader-zephyr/build/zephyr/zephyr.bin"
+BOOTLOADER_FINAL="/repo/bootloader-zephyr/build/zephyr/boot.txt"
+COMBINED_FINAL="/repo/firmware-zephyr/build/zephyr/combined.txt"
+TEMP_PADDED="/tmp/zephyr.padded.bin"
+FIRMWARE_START_ADDR=$(python3 $IMGTOOL get-fw-start-addr)
+
+
+function build_legacy {
+	cd /repo/firmware-zephyr
+
+	if [[ -f "app.overlay" ]]; then
+		echo "Found overlay file. Removing from legacy build"
+		rm app.overlay
+	fi
+
+	# TODO(b/438110087): Remove rm call when legacy no longer supported
+	rm -r build
+
+	./src/version.sh
+	west build -b dolos
+
+	python3 $IMGTOOL pad --legacy $FIRMWARE_BINARY $TEMP_PADDED
+	python3 $CONVERTER $TEMP_PADDED $LEGACY_FINAL
+
+	rm $TEMP_PADDED
+}
+
+function build_bootloader {
+	cd /repo/bootloader-zephyr
+
+	west build -b dolos
+
+	python3 $IMGTOOL pad --boot $BOOTLOADER_BINARY $TEMP_PADDED
+	python3 $CONVERTER $TEMP_PADDED $BOOTLOADER_FINAL
+
+	rm $TEMP_PADDED
+}
+
+function build_firmware {
+	cd /repo/firmware-zephyr
+
+	rm -r build
+
+	# TODO(b/438110087): Move config option in prj.conf
+	# And once legacy option is removed, rm -r build calls can be removed
+	./src/version.sh
+	west build -b dolos -- -DCONFIG_USE_DT_CODE_PARTITION=y
+
+	python3 $IMGTOOL pad --firmware $FIRMWARE_BINARY $TEMP_PADDED
+	python3 $CONVERTER --section_start "$FIRMWARE_START_ADDR" $TEMP_PADDED $FIRMWARE_FINAL
+
+	rm $TEMP_PADDED
+}
+
 set -e
 
 if [ ! -d /repo ] || [ ! -d /zephyr ]; then
@@ -18,8 +77,26 @@ fi
 export HOME=/tmp
 git config --global --add safe.directory /zephyr/zephyr
 source /zephyr/zephyr/zephyr-env.sh
-cd /repo/firmware-zephyr
-./src/build.sh
-# TODO(b/438110087): Adjust flags when converting the default flow
-python3 /usr/local/imgtool/imgtool.py pad --legacy /repo/firmware-zephyr/build/zephyr/zephyr.bin /repo/firmware-zephyr/build/zephyr/zephyr.padded.bin
-python3 /usr/local/bin/converter.py /repo/firmware-zephyr/build/zephyr/zephyr.padded.bin /repo/firmware-zephyr/build/zephyr/zephyr.txt
+
+# TODO(b/438110087): Adjust default flow
+if [[ -n "$BUILD_MODE" ]]; then
+	echo "Generating overlays..."
+	cd /repo
+	python3 $IMGTOOL gen-overlay
+fi
+
+if [[ "$BUILD_MODE" == "COMBINED" ]]; then
+	echo "Building combined image..."
+	build_bootloader
+	build_firmware
+	head -n -1 $BOOTLOADER_FINAL > $COMBINED_FINAL && cat $FIRMWARE_FINAL >> $COMBINED_FINAL
+elif [[ "$BUILD_MODE" == "FIRMWARE" ]]; then
+	echo "Building just the firmware..."
+	build_firmware
+elif [[ "$BUILD_MODE" == "BOOTLOADER" ]]; then
+	echo "Building just the bootloader..."
+	build_bootloader
+else
+	echo "Building legacy image..."
+	build_legacy
+fi

@@ -2,19 +2,21 @@
 
 ## Overview
 
-This command-line utility manages binary images for the **Dolos** project. Its primary function is to **pad** firmware, bootloader, or legacy binary images to the specific size required.
+This command-line utility manages binary images and configuration files for the **Dolos** project. Its primary functions are:
 
-In the future, a fw-sign command to prepend the image hash to the firmware image, a gen-overlay command to generate the correct app.overlay files, and a gen-ro to generate and append a Read Only partition to the bootloader image will be added.
+* **Padding** firmware, bootloader, or legacy binary images to the specific sizes required by the hardware.
+* **Generating** the `app.overlay` files for both the bootloader and firmware using memory map constants.
+* **Retrieving** the firmware partition's starting address for build and scripting purposes.
 
-The tool is integrated into the project's build flow but can also be run manually to handle image resizing. It works by taking an input binary, calculating the necessary padding based on the image type, and appending bytes (`0xFF`) until the target size is reached.
+The tool is integrated into the project's build flow but can also be run manually. It uses constants defined in `configs/memory_map.py` to ensure consistency across the project.
 
-The flash memory layout and associated constants the tool uses are defined in `configs/memory_map.py`.
+In the future, a `fw-hash` command to prepend the image hash and a `gen-ro` command to generate and append a Read-Only partition will be added.
 
 ---
 
 ## Usage
 
-The tool is invoked from the command line and uses subcommands to perform different actions. Currently, only the `pad` command is implemented.
+The tool is invoked from the command line and uses subcommands to perform different actions.
 
 ### `pad` Command
 
@@ -35,3 +37,21 @@ To pad a binary file named zephyr.bin for a legacy build, you can run:
 ```
 python3 imgtool.py pad --legacy zephyr.bin zephyr.padded.bin
 ```
+
+### `gen-overlay` Command
+
+The `gen-overlay` command generates the `app.overlay` files required for building the bootloader and the main firmware. It reads the `configs/overlay.template`, and populates it with the memory layout values stored in `configs/memory_map.py`, creating two distinct files. Symbols are surrounded by `{}` and matched by name: `{SYMBOL}`.
+
+**Syntax**
+```shell
+python3 imgtool.py gen-overlay
+```
+
+This command takes no arguments and will generate
+
+1. `bootloader-zephyr/app.overlay`
+2. `firmware-zephyr/app.overlay`
+
+### `get-fw-start-addr` Command
+
+This command prints the start address of the firmware partition. The output is a hexadecimal string without the leading `0x`, suitable for use in other scripts. This command was added with the intention of making this tool the single source of truth in regards to the memory layout.

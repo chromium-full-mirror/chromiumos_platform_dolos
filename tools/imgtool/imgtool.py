@@ -15,15 +15,27 @@ import os
 import configs.memory_map as mem_map
 
 
+OVERLAY_TEMPLATE_PATH = "tools/imgtool/configs/overlay.template"
+BOOTLOADER_OVERLAY_PATH = "bootloader-zephyr/app.overlay"
+FIRMWARE_OVERLAY_PATH = "firmware-zephyr/app.overlay"
+
+
 def setup_parser() -> argparse.ArgumentParser:
     """
     Sets up the argument parser for the image management tool.
 
-    This function defines the command-line interface, including the 'pad'
-    subcommand and its associated arguments. The 'pad' subcommand allows
-    users to specify an image type to pad (legacy, boot, or firmware)
-    using mutually exclusive flags, with 'legacy' as the default if no
-    type is explicitly chosen. It also requires input and output file paths.
+    This function defines the command-line interface and its subcommands:
+    'pad', 'gen-overlay', and 'get-fw-start-addr'.
+
+    The 'pad' subcommand pads an image file. It allows users to specify an
+    image type to pad (legacy, boot, or firmware) using mutually
+    exclusive flags, with 'legacy' as the default. It also requires
+    input and output file paths.
+
+    The 'gen-overlay' subcommand generates the app.overlay files.
+
+    The 'get-fw-start-addr' subcommand prints the start address of the
+    firmware partition in hexadecimal format.
 
     Returns:
         argparse.ArgumentParser: The configured argument parser object.
@@ -65,6 +77,11 @@ def setup_parser() -> argparse.ArgumentParser:
     parser_pad.add_argument("input_file")
     parser_pad.add_argument("output_file")
 
+    subparsers.add_parser("gen-overlay", help="generate the app.overlay files")
+    subparsers.add_parser(
+        "get-fw-start-addr",
+        help="prints the start address of the firmware partition in hex",
+    )
     return parser
 
 
@@ -74,8 +91,7 @@ def handle_pad_command(image_type: str, input_filename: str, output_filename: st
 
     This function reads an input binary file, calculates the necessary padding
     to reach a predetermined 'final_size' based on the 'image_type', and
-    writes the padded content to an output file. Currently, only 'legacy'
-    image type padding is implemented.
+    writes the padded content to an output file.
 
     Args:
         image_type (str): The type of image to pad (e.g., "legacy").
@@ -84,8 +100,6 @@ def handle_pad_command(image_type: str, input_filename: str, output_filename: st
         output_filename (str): The path where the padded output file will be written.
 
     Raises:
-        NotImplementedError: If the `image_type` is not "legacy" (as other types
-                             are not yet implemented).
         ValueError: If the input file's size is greater than the calculated
                     `final_size` for the specified `image_type`.
         IOError: If any file input/output operation fails.
@@ -96,8 +110,12 @@ def handle_pad_command(image_type: str, input_filename: str, output_filename: st
 
         if image_type == "legacy":
             final_size = mem_map.FLASH_TOTAL_SIZE
+        elif image_type == "boot":
+            final_size = mem_map.BOOT_PARTITION_SIZE
+        elif image_type == "firmware":
+            final_size = mem_map.FIRMWARE_PARTITION_SIZE
         else:
-            raise NotImplementedError("Pad type not implemented")
+            raise ValueError("Invalid image type")
 
         with open(absolute_input_path, "rb") as infile, open(
             absolute_output_path, "wb"
@@ -123,6 +141,75 @@ def handle_pad_command(image_type: str, input_filename: str, output_filename: st
         print(f"File I/O error: {e}")
 
 
+def generate_overlay_file(
+    skeleton: str, replacements: dict, code_partition: str, dest_path: str
+):
+    """Generates an overlay file from a skeleton template and a dictionary of values.
+
+    This function takes a template string, replaces placeholders in the format
+    `{SYMBOL}` with corresponding values from the replacements dictionary, and
+    writes the result to a specified destination file.
+
+    Args:
+        skeleton (str): The template string for the overlay file.
+        replacements (dict): A dictionary mapping placeholder symbols to their
+            replacement values.
+        code_partition (str): The name of the code partition (e.g.,
+            'boot_partition') to be inserted for the `{CODE_PARTITION}` symbol.
+        dest_path (str): The path to write the generated overlay file to.
+    """
+    replacements["CODE_PARTITION"] = code_partition
+    overlay_contents = skeleton
+    for symbol, value in replacements.items():
+        overlay_contents = overlay_contents.replace(f"{{{symbol}}}", str(value))
+    try:
+        with open(dest_path, "w", encoding="utf8") as outfile:
+            outfile.write(overlay_contents)
+    except IOError as e:
+        print(f"File I/O error: {e}")
+
+
+def handle_gen_overlay_command():
+    """Handles the 'gen-overlay' command to create app.overlay files.
+
+    This function reads a skeleton overlay file, populates it with memory map
+    constants (e.g., partition sizes and start addresses), and then
+    generates two separate `app.overlay` files: one for the bootloader and
+    one for the main firmware.
+    """
+
+    try:
+        with open(OVERLAY_TEMPLATE_PATH, "r", encoding="utf8") as infile:
+            raw_overlay_skeleton = infile.read()
+
+            # Discard the copyright lines and any other comments
+            filtered_lines = [
+                line
+                for line in raw_overlay_skeleton.splitlines()
+                if not line.startswith("//")
+            ]
+            overlay_skeleton = "\n".join(filtered_lines)
+
+        replacements = {
+            "BOOT_PARTITION_SIZE": hex(mem_map.BOOT_PARTITION_SIZE),
+            "FIRMWARE_PARTITION_START_ADDR": hex(mem_map.FIRMWARE_PARTITION_START_ADDR),
+            "FIRMWARE_PARTITION_START_ADDR_NO_PREFIX": hex(
+                mem_map.FIRMWARE_PARTITION_START_ADDR
+            )[2:],
+            "FIRMWARE_PARTITION_SIZE": hex(mem_map.FIRMWARE_PARTITION_SIZE),
+        }
+
+        generate_overlay_file(
+            overlay_skeleton, replacements, "boot_partition", BOOTLOADER_OVERLAY_PATH
+        )
+        generate_overlay_file(
+            overlay_skeleton, replacements, "firmware_partition", FIRMWARE_OVERLAY_PATH
+        )
+
+    except IOError as e:
+        print(f"File I/O error: {e}")
+
+
 def main():
     """Main driver function"""
 
@@ -135,6 +222,10 @@ def main():
 
     if args.command == "pad":
         handle_pad_command(args.image_type, args.input_file, args.output_file)
+    elif args.command == "gen-overlay":
+        handle_gen_overlay_command()
+    elif args.command == "get-fw-start-addr":
+        print(hex(mem_map.FIRMWARE_PARTITION_START_ADDR)[2:])
 
 
 if __name__ == "__main__":

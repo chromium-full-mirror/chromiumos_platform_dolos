@@ -40,9 +40,23 @@ done.
 docker build -f dockerfiles/Dockerfile.firmware -t dolos .
 ```
 
-To build the firmware, execute command from the root of the dolos repository:
+To build the legacy firmware, execute command from the root of the dolos repository:
 ```shell
 docker run --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
+```
+<!-- TODO(b/438110087) Update this section when changing default flow -->
+
+To build the bootloader-enabled version of the firmware you need to pass an additional environment variable, `BUILD_MODE` to specify what kind of build you prefer:
+- `COMBINED`: builds both bootloader and firmware and generates a combined binary
+- `BOOTLOADER`: builds just the bootloader
+- `FIRMWARE`: builds just the firmware
+
+Any of the below is a valid invocation:
+
+```shell
+docker run -e BUILD_MODE="COMBINED" --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
+docker run -e BUILD_MODE="BOOTLOADER" --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
+docker run -e BUILD_MODE="FIRMWARE" --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
 ```
 
 In case of any compilation error, you may need to remove the old build directory
@@ -68,7 +82,25 @@ docker build --output "./build_result" \
 ```
 
 The output of the build(s) should be in the build_result directory.
-To flash firmware built earlier, you need to execute command:
+
+To flash the legacy firmware built earlier, you need to execute:
 ```shell
 ./build_result/fw-updater firmware-zephyr/build/zephyr/zephyr.txt
+```
+
+<!-- TODO(b/438110087) Update this section when changing default flow -->
+
+To flash a combined image of bootloader and firmware execute:
+```shell
+./build_result/fw-updater firmware-zephyr/build/zephyr/combined.txt
+```
+
+To flash just the bootloader execute:
+```shell
+./build_result/fw-updater bootloader-zephyr/build/zephyr/boot.txt
+```
+
+To flash just the firmware execute:
+```shell
+./build_result/fw-updater firmware-zephyr/build/zephyr/firmware.txt
 ```

@@ -11,3 +11,5 @@ build/
 
 # VERSION file that tracks the firmware version
 VERSION
+
+/*.overlay

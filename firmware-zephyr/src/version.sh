@@ -18,5 +18,3 @@ echo "VERSION_MAJOR = ${VERSION_MAJOR}" > VERSION
         echo "VERSION_TWEAK = ${VERSION_TWEAK}"
         echo "EXTRAVERSION = ${EXTRAVERSION}"
 } >> VERSION
-
-west build -b dolos
