@@ -19,6 +19,23 @@ COMBINED_FINAL="/repo/firmware-zephyr/build/zephyr/combined.txt"
 TEMP_PADDED="/tmp/zephyr.padded.bin"
 FIRMWARE_START_ADDR=$(python3 $IMGTOOL get-fw-start-addr)
 
+MAX_USAGE=90 # Expressed as percentage
+FLASH_SIZE=131072 # 128KB
+BOOT_PARTITION_SIZE=$(("0x$FIRMWARE_START_ADDR")) # Get the size as decimal integer
+FIRMWARE_PARTITION_SIZE=$((FLASH_SIZE - BOOT_PARTITION_SIZE))
+
+# Arg 1: binary file path
+# Arg 2: max partition size
+function check_size {
+	local binary_size
+	local max_allowable_size
+	binary_size=$(wc -c "$1" | awk '{print $1}')
+	max_allowable_size=$(((MAX_USAGE * $2) / 100))
+	if (( binary_size > max_allowable_size )); then
+		echo "ERROR: Binary $1 exceeds maximum occupation threshold of $MAX_USAGE%"
+		exit 1
+	fi
+}
 
 function build_legacy {
 	cd /repo/firmware-zephyr
@@ -33,6 +50,7 @@ function build_legacy {
 
 	./src/version.sh
 	west build -b dolos
+	check_size $FIRMWARE_BINARY $FLASH_SIZE
 
 	python3 $IMGTOOL pad --legacy $FIRMWARE_BINARY $TEMP_PADDED
 	python3 $CONVERTER $TEMP_PADDED $LEGACY_FINAL
@@ -44,6 +62,7 @@ function build_bootloader {
 	cd /repo/bootloader-zephyr
 
 	west build -b dolos
+	check_size $BOOTLOADER_BINARY $BOOT_PARTITION_SIZE
 
 	python3 $IMGTOOL pad --boot $BOOTLOADER_BINARY $TEMP_PADDED
 	python3 $CONVERTER $TEMP_PADDED $BOOTLOADER_FINAL
@@ -60,6 +79,7 @@ function build_firmware {
 	# And once legacy option is removed, rm -r build calls can be removed
 	./src/version.sh
 	west build -b dolos -- -DCONFIG_USE_DT_CODE_PARTITION=y
+	check_size $FIRMWARE_BINARY $FIRMWARE_PARTITION_SIZE
 
 	python3 $IMGTOOL pad --firmware $FIRMWARE_BINARY $TEMP_PADDED
 	python3 $CONVERTER --section_start "$FIRMWARE_START_ADDR" $TEMP_PADDED $FIRMWARE_FINAL
