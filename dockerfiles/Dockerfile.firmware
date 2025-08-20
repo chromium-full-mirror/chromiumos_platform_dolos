@@ -69,15 +69,18 @@ FROM downloader AS builder
 
 COPY --from=zephyr-sdk /usr/local/ /usr/local/
 COPY --from=zephyr-repo /zephyr /zephyr
-COPY tools/formatconverter/converter.py /usr/local/bin/converter.py
-COPY tools/imgtool/ /usr/local/imgtool/
 
 ######################################################################
 # Prepare scripts to build firmware
-COPY dockerfiles/firmware_build.sh /build.sh
-RUN chmod 777 /build.sh
+COPY tools/formatconverter/converter.py /usr/local/bin/converter.py
+COPY tools/imgtool/ /usr/local/imgtool/
+COPY dockerfiles/firmware_build.sh /firmware_build.sh
+
+RUN chmod 777 /usr/local/bin/converter.py
+RUN chmod -R 777 /usr/local/imgtool
+RUN chmod 777 /firmware_build.sh
 RUN ln -s /tmp /zephyr/zephyr/.cache
 
 WORKDIR /tmp
 VOLUME /repo
-ENTRYPOINT ["/bin/bash", "/build.sh"]
+ENTRYPOINT ["/bin/bash", "/firmware_build.sh"]
