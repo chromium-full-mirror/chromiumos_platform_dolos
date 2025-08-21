@@ -1,0 +1,121 @@
+/* Copyright 2025 The ChromiumOS Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+ #include "uart.h"
+
+ #include <zephyr/drivers/uart.h>
+ #include <zephyr/sys/ring_buffer.h>
+ #include <string.h>
+
+#define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
+static const struct device *const uart_dev = DEVICE_DT_GET(UART_DEVICE_NODE);
+
+#define BUF_SIZE 1024
+
+static K_SEM_DEFINE(rx_sem, 0, 1);
+static char rx_buf[BUF_SIZE];
+static uint8_t rx_pos;
+RING_BUF_DECLARE(tx_buf, BUF_SIZE);
+
+
+/**
+ * @brief Processes a single received character.
+ * @return false if a line-ending was found, true otherwise.
+ */
+static bool process_received_char(const struct device *dev, uint8_t c)
+{
+    // Handle backspace and delete
+    if (c == '\b' || c == 127) {
+        if (rx_pos > 0) {
+            rx_pos--;
+            // Echo backspace-space-backspace to visually clear character
+            uart_print("\b \b");
+        }
+        return true;
+    }
+
+    // Handle newline / enter: end of command
+    if (c == '\r' || c == '\n') {
+        rx_buf[rx_pos] = '\0';
+        rx_pos = 0;
+        k_sem_give(&rx_sem);
+        uart_print("\r\n");
+        return false;
+    }
+
+    // Handle regular characters
+    if (rx_pos < BUF_SIZE - 1) {
+        rx_buf[rx_pos++] = c;
+        // Echo the character back to the terminal
+        char str_rep[2] = {c, 0};
+        uart_print(str_rep);
+    }
+
+    return true;
+}
+
+static void uart_callback(const struct device *dev, void *user_data) {
+
+        uart_irq_update(dev);
+
+        // Handle RX
+        if(uart_irq_rx_ready(dev)) {
+                uint8_t c;
+                while(uart_fifo_read(dev, &c, sizeof(c)) == sizeof(c)) {
+                        if(!process_received_char(dev, c)) {
+                                break;
+                        }
+                }
+        }
+
+        // Handle TX
+        if(uart_irq_tx_ready(dev)) {
+                uint8_t c;
+                if(ring_buf_get(&tx_buf, &c, sizeof(c)) > 0) {
+                        uart_fifo_fill(dev, &c, sizeof(c));
+                } else {
+                        uart_irq_tx_disable(dev);
+                }
+        }
+}
+
+void uart_init(void) {
+        int ret;
+        ret = uart_irq_callback_user_data_set(uart_dev, uart_callback, NULL);
+        if (ret < 0) {
+		if (ret == -ENOTSUP) {
+			printk("Interrupt-driven UART API support not enabled\n");
+		} else if (ret == -ENOSYS) {
+			printk("UART device does not support interrupt-driven API\n");
+		} else {
+			printk("Error setting UART callback: %d\n", ret);
+		}
+		return;
+	}
+        uart_irq_rx_enable(uart_dev);
+}
+
+void uart_print(const char *buf) {
+        while(*buf != 0) {
+                ring_buf_put(&tx_buf, buf, sizeof(*buf));
+                buf++;
+        }
+        uart_irq_tx_enable(uart_dev);
+}
+
+int uart_receive_line(char *buf, size_t size, k_timeout_t timeout) {
+        int ret = k_sem_take(&rx_sem, timeout);
+        if(ret != 0) {
+                return ret;
+        }
+
+        size_t pos = 0;
+        while (rx_buf[pos] != 0) {
+                buf[pos] = rx_buf[pos];
+                pos++;
+        }
+        buf[pos] = '\0';
+        return 0;
+}
