@@ -59,6 +59,13 @@ docker run -e BUILD_MODE="BOOTLOADER" --rm --user $(id -u):$(id -g) -v `pwd`:/re
 docker run -e BUILD_MODE="FIRMWARE" --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
 ```
 
+Additionally if you want to enable developer mode, which skips the boot timeout on the bootloader, simply add the `DEV_MODE` environment variable with the value `enabled` as such:
+```shell
+docker run -e BUILD_MODE="BOOTLOADER" -e DEV_MODE="enabled" --rm --user $(id -u):$(id -g) -v `pwd`:/repo -it dolos
+```
+
+Please note this option is only applied when building and flashing the bootloader.
+
 In case of any compilation error, you may need to remove the old build directory
 that was created before building the docker image. Just execute:
 ```shell

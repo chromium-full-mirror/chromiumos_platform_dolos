@@ -7,7 +7,7 @@ Unit tests for the imgtool.py module
 """
 
 # pylint: disable=import-error
-
+# pylint: disable=protected-access, redefined-outer-name
 
 import argparse
 import os
@@ -115,7 +115,7 @@ def test_handle_pad_command_pads_legacy_image_correctly(create_temp_file):
 
     expected_pad_bytes = (
         mem_map.FLASH_TOTAL_SIZE - len(input_content)
-    ) * mem_map.PAD_VALUE.to_bytes(1, "little")
+    ) * mem_map.PAD_VALUE
     expected_output_content = input_content + expected_pad_bytes
 
     assert os.path.exists(output_file)
@@ -135,3 +135,133 @@ def test_handle_pad_command_raises_value_error_if_input_too_large(create_temp_fi
 
     with pytest.raises(ValueError, match="Input size: .* larger than final size: .*!"):
         imgtool_script.handle_pad_command("legacy", input_file, output_file)
+
+
+# --- Tests for setup_parser (append-ro) ---
+
+
+def test_setup_parser_has_append_ro_subcommand():
+    """Verify 'append-ro' subcommand is registered."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(["append-ro", "boot.bin", "v1.0"])
+    assert args.command == "append-ro"
+
+
+def test_setup_parser_append_ro_subcommand_arguments():
+    """Verify 'append-ro' subcommand requires bootloader and version args."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(["append-ro", "my_boot.bin", "v1.2.3-test"])
+    assert args.bootloader_bin == "my_boot.bin"
+    assert args.version_string == "v1.2.3-test"
+
+
+@pytest.mark.parametrize(
+    "args_list, expected_dev_flag",
+    [
+        (["append-ro", "b.bin", "v1"], False),
+        (["append-ro", "b.bin", "v1", "-d"], True),
+        (["append-ro", "b.bin", "v1", "--dev"], True),
+    ],
+)
+def test_setup_parser_append_ro_dev_flag(args_list, expected_dev_flag):
+    """Verify the '-d/--dev' flag sets the dev attribute."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(args_list)
+    assert args.dev is expected_dev_flag
+
+
+# --- Tests for internal helper functions ---
+
+
+def test_create_version_bytes_standard_string():
+    """Verify version string is correctly encoded, null-terminated, and padded."""
+    version_str = "v1.0.0"
+    expected_bytes = (version_str.encode("utf-8") + b"\x00").ljust(
+        mem_map.RO_RECORD_SIZE, mem_map.PAD_VALUE
+    )
+    result = imgtool_script._create_version_record(version_str)
+    assert result == expected_bytes
+    assert len(result) == mem_map.RO_RECORD_SIZE
+
+
+def test_create_version_bytes_long_string_is_truncated(capsys):
+    """Verify a long version string is truncated and a warning is printed."""
+    long_str = "a" * (mem_map.RO_RECORD_SIZE + 10)
+    expected_bytes = (long_str.encode("utf-8") + b"\x00")[: mem_map.RO_RECORD_SIZE]
+
+    result = imgtool_script._create_version_record(long_str)
+    assert result == expected_bytes
+    assert len(result) == mem_map.RO_RECORD_SIZE
+
+    captured = capsys.readouterr()
+    assert "Warning: Version string >" in captured.out
+    assert "will be truncated" in captured.out
+
+
+def test_create_version_bytes_empty_string():
+    """Verify an empty version string results in a null terminator and padding."""
+    expected_bytes = b"\x00".ljust(mem_map.RO_RECORD_SIZE, mem_map.PAD_VALUE)
+    result = imgtool_script._create_version_record("")
+    assert result == expected_bytes
+
+
+def test_create_flags_record_dev_true():
+    """Verify dev=True creates a record with the dev bit cleared (0xFE)."""
+    # Negative logic: dev=True means bit is 0. 0xFF -> 11111111, 0xFE -> 11111110
+    expected_bytes = b"\xfe".ljust(mem_map.RO_RECORD_SIZE, mem_map.PAD_VALUE)
+    result = imgtool_script._create_flags_record(dev_flag=True)
+    assert result == expected_bytes
+
+
+def test_create_flags_record_dev_false():
+    """Verify dev=False creates a record with the dev bit set (0xFF)."""
+    # Negative logic: dev=False means bit is 1. 0xFF -> 11111111
+    expected_bytes = b"\xff" * mem_map.RO_RECORD_SIZE
+    result = imgtool_script._create_flags_record(dev_flag=False)
+    assert result == expected_bytes
+
+
+def test_build_ro_partition_data_structure_and_size():
+    """Verify the full RO partition data is constructed correctly."""
+    version_str = "test-version"
+    dev_flag = True
+
+    # Get expected components
+    version_bytes = imgtool_script._create_version_record(version_str)
+    flags_bytes = imgtool_script._create_flags_record(dev_flag)
+    metadata = version_bytes + flags_bytes
+    padding = mem_map.PAD_VALUE * (mem_map.RO_PARTITION_SIZE - len(metadata))
+    expected_data = metadata + padding
+
+    # Build the actual data
+    actual_data = imgtool_script._build_ro_partition_data(version_str, dev_flag)
+
+    assert len(actual_data) == mem_map.RO_PARTITION_SIZE
+    assert actual_data == expected_data
+
+
+# --- Tests for handle_append_ro_command ---
+
+
+def test_handle_append_ro_command_appends_correctly(create_temp_file):
+    """Test that the RO partition is correctly appended to the bootloader binary."""
+    bootloader_content = b"\xde\xad\xbe\xef" * 10
+    bootloader_file = create_temp_file("bootloader.bin", bootloader_content)
+    version_str = "final-v2"
+    dev_flag = False
+
+    # Get the expected RO data that should be appended
+    expected_ro_data = imgtool_script._build_ro_partition_data(version_str, dev_flag)
+
+    # Run the command
+    imgtool_script.handle_append_ro_command(bootloader_file, version_str, dev_flag)
+
+    # Verify the result
+    expected_final_content = bootloader_content + expected_ro_data
+    with open(bootloader_file, "rb") as f:
+        actual_final_content = f.read()
+
+    assert (
+        len(actual_final_content) == len(bootloader_content) + mem_map.RO_PARTITION_SIZE
+    )
+    assert actual_final_content == expected_final_content

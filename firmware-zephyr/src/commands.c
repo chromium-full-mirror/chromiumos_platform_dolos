@@ -15,6 +15,22 @@
 #include <zephyr/sys/reboot.h>
 
 #include <ti/driverlib/m0p/dl_sysctl.h>
+
+// TODO(b/438110087): remove guards
+#ifdef CONFIG_BOOTLOADER_ENABLED
+
+#include <zephyr/storage/flash_map.h>
+#define RO_RECORD_SIZE 32
+
+enum ro_record_offset {
+        RO_RECORD_OFFSET_VERSION = 0,
+        RO_RECORD_OFFSET_FLAGS = RO_RECORD_SIZE,
+        RO_RECORD_OFFSET_UNUSED_1 = 2 * RO_RECORD_SIZE,
+        RO_RECORD_OFFSET_UNUSED_2 = 3 * RO_RECORD_SIZE
+};
+
+#endif
+
 /**
  * Handles the command that jumps from main code to BSL.
  */
@@ -77,6 +93,35 @@ static int cmd_version_handler(const struct shell *sh, size_t argc, char **argv)
 
 	return 0;
 }
+
+// TODO(b/438110087): remove guards
+#ifdef CONFIG_BOOTLOADER_ENABLED
+
+static int cmd_version_bootloader_handler(const struct shell *sh, size_t argc, char **argv)
+{
+        ARG_UNUSED(argc);
+	ARG_UNUSED(argv);
+
+        const struct flash_area *ro_partition;
+	if (flash_area_open(FIXED_PARTITION_ID(ro_partition), &ro_partition) != 0)
+	{
+                shell_print(sh, "ERROR: Unable to open RO partition\n");
+                return -1;
+	}
+
+        char bootloader_version[RO_RECORD_SIZE];
+        // Read first section of RO partition to get version
+        if(flash_area_read(ro_partition, RO_RECORD_OFFSET_VERSION, bootloader_version, RO_RECORD_SIZE) != 0)
+        {
+                shell_print(sh, "ERROR: Unable to read bootloader version\n");
+                return -1;
+        }
+
+        bootloader_version[RO_RECORD_SIZE-1] = '\0';
+        shell_print(sh, "Bootloader version %s", bootloader_version);
+        return 0;
+}
+#endif
 
 static bool read_gpio_state(const struct shell *sh,
 			    const struct gpio_dt_spec *spec)
@@ -298,6 +343,10 @@ static int cmd_reset_handler(const struct shell *shell, size_t argc,
 SHELL_CMD_REGISTER(reset, NULL, "Reset the device", cmd_reset_handler);
 SHELL_CMD_REGISTER(version, NULL, "Prints Dolos version", cmd_version_handler);
 SHELL_CMD_REGISTER(bsl, NULL, "Invokes BSL", cmd_jump_to_bsl_handler);
+// TODO(b/438110087): remove guards
+#ifdef CONFIG_BOOTLOADER_ENABLED
+SHELL_CMD_REGISTER(version_bootloader, NULL, "Prints bootloader version", cmd_version_bootloader_handler);
+#endif
 
 SHELL_SUBCMD_DICT_SET_CREATE(sub_gpio_cmds, sub_gpio_cmd_handler,
 			     (efuse_pg, "efuse-pg", "efuse-pg value"),

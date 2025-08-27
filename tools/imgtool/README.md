@@ -7,10 +7,11 @@ This command-line utility manages binary images and configuration files for the 
 * **Padding** firmware, bootloader, or legacy binary images to the specific sizes required by the hardware.
 * **Generating** the `app.overlay` files for both the bootloader and firmware using memory map constants.
 * **Retrieving** the firmware partition's starting address for build and scripting purposes.
+* **Configuring and appending** the Read-Only partition to the bootloader binary, embedding a version string and the developer flag.
 
 The tool is integrated into the project's build flow but can also be run manually. It uses constants defined in `configs/memory_map.py` to ensure consistency across the project.
 
-In the future, a `fw-hash` command to prepend the image hash and a `gen-ro` command to generate and append a Read-Only partition will be added.
+In the future, a `fw-hash` command to prepend the image hash will be added.
 
 ---
 
@@ -55,3 +56,17 @@ This command takes no arguments and will generate
 ### `get-fw-start-addr` Command
 
 This command prints the start address of the firmware partition. The output is a hexadecimal string without the leading `0x`, suitable for use in other scripts. This command was added with the intention of making this tool the single source of truth in regards to the memory layout.
+
+### `append-ro` Command
+
+The `append-ro` command constructs and appends a Read-Only partition to the end of a padded bootloader binary. The partition contains metadata such as the version string for the bootloader and a developer mode flag, to enable skipping of the bootloader timeout.
+
+**Syntax**
+
+```shell
+python3 imgtool.py append-ro [options] bootloader_bin version_string
+```
+**Arguments**
+* `bootloader_bin`: The path to the padded bootloader binary.
+* `version_string`: The version string to embed in the RO partition. It will be truncated if it exceeds 32 bytes.
+* `-d, --dev`: (Optional) Optional flag to indicate a developer build. This sets a flag in the RO partition, and the bootloader will skip the timeout when booting.

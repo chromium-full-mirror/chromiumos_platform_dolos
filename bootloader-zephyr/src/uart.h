@@ -3,8 +3,8 @@
  * found in the LICENSE file.
  */
 
-#ifndef UART_H
-#define UART_H
+#ifndef __UART_H__
+#define __UART_H__
 
 #include <zephyr/kernel.h>
 
@@ -34,4 +34,4 @@ void uart_print(const char *buf);
  */
 int uart_receive_line(char *buf, size_t size, k_timeout_t timeout);
 
-#endif // UART_H
+#endif /* __UART_H__ */

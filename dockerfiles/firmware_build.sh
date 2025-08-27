@@ -61,10 +61,18 @@ function build_legacy {
 function build_bootloader {
 	cd /repo/bootloader-zephyr
 
+        # Source to retain BOOTLOADER_VERSION_STRING env variable
+        source ./src/version.sh
+
 	west build -b dolos
 	check_size $BOOTLOADER_BINARY $BOOT_PARTITION_SIZE
 
 	python3 $IMGTOOL pad --boot $BOOTLOADER_BINARY $TEMP_PADDED
+        if [[ "$DEV_MODE" == "enabled" ]]; then
+                python3 $IMGTOOL append-ro $TEMP_PADDED "$BOOTLOADER_VERSION_STRING" --dev
+        else
+                python3 $IMGTOOL append-ro $TEMP_PADDED "$BOOTLOADER_VERSION_STRING"
+        fi
 	python3 $CONVERTER $TEMP_PADDED $BOOTLOADER_FINAL
 
 	rm $TEMP_PADDED
@@ -75,10 +83,10 @@ function build_firmware {
 
 	rm -r build
 
-	# TODO(b/438110087): Move config option in prj.conf
+	# TODO(b/438110087): Move first 3 options to prj.conf and remove BOOTLOADER_ENABLED symbol
 	# And once legacy option is removed, rm -r build calls can be removed
 	./src/version.sh
-	west build -b dolos -- -DCONFIG_USE_DT_CODE_PARTITION=y
+	west build -b dolos -- -DCONFIG_USE_DT_CODE_PARTITION=y -DCONFIG_FLASH=y -DCONFIG_FLASH_MAP=y -DCONFIG_BOOTLOADER_ENABLED=y
 	check_size $FIRMWARE_BINARY $FIRMWARE_PARTITION_SIZE
 
 	python3 $IMGTOOL pad --firmware $FIRMWARE_BINARY $TEMP_PADDED
@@ -109,7 +117,12 @@ if [[ "$BUILD_MODE" == "COMBINED" ]]; then
 	echo "Building combined image..."
 	build_bootloader
 	build_firmware
+        # To combine the images, we discard the last line of the first image
+        # which contains the "q" that ends the sections, and just append
+        # the second image
 	head -n -1 $BOOTLOADER_FINAL > $COMBINED_FINAL && cat $FIRMWARE_FINAL >> $COMBINED_FINAL
+        echo "Written combined image at $COMBINED_FINAL"
+
 elif [[ "$BUILD_MODE" == "FIRMWARE" ]]; then
 	echo "Building just the firmware..."
 	build_firmware

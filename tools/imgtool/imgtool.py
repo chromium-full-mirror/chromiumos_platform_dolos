@@ -6,8 +6,9 @@
 Command line utility to manage the binary images generated for the Dolos project.
 """
 
-# pylint: disable=import-error
-
+# pylint: skip-file
+# pylint: disable=W
+# pylint: disable=import-error, redefined-outer-name, protected-access
 
 import argparse
 import os
@@ -82,6 +83,20 @@ def setup_parser() -> argparse.ArgumentParser:
         "get-fw-start-addr",
         help="prints the start address of the firmware partition in hex",
     )
+
+    append_ro_parser = subparsers.add_parser(
+        "append-ro", help="append a configured RO partition to the bootloader binary"
+    )
+    append_ro_parser.add_argument(
+        "bootloader_bin", help="path to padded bootloader binary"
+    )
+    append_ro_parser.add_argument("version_string")
+    append_ro_parser.add_argument(
+        "-d",
+        "--dev",
+        action="store_true",
+        help="enable developer flag to skip bootloader timeout",
+    )
     return parser
 
 
@@ -130,9 +145,7 @@ def handle_pad_command(image_type: str, input_filename: str, output_filename: st
                 )
 
             pad_size = final_size - input_size
-            output_bytes = input_bytes + pad_size * mem_map.PAD_VALUE.to_bytes(
-                1, "little"
-            )
+            output_bytes = input_bytes + pad_size * mem_map.PAD_VALUE
 
             outfile.write(output_bytes)
             print(f"Written {final_size}B to output file '{absolute_output_path}'")
@@ -169,6 +182,7 @@ def generate_overlay_file(
         print(f"File I/O error: {e}")
 
 
+# fmt: off
 def handle_gen_overlay_command():
     """Handles the 'gen-overlay' command to create app.overlay files.
 
@@ -197,6 +211,11 @@ def handle_gen_overlay_command():
                 mem_map.FIRMWARE_PARTITION_START_ADDR
             )[2:],
             "FIRMWARE_PARTITION_SIZE": hex(mem_map.FIRMWARE_PARTITION_SIZE),
+            "RO_PARTITION_START_ADDR": hex(mem_map.RO_PARTITION_START_ADDR),
+            "RO_PARTITION_START_ADDR_NO_PREFIX": hex(
+                mem_map.RO_PARTITION_START_ADDR
+            )[2:],
+            "RO_PARTITION_SIZE": hex(mem_map.RO_PARTITION_SIZE),
         }
 
         generate_overlay_file(
@@ -208,6 +227,78 @@ def handle_gen_overlay_command():
 
     except IOError as e:
         print(f"File I/O error: {e}")
+
+
+def _create_version_record(version_string: str) -> bytes:
+    """Encodes, null-terminates, truncates, and pads
+    the version string to RO_RECORD_SIZE bytes.
+    """
+    version_bytes = version_string.encode("utf-8") + b"\x00"
+    if len(version_bytes) > mem_map.RO_RECORD_SIZE:
+        print(
+            f"Warning: Version string > {mem_map.RO_RECORD_SIZE}"
+            + "bytes, will be truncated."
+        )
+        version_bytes = version_bytes[:mem_map.RO_RECORD_SIZE]
+    # Pad the remainder with 0xFF
+    return version_bytes.ljust(mem_map.RO_RECORD_SIZE, mem_map.PAD_VALUE)
+# fmt: on
+
+
+def _create_flags_record(dev_flag: bool) -> bytes:
+    """
+    Creates the flags record using negative logic
+    (0 for True, 1 for False).
+    """
+    # LSB bit is the dev toggle. It's negative logic because
+    # the flash erase value is 0xFF.
+    # A 'True' dev_flag means we need to set the bit to 0.
+    dev_value = b"\xfe" if dev_flag else b"\xff"
+    dev_record_bytes = (
+        dev_value + (mem_map.RO_RECORD_SIZE - len(dev_value)) * mem_map.PAD_VALUE
+    )
+    return dev_record_bytes
+
+
+def _build_ro_partition_data(version_string: str, dev_flag: bool) -> bytes:
+    """Constructs the complete RO partition data block."""
+    version_data = _create_version_record(version_string)
+    flags_data = _create_flags_record(dev_flag)
+
+    metadata = version_data + flags_data
+
+    # Ensure the metadata doesn't already exceed the total partition size.
+    if len(metadata) > mem_map.RO_PARTITION_SIZE:
+        raise ValueError("RO metadata size exceeds the total RO partition size.")
+
+    # Calculate padding to fill the rest of the partition.
+    padding_size = mem_map.RO_PARTITION_SIZE - len(metadata)
+    padding = mem_map.PAD_VALUE * padding_size
+
+    return metadata + padding
+
+
+def handle_append_ro_command(
+    bootloader_binary: str, version_string: str, dev_flag: bool
+):
+    """Appends a configured RO partition to the bootloader binary.
+
+    Args:
+        bootloader_binary (str): Path to the padded bootloader binary.
+        version_string (str): The version string to embed.
+        dev_flag (bool): Flag to indicate a developer build.
+    """
+    try:
+        # Build the entire RO partition data in a helper function.
+        ro_partition_data = _build_ro_partition_data(version_string, dev_flag)
+
+        # Append the constructed data block to the binary file.
+        with open(bootloader_binary, "ab") as outfile:
+            bytes_written = outfile.write(ro_partition_data)
+            print(f"Appended {bytes_written}B RO partition to '{bootloader_binary}'")
+
+    except (IOError, ValueError) as e:
+        print(f"Error: {e}")
 
 
 def main():
@@ -226,6 +317,8 @@ def main():
         handle_gen_overlay_command()
     elif args.command == "get-fw-start-addr":
         print(hex(mem_map.FIRMWARE_PARTITION_START_ADDR)[2:])
+    elif args.command == "append-ro":
+        handle_append_ro_command(args.bootloader_bin, args.version_string, args.dev)
 
 
 if __name__ == "__main__":

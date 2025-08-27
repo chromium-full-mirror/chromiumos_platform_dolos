@@ -13,8 +13,11 @@
  * associated handler. If the command is not found, it prints an error.
  *
  * @param buf A null-terminated string containing the command to process.
+ *
+ * @retval 0 on success
+ * @retval non-zero error code on failure
  */
-void process_command(char *buf);
+int process_command(char *buf);
 
 
 #endif /* __COMMANDS_H__ */

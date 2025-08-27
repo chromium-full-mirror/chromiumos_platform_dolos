@@ -26,6 +26,11 @@
 				reg = <0x0 {BOOT_PARTITION_SIZE}>;
 			};
 
+                        ro_partition: partition@{RO_PARTITION_START_ADDR_NO_PREFIX} {
+                                label = "ro_partition";
+                                reg = <{RO_PARTITION_START_ADDR} {RO_PARTITION_SIZE}>;
+                        };
+
 			firmware_partition: partition@{FIRMWARE_PARTITION_START_ADDR_NO_PREFIX} {
 				label = "firmware_partition";
 				reg = <{FIRMWARE_PARTITION_START_ADDR} {FIRMWARE_PARTITION_SIZE}>;

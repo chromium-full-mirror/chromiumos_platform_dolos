@@ -8,4 +8,9 @@ if BOARD_DOLOS
 
 config MSPM0_IMAGE_OUTPUT_TI_TXT
     bool "Generate TI_TXT file after build"
+
+# TODO(b/438110087): Remove this symbol and the guards associated with it
+config BOOTLOADER_ENABLED
+    bool "Builds the firmware image designed to be loaded and started by the bootloader."
+
 endif # BOARD_DOLOS
