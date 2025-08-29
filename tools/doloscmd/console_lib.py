@@ -535,7 +535,7 @@ class DolosConsole:
                 logging.warning("Failed to load serial %s", err)
         return self._serial
 
-    def update_firmware(self, firmware_version):
+    def update_firmware(self, firmware_version, bsl_mode=False):
         """Update the Dolos firmware to a different version.
 
         Both the updater and the firmware are posted on a public Google Cloud bucket,
@@ -546,6 +546,8 @@ class DolosConsole:
 
         Args:
             firmware_version (string): version of the firmware to update to.
+            bsl_mode (bool): True if you wish the updater to use alternative
+                             bootloader.
         """
         temp_dir = "/usr/local/tmp/"
         if not os.path.exists(temp_dir):
@@ -580,8 +582,13 @@ class DolosConsole:
                     "-vvv",
                     "--uart",
                     SERIAL_PATH + self.uartname,
-                    f"{temp_directory}/zephyr.txt",
                 ]
+
+                if bsl_mode:
+                    cmd.append("--bsl")
+
+                cmd.append(f"{temp_directory}/zephyr.txt")
+
                 proc = subprocess.run(
                     cmd,
                     check=True,

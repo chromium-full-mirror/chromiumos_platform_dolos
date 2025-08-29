@@ -33,7 +33,10 @@ def _exit_if_no_serial(args, response_class):
         _do_exit(
             response_class(
                 response=doloscmd_pb2.Response(
-                    msg="Must specify the dolos serial number or the UART serial number.",
+                    msg=(
+                        "Must specify the dolos serial number or the UART "
+                        "serial number."
+                    ),
                     code=doloscmd_pb2.ERROR_CODE.WRONG_ARGS,
                 ),
             )
@@ -70,6 +73,7 @@ def parse_args(args):
     parser.add_argument(
         "--new_serial", help="Optional replacement serial when programming cable"
     )
+    parser.add_argument("--bsl_mode", action="store_true")
 
     return parser.parse_args(args)
 
@@ -119,7 +123,7 @@ def _update_firmware(args):
             )
         )
         return
-    console.update_firmware(args.firmware_version)
+    console.update_firmware(args.firmware_version, args.bsl_mode)
     _do_exit(doloscmd_pb2.GetVersionResponse())
 
 
