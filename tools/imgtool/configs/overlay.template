@@ -35,6 +35,11 @@
 				label = "firmware_partition";
 				reg = <{FIRMWARE_PARTITION_START_ADDR} {FIRMWARE_PARTITION_SIZE}>;
 			};
+
+                        firmware_trailer: partition@{FIRMWARE_TRAILER_START_ADDR_NO_PREFIX} {
+                                label = "firmware_trailer";
+                                reg = <{FIRMWARE_TRAILER_START_ADDR} {FIRMWARE_TRAILER_SIZE}>;
+                        };
 		};
 	};
 };

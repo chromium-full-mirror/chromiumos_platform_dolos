@@ -12,6 +12,7 @@ Command line utility to manage the binary images generated for the Dolos project
 
 import argparse
 import os
+import zlib
 
 import configs.memory_map as mem_map
 
@@ -25,18 +26,8 @@ def setup_parser() -> argparse.ArgumentParser:
     """
     Sets up the argument parser for the image management tool.
 
-    This function defines the command-line interface and its subcommands:
-    'pad', 'gen-overlay', and 'get-fw-start-addr'.
-
-    The 'pad' subcommand pads an image file. It allows users to specify an
-    image type to pad (legacy, boot, or firmware) using mutually
-    exclusive flags, with 'legacy' as the default. It also requires
-    input and output file paths.
-
-    The 'gen-overlay' subcommand generates the app.overlay files.
-
-    The 'get-fw-start-addr' subcommand prints the start address of the
-    firmware partition in hexadecimal format.
+    This function defines the command-line interface and its subcommands.
+    For complete details see README.md
 
     Returns:
         argparse.ArgumentParser: The configured argument parser object.
@@ -79,10 +70,12 @@ def setup_parser() -> argparse.ArgumentParser:
     parser_pad.add_argument("output_file")
 
     subparsers.add_parser("gen-overlay", help="generate the app.overlay files")
-    subparsers.add_parser(
-        "get-fw-start-addr",
-        help="prints the start address of the firmware partition in hex",
+    get_parser = subparsers.add_parser(
+        "get",
+        help="prints the value of the specified symbol in mem_map",
     )
+    get_parser.add_argument("symbol_name")
+    get_parser.add_argument("-x", "--hex", action="store_true", help="print as hex")
 
     append_ro_parser = subparsers.add_parser(
         "append-ro", help="append a configured RO partition to the bootloader binary"
@@ -97,6 +90,14 @@ def setup_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="enable developer flag to skip bootloader timeout",
     )
+
+    crc_fw_parser = subparsers.add_parser(
+        "crc-fw", help="append the CRC32 of the firmware to its binary"
+    )
+    crc_fw_parser.add_argument(
+        "firmware_bin", help="path of the padded firmware binary"
+    )
+
     return parser
 
 
@@ -182,6 +183,20 @@ def generate_overlay_file(
         print(f"File I/O error: {e}")
 
 
+def handle_get_command(symbol_name: str, hex_mode: bool):
+    """Prints the value of a symbol from the mem_map module."""
+    try:
+        # Use getattr() to get the value of the symbol by its string name.
+        value = getattr(mem_map, symbol_name)
+        if hex_mode:
+            print(hex(value))
+        else:
+            print(value)
+    except AttributeError:
+        # Handle cases where the symbol name is not found.
+        print(f"Error: Symbol '{symbol_name}' not found.")
+
+
 # fmt: off
 def handle_gen_overlay_command():
     """Handles the 'gen-overlay' command to create app.overlay files.
@@ -216,6 +231,11 @@ def handle_gen_overlay_command():
                 mem_map.RO_PARTITION_START_ADDR
             )[2:],
             "RO_PARTITION_SIZE": hex(mem_map.RO_PARTITION_SIZE),
+            "FIRMWARE_TRAILER_START_ADDR" : hex(mem_map.FIRMWARE_TRAILER_START_ADDR),
+            "FIRMWARE_TRAILER_START_ADDR_NO_PREFIX" : hex(
+                mem_map.FIRMWARE_TRAILER_START_ADDR
+            )[2:],
+            "FIRMWARE_TRAILER_SIZE" : hex(mem_map.FIRMWARE_TRAILER_SIZE),
         }
 
         generate_overlay_file(
@@ -233,13 +253,15 @@ def _create_version_record(version_string: str) -> bytes:
     """Encodes, null-terminates, truncates, and pads
     the version string to RO_RECORD_SIZE bytes.
     """
-    version_bytes = version_string.encode("utf-8") + b"\x00"
+    version_bytes = version_string.encode("utf-8")
     if len(version_bytes) > mem_map.RO_RECORD_SIZE:
         print(
             f"Warning: Version string > {mem_map.RO_RECORD_SIZE}"
-            + "bytes, will be truncated."
+            + " bytes, will be truncated."
         )
-        version_bytes = version_bytes[:mem_map.RO_RECORD_SIZE]
+        version_bytes = version_bytes[:(mem_map.RO_RECORD_SIZE-1)]
+    # NULL terminate the string
+    version_bytes += b'\x00'
     # Pad the remainder with 0xFF
     return version_bytes.ljust(mem_map.RO_RECORD_SIZE, mem_map.PAD_VALUE)
 # fmt: on
@@ -301,6 +323,58 @@ def handle_append_ro_command(
         print(f"Error: {e}")
 
 
+def handle_crc_fw_command(firmware_binary: str):
+    """
+    Reads the firmware binary, computes its CRC32 checksum, pads the checksum
+    to a fixed trailer size, and appends this new trailer to the original file.
+
+    Args:
+        firmware_binary (str): The file path to the firmware binary.
+    """
+    try:
+        with open(firmware_binary, "rb") as f:
+            firmware_content = f.read()
+
+        if not firmware_content:
+            print(f"Warning: The file '{firmware_binary}' is empty.")
+            return
+
+        # Calculate CRC32 checksum. zlib.crc32 returns a signed integer,
+        # so we use & 0xFFFFFFFF to get an unsigned 32-bit value.
+        crc32_checksum_int = zlib.crc32(firmware_content) & 0xFFFFFFFF
+
+        # Convert the integer checksum to a 4-byte little-endian byte string.
+        crc32_checksum_bytes = crc32_checksum_int.to_bytes(4, byteorder="little")
+        checksum_len = len(crc32_checksum_bytes)
+
+        trailer_size = mem_map.FIRMWARE_TRAILER_SIZE
+        if checksum_len > trailer_size:
+            raise ValueError(
+                f"Error: The checksum length ({checksum_len} bytes) is greater than the "
+                f"defined trailer size ({trailer_size} bytes)."
+            )
+
+        padding_size = trailer_size - checksum_len
+        padding = mem_map.PAD_VALUE * padding_size
+
+        firmware_trailer = crc32_checksum_bytes + padding
+
+        with open(firmware_binary, "ab+") as f:
+            f.write(firmware_trailer)
+
+        print(
+            f"Successfully added a {trailer_size}-byte CRC32 trailer to '{firmware_binary}'."
+        )
+        print(f"  - CRC32 Checksum: 0x{crc32_checksum_int:08x}")
+        print(f"  - Original file size: {len(firmware_content)} bytes")
+        print(f"  - New file size: {os.path.getsize(firmware_binary)} bytes")
+
+    except FileNotFoundError:
+        print(f"Error: The file '{firmware_binary}' could not be found.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+
+
 def main():
     """Main driver function"""
 
@@ -315,10 +389,12 @@ def main():
         handle_pad_command(args.image_type, args.input_file, args.output_file)
     elif args.command == "gen-overlay":
         handle_gen_overlay_command()
-    elif args.command == "get-fw-start-addr":
-        print(hex(mem_map.FIRMWARE_PARTITION_START_ADDR)[2:])
+    elif args.command == "get":
+        handle_get_command(args.symbol_name, args.hex)
     elif args.command == "append-ro":
         handle_append_ro_command(args.bootloader_bin, args.version_string, args.dev)
+    elif args.command == "crc-fw":
+        handle_crc_fw_command(args.firmware_bin)
 
 
 if __name__ == "__main__":

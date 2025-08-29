@@ -7,6 +7,7 @@
 #include "uart.h"
 #include <string.h>
 #include <zephyr/storage/flash_map.h>
+#include <zephyr/sys/crc.h>
 
 #define RO_RECORD_SIZE 32
 #define DEV_FLAG_OFFSET 0
@@ -19,6 +20,10 @@ enum ro_record_offset {
         RO_RECORD_OFFSET_FLAGS = RO_RECORD_SIZE,
         RO_RECORD_OFFSET_UNUSED_1 = 2 * RO_RECORD_SIZE,
         RO_RECORD_OFFSET_UNUSED_2 = 3 * RO_RECORD_SIZE
+};
+
+enum firmware_trailer_offset {
+        FIRMWARE_TRAILER_OFFSET_CRC = 0
 };
 
 void init_flags(void)
@@ -52,7 +57,7 @@ int boot_main_image(void)
         // 1. Find the application partition using the flash map API.
         if (flash_area_open(FIXED_PARTITION_ID(firmware_partition), &app_partition) != 0)
         {
-                uart_print("FATAL: Main application partition not found!\n");
+                uart_print("FATAL: Main application partition not found!\r\n");
                 return -1;
         }
 
@@ -139,4 +144,70 @@ void jump_to_bsl(void)
 		: "r1", "r2", "r3", "r4");
 
 	__builtin_unreachable();
+}
+
+int check_firmware_CRC(void)
+{
+    const struct flash_area *firmware_trailer, *firmware_partition;
+
+    if (flash_area_open(FIXED_PARTITION_ID(firmware_trailer), &firmware_trailer) != 0)
+    {
+        uart_print("FATAL: Failed to open firmware trailer!\r\n");
+        return -1;
+    }
+
+    uint32_t stored_crc;
+    if (flash_area_read(firmware_trailer,
+                        FIRMWARE_TRAILER_OFFSET_CRC,
+                        &stored_crc,
+                        sizeof(stored_crc)) != 0) {
+        uart_print("FATAL: Failed to read stored firmware CRC\r\n");
+        flash_area_close(firmware_trailer);
+        return -1;
+    }
+    flash_area_close(firmware_trailer);
+
+    if (flash_area_open(FIXED_PARTITION_ID(firmware_partition), &firmware_partition) != 0)
+    {
+        uart_print("FATAL: Failed to open firmware partition!\r\n");
+        return -1;
+    }
+
+    uint32_t computed_crc = 0;
+    static uint8_t read_buf[256];
+    size_t bytes_to_read;
+    size_t bytes_processed = 0;
+    size_t total_bytes = firmware_partition->fa_size;
+
+    while (bytes_processed < total_bytes)
+    {
+        bytes_to_read = MIN(sizeof(read_buf), total_bytes - bytes_processed);
+        if (flash_area_read(firmware_partition, bytes_processed, read_buf, bytes_to_read) != 0) {
+            uart_print("FATAL: Flash read failed during CRC computation.\r\n");
+            flash_area_close(firmware_partition);
+            return -1;
+        }
+
+        computed_crc = crc32_ieee_update(computed_crc, read_buf, bytes_to_read);
+        bytes_processed += bytes_to_read;
+    }
+
+    flash_area_close(firmware_partition);
+
+    int rc;
+    if (stored_crc == computed_crc) {
+        uart_print("CRC verification successful.\r\n");
+        rc = 0;
+    } else {
+        uart_print("FATAL: CRC verification failed!\r\n");
+        rc = -1;
+    }
+
+    char print_buf[40];
+    sprintf(print_buf, "Expected: 0x%08x\r\n", stored_crc);
+    uart_print(print_buf);
+    sprintf(print_buf, "Actual:   0x%08x\r\n", computed_crc);
+    uart_print(print_buf);
+
+    return rc;
 }

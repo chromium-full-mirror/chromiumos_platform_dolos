@@ -18,6 +18,8 @@ struct command_entry {
 	const char *name;
 	command_handler_t handler;
         const char *desc;
+        // Flag to indicate if the command can be run even if CRC32 validation fails
+        const int always_safe;
 };
 
 static int command_boot(void);
@@ -30,17 +32,22 @@ static int command_help(void);
  * Command dispatch table.
  */
 static const struct command_entry command_table[] = {
-	{ "reset", command_reset, "reboots the device"},
-	{ "bsl", command_bsl, "jumps to BSL"},
-	{ "boot", command_boot, "boots main image"},
-        { "version", command_version, "prints bootloader version"},
-        { "help", command_help, "prints help message"}
+	{ "reset", command_reset, "reboots the device", 1},
+	{ "bsl", command_bsl, "jumps to BSL", 1},
+	{ "boot", command_boot, "boots main image", 0},
+        { "version", command_version, "prints bootloader version", 1},
+        { "help", command_help, "prints help message", 1},
+        { "boot_unsafe", command_boot, "bypasses CRC32 validation and boots main image", 1}
 };
 
-int process_command(char *buf)
+int process_command(char *buf, int safe_to_boot)
 {
 	for (int i = 0; i < ARRAY_SIZE(command_table); i++) {
 		if (strcmp(buf, command_table[i].name) == 0) {
+                        if(command_table[i].always_safe == 0 && safe_to_boot == 0) {
+                                uart_print("ERROR: Unsafe to execute this command in current state.\r\n");
+                                return -1;
+                        }
                         return command_table[i].handler();
 		}
 	}
@@ -52,12 +59,20 @@ int process_command(char *buf)
 /*
  * Command handler functions
  */
+
+ #define TABSTOP 8
+
 static int command_help(void)
 {
         uart_print("Available commands:\r\n");
         for (int i = 0; i < ARRAY_SIZE(command_table); i++) {
 		uart_print(command_table[i].name);
-                uart_print("\t-- ");
+                if(strlen(command_table[i].name) > TABSTOP) {
+                        uart_print("\t");
+                } else {
+                        uart_print("\t\t");
+                }
+                uart_print("-- ");
                 uart_print(command_table[i].desc);
                 uart_print("\r\n");
 	}

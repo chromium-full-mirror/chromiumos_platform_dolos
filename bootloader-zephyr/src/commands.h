@@ -13,11 +13,12 @@
  * associated handler. If the command is not found, it prints an error.
  *
  * @param buf A null-terminated string containing the command to process.
+ * @param safe_to_boot Flag to indicate if safe to boot or not.
  *
  * @retval 0 on success
  * @retval non-zero error code on failure
  */
-int process_command(char *buf);
+int process_command(char *buf, int safe_to_boot);
 
 
 #endif /* __COMMANDS_H__ */

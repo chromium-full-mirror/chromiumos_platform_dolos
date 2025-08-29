@@ -17,12 +17,12 @@ BOOTLOADER_BINARY="/repo/bootloader-zephyr/build/zephyr/zephyr.bin"
 BOOTLOADER_FINAL="/repo/bootloader-zephyr/build/zephyr/boot.txt"
 COMBINED_FINAL="/repo/firmware-zephyr/build/zephyr/combined.txt"
 TEMP_PADDED="/tmp/zephyr.padded.bin"
-FIRMWARE_START_ADDR=$(python3 $IMGTOOL get-fw-start-addr)
+FIRMWARE_START_ADDR=$(python3 $IMGTOOL get -x FIRMWARE_PARTITION_START_ADDR)
 
 MAX_USAGE=90 # Expressed as percentage
-FLASH_SIZE=131072 # 128KB
-BOOT_PARTITION_SIZE=$(("0x$FIRMWARE_START_ADDR")) # Get the size as decimal integer
-FIRMWARE_PARTITION_SIZE=$((FLASH_SIZE - BOOT_PARTITION_SIZE))
+FLASH_SIZE=$(python3 $IMGTOOL get FLASH_TOTAL_SIZE)
+BOOT_PARTITION_SIZE=$(python3 $IMGTOOL get BOOT_PARTITION_SIZE)
+FIRMWARE_PARTITION_SIZE=$(python3 $IMGTOOL get FIRMWARE_PARTITION_SIZE)
 
 # Arg 1: binary file path
 # Arg 2: max partition size
@@ -50,7 +50,7 @@ function build_legacy {
 
 	./src/version.sh
 	west build -b dolos
-	check_size $FIRMWARE_BINARY $FLASH_SIZE
+	check_size $FIRMWARE_BINARY "$FLASH_SIZE"
 
 	python3 $IMGTOOL pad --legacy $FIRMWARE_BINARY $TEMP_PADDED
 	python3 $CONVERTER $TEMP_PADDED $LEGACY_FINAL
@@ -65,7 +65,7 @@ function build_bootloader {
         source ./src/version.sh
 
 	west build -b dolos
-	check_size $BOOTLOADER_BINARY $BOOT_PARTITION_SIZE
+	check_size $BOOTLOADER_BINARY "$BOOT_PARTITION_SIZE"
 
 	python3 $IMGTOOL pad --boot $BOOTLOADER_BINARY $TEMP_PADDED
         if [[ "$DEV_MODE" == "enabled" ]]; then
@@ -87,9 +87,10 @@ function build_firmware {
 	# And once legacy option is removed, rm -r build calls can be removed
 	./src/version.sh
 	west build -b dolos -- -DCONFIG_USE_DT_CODE_PARTITION=y -DCONFIG_FLASH=y -DCONFIG_FLASH_MAP=y -DCONFIG_BOOTLOADER_ENABLED=y
-	check_size $FIRMWARE_BINARY $FIRMWARE_PARTITION_SIZE
+	check_size $FIRMWARE_BINARY "$FIRMWARE_PARTITION_SIZE"
 
 	python3 $IMGTOOL pad --firmware $FIRMWARE_BINARY $TEMP_PADDED
+        python3 $IMGTOOL crc-fw $TEMP_PADDED
 	python3 $CONVERTER --section_start "$FIRMWARE_START_ADDR" $TEMP_PADDED $FIRMWARE_FINAL
 
 	rm $TEMP_PADDED

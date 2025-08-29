@@ -11,6 +11,7 @@ Unit tests for the imgtool.py module
 
 import argparse
 import os
+import zlib
 
 import configs.memory_map as mem_map
 import imgtool.imgtool as imgtool_script
@@ -102,6 +103,57 @@ def test_setup_parser_pad_subcommand_mutually_exclusive_flags():
         parser.parse_args(["pad", "-l", "-b", "input.bin", "output.bin"])
 
 
+# --- Tests for setup_parser (append-ro) ---
+
+
+def test_setup_parser_has_append_ro_subcommand():
+    """Verify 'append-ro' subcommand is registered."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(["append-ro", "boot.bin", "v1.0"])
+    assert args.command == "append-ro"
+
+
+def test_setup_parser_append_ro_subcommand_arguments():
+    """Verify 'append-ro' subcommand requires bootloader and version args."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(["append-ro", "my_boot.bin", "v1.2.3-test"])
+    assert args.bootloader_bin == "my_boot.bin"
+    assert args.version_string == "v1.2.3-test"
+
+
+@pytest.mark.parametrize(
+    "args_list, expected_dev_flag",
+    [
+        (["append-ro", "b.bin", "v1"], False),
+        (["append-ro", "b.bin", "v1", "-d"], True),
+        (["append-ro", "b.bin", "v1", "--dev"], True),
+    ],
+)
+def test_setup_parser_append_ro_dev_flag(args_list, expected_dev_flag):
+    """Verify the '-d/--dev' flag sets the dev attribute."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(args_list)
+    assert args.dev is expected_dev_flag
+
+
+# --- Tests for setup_parser (crc-fw) ---
+
+
+def test_setup_parser_has_crc_fw_subcommand():
+    """Verify 'crc-fw' subcommand is registered."""
+    parser = imgtool_script.setup_parser()
+    args = parser.parse_args(["crc-fw", "firmware.bin"])
+    assert args.command == "crc-fw"
+    assert args.firmware_bin == "firmware.bin"
+
+
+def test_setup_parser_crc_fw_requires_argument():
+    """Verify 'crc-fw' subcommand requires the firmware_bin argument."""
+    parser = imgtool_script.setup_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["crc-fw"])
+
+
 # --- Tests for handle_pad_command ---
 
 
@@ -137,39 +189,6 @@ def test_handle_pad_command_raises_value_error_if_input_too_large(create_temp_fi
         imgtool_script.handle_pad_command("legacy", input_file, output_file)
 
 
-# --- Tests for setup_parser (append-ro) ---
-
-
-def test_setup_parser_has_append_ro_subcommand():
-    """Verify 'append-ro' subcommand is registered."""
-    parser = imgtool_script.setup_parser()
-    args = parser.parse_args(["append-ro", "boot.bin", "v1.0"])
-    assert args.command == "append-ro"
-
-
-def test_setup_parser_append_ro_subcommand_arguments():
-    """Verify 'append-ro' subcommand requires bootloader and version args."""
-    parser = imgtool_script.setup_parser()
-    args = parser.parse_args(["append-ro", "my_boot.bin", "v1.2.3-test"])
-    assert args.bootloader_bin == "my_boot.bin"
-    assert args.version_string == "v1.2.3-test"
-
-
-@pytest.mark.parametrize(
-    "args_list, expected_dev_flag",
-    [
-        (["append-ro", "b.bin", "v1"], False),
-        (["append-ro", "b.bin", "v1", "-d"], True),
-        (["append-ro", "b.bin", "v1", "--dev"], True),
-    ],
-)
-def test_setup_parser_append_ro_dev_flag(args_list, expected_dev_flag):
-    """Verify the '-d/--dev' flag sets the dev attribute."""
-    parser = imgtool_script.setup_parser()
-    args = parser.parse_args(args_list)
-    assert args.dev is expected_dev_flag
-
-
 # --- Tests for internal helper functions ---
 
 
@@ -187,7 +206,7 @@ def test_create_version_bytes_standard_string():
 def test_create_version_bytes_long_string_is_truncated(capsys):
     """Verify a long version string is truncated and a warning is printed."""
     long_str = "a" * (mem_map.RO_RECORD_SIZE + 10)
-    expected_bytes = (long_str.encode("utf-8") + b"\x00")[: mem_map.RO_RECORD_SIZE]
+    expected_bytes = (long_str.encode("utf-8"))[: mem_map.RO_RECORD_SIZE - 1] + b"\x00"
 
     result = imgtool_script._create_version_record(long_str)
     assert result == expected_bytes
@@ -265,3 +284,82 @@ def test_handle_append_ro_command_appends_correctly(create_temp_file):
         len(actual_final_content) == len(bootloader_content) + mem_map.RO_PARTITION_SIZE
     )
     assert actual_final_content == expected_final_content
+
+
+# --- Tests for handle_crc_fw_command ---
+
+
+def test_handle_crc_fw_command_prepends_crc_correctly(create_temp_file):
+    """Test that the CRC32 trailer is correctly prepended to the firmware."""
+    original_content = b"This is the firmware content for CRC32 calculation."
+    firmware_file = create_temp_file("firmware_to_crc.bin", original_content)
+    original_size = len(original_content)
+
+    # Calculate the expected trailer based on CRC32
+    expected_crc_int = zlib.crc32(original_content) & 0xFFFFFFFF
+    expected_crc_bytes = expected_crc_int.to_bytes(4, byteorder="little")
+
+    padding_size = mem_map.FIRMWARE_TRAILER_SIZE - len(expected_crc_bytes)
+    padding = mem_map.PAD_VALUE * padding_size
+    expected_trailer = expected_crc_bytes + padding
+    expected_final_content = original_content + expected_trailer
+
+    # Run the command to modify the file
+    imgtool_script.handle_crc_fw_command(firmware_file)
+
+    # Verify the file's new content
+    with open(firmware_file, "rb") as f:
+        actual_final_content = f.read()
+
+    assert len(actual_final_content) == original_size + mem_map.FIRMWARE_TRAILER_SIZE
+    assert actual_final_content == expected_final_content
+    assert actual_final_content.startswith(original_content)
+    assert actual_final_content.endswith(expected_trailer)
+
+
+def test_handle_crc_fw_command_with_empty_file(create_temp_file, capsys):
+    """Test behavior with an empty input file, which should result in a warning."""
+    firmware_file = create_temp_file("empty_firmware.bin", b"")
+
+    imgtool_script.handle_crc_fw_command(firmware_file)
+
+    # Verify the file remains empty
+    assert os.path.getsize(firmware_file) == 0
+
+    # Verify the warning message was printed to stdout
+    captured = capsys.readouterr()
+    assert "Warning: The file" in captured.out
+    assert "is empty" in captured.out
+
+
+def test_handle_crc_fw_command_file_not_found(capsys):
+    """Test the error message when the input firmware file does not exist."""
+    non_existent_file = os.path.join(TEST_DIR, "non_existent_file.bin")
+
+    imgtool_script.handle_crc_fw_command(non_existent_file)
+
+    captured = capsys.readouterr()
+    assert f"Error: The file '{non_existent_file}' could not be found." in captured.out
+
+
+def test_handle_crc_fw_command_prints_error_if_checksum_is_too_large(
+    create_temp_file, monkeypatch, capsys
+):
+    """
+    Test that an error is printed if the checksum is larger than the trailer size.
+    """
+    firmware_content = b"some data"
+    firmware_file = create_temp_file("fw_small_trailer.bin", firmware_content)
+
+    # Mock the trailer size to be smaller than a CRC32 checksum (4 bytes)
+    monkeypatch.setattr(mem_map, "FIRMWARE_TRAILER_SIZE", 2)
+
+    # Run the function that is expected to print an error
+    imgtool_script.handle_crc_fw_command(firmware_file)
+
+    # Capture the output from stdout and stderr
+    captured = capsys.readouterr()
+
+    # Assert that the expected error message is in the captured output
+    assert "An unexpected error occurred" in captured.out
+    assert "checksum length (4 bytes) is greater than" in captured.out

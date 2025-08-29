@@ -23,10 +23,16 @@ int main(void)
         init_flags();
 
         k_timeout_t cmd_timeout = K_SECONDS(BOOT_TIMEOUT_SECONDS);
+        uint8_t safe_to_boot = 1;
 
-        if(check_dev_flag_set() == 0) {
+        if(check_firmware_CRC() != 0) {
+                cmd_timeout = K_FOREVER;
+                safe_to_boot = 0;
+        } else if(check_dev_flag_set() == 0) {
                 uart_print("Developer flag set -- skipping timeout\r\n");
                 if(boot_main_image() != 0) {
+                        uart_print("Entering recovery mode...\r\n");
+                        uart_print("Waiting for user command\r\n");
                         cmd_timeout = K_FOREVER;
                 }
         }
@@ -38,15 +44,19 @@ int main(void)
 
 		if (ret == 0) {
 		/* Command received from user */
-			ret = process_command(cmd_buf);
+			ret = process_command(cmd_buf, safe_to_boot);
 			uart_print(PROMPT);
 		} else if (ret == -EAGAIN) {
-			/* Timeout occurred */
+			/* Timeout occurred. Should not get here if validation failed
+                           so it's safe to boot. */
 			uart_print("\r\nTimeout reached. ");
 			ret = boot_main_image();
 		}
 
                 if(ret != 0) {
+                        uart_print("Entering recovery mode...\r\n");
+                        uart_print("Waiting for user command\r\n");
+                        safe_to_boot = 0;
                         cmd_timeout = K_FOREVER;
                 }
 	}

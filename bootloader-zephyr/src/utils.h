@@ -39,4 +39,12 @@
  */
  int check_dev_flag_set(void);
 
+ /**
+  * @brief Checks if the stored CRC32 matches the computed CRC32 of the firmware
+  *
+  * @retval 0 if they match
+  * @retval non-zero if different
+  */
+  int check_firmware_CRC(void);
+
  #endif /* __UTILS_H__ */
