@@ -585,7 +585,7 @@ class DolosConsole:
                 ]
 
                 if bsl_mode:
-                    cmd.append("--bsl")
+                    cmd.append("--bsl-mode")
 
                 cmd.append(f"{temp_directory}/zephyr.txt")
 
