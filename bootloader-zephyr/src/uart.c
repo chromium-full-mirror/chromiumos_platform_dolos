@@ -8,6 +8,7 @@
  #include <zephyr/drivers/uart.h>
  #include <zephyr/sys/ring_buffer.h>
  #include <string.h>
+ #include <ctype.h>
 
 #define UART_DEVICE_NODE DT_CHOSEN(zephyr_shell_uart)
 static const struct device *const uart_dev = DEVICE_DT_GET(UART_DEVICE_NODE);
@@ -57,7 +58,7 @@ static bool process_received_char(const struct device *dev, uint8_t c)
                 k_sem_give(&rx_sem);
                 uart_print("\r\n");
                 return false; // Signal end of line
-            } else if (rx_pos < BUF_SIZE - 1) { // Handle regular characters
+            } else if (isprint(c) && rx_pos < BUF_SIZE - 1) { // Handle regular characters
                 rx_buf[rx_pos++] = c;
                 char str_rep[2] = {c, 0};
                 uart_print(str_rep);

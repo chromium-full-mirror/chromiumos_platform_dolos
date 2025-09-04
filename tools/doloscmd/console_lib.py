@@ -7,6 +7,7 @@
 
 """Code that abstracts the implementation of the Dolos serial console from users."""
 
+from datetime import timedelta
 import logging
 from multiprocessing import Pool
 import os
@@ -34,6 +35,7 @@ SERIAL_PATH = "/dev/serial/by-id/"
 DOLOS_FTDI_GLOB = "usb-FTDI_FT232R_USB_UART_*"
 
 CONSOLE_PROMPT = "dolos:~> \x1b[m"
+BOOTLOADER_PROMPT = "boot:~> \x1b[m"
 
 CONSOLE_CLEAR = chr(0x15)  # Ctrl-U metakey clears any text
 CONSOLE_ENTER = "\n"
@@ -251,7 +253,7 @@ class DolosConsole:
             return cls.find_dolos_serial(args.serial)
         raise DolosConsoleError("Missing serial and uartname")
 
-    def read_console(self, timeout=1):
+    def read_console(self, timeout=1, prompt=CONSOLE_PROMPT):
         """Reads the console and decodes the output
 
         Reads all text from the console until we see a console prompt or timeout
@@ -259,6 +261,7 @@ class DolosConsole:
 
         Args:
             timeout: Max time to read
+            prompt: Prompt to look for (either firmware or bootloader)
 
         Returns:
             string: Dolos console output
@@ -273,7 +276,7 @@ class DolosConsole:
         self.console.timeout = timeout
 
         try:
-            results = self.console.read_until(CONSOLE_PROMPT.encode("utf-8"))
+            results = self.console.read_until(prompt.encode("utf-8"))
         except (serial.SerialException, OSError) as err:
             logging.debug("Serial read fail %r", err)
             raise DolosConsoleError(f"Serial read fail {err}") from err
@@ -320,10 +323,20 @@ class DolosConsole:
             response = response.replace("\n", "", 1)
         raise DolosConsoleError(f"Device failed to echo command {cmd}")
 
-    def _confirm_ready(self, response):
-        return CONSOLE_PROMPT in response
+    def _confirm_ready(self, response, prompt=CONSOLE_PROMPT):
+        """
+        Dolos is ready either when we detect a prompt (be it firmware or bootloader)
+        or in the case of the bootloader and the non-returning commands
+        when we detect '...' in the output
 
-    def _run_and_confirm(self, cmd, echo_timeout=0.2, echo_retry=5):
+        Example:
+            'Booting main image...' is non returning
+        """
+        return prompt in response or "..." in response
+
+    def _run_and_confirm(
+        self, cmd, echo_timeout=0.2, echo_retry=5, prompt=CONSOLE_PROMPT
+    ):
         """Run a firmware command and confirm it's started.
 
         Experiments show Dolos does not always respond to commands after input.
@@ -338,6 +351,7 @@ class DolosConsole:
             cmd (string): command to issue.
             echo_timeout (number): Timeout before deciding command echo back failed
             echo_retry (integer): Number of attempts waiting for the command echo
+            prompt (string): The prompt to look for
 
         Returns:
             string: The output read from the console.
@@ -360,7 +374,7 @@ class DolosConsole:
             # Try pressing enter to start the command
             self.console.write(CONSOLE_ENTER.encode("utf-8"))
             self.console.flush()
-            response += self.read_console(timeout=echo_timeout)
+            response += self.read_console(timeout=echo_timeout, prompt=prompt)
             try:
                 return self._find_response_start(cmd, response)
             except DolosConsoleError:
@@ -368,13 +382,15 @@ class DolosConsole:
 
         raise DolosConsoleNoEchoError(f"Device failed to echo command {cmd}")
 
-    def run_firmware_command(self, cmd, timeout=1, echo_timeout=0.2):
+    def run_firmware_command(self, cmd, timeout=1, echo_timeout=0.2, bootloader=False):
         """Issue a command to the UART console and read back the result.
 
         Args:
             cmd (string): command to issue.
             timeout (number): Timeout to await the response
             echo_timeout (number): Timeout to wait for echo
+            bootloader (boolean): Flag to indicate that the command is
+                                  meant for the bootloader
 
         Returns:
             string: The output read from the console.
@@ -383,13 +399,16 @@ class DolosConsole:
             DolosConsoleError: Command failed to start or complete
         """
 
+        # Select the prompt
+        prompt = CONSOLE_PROMPT if not bootloader else BOOTLOADER_PROMPT
+
         # Run the command and read the response to confirm it's started
-        response = self._run_and_confirm(cmd, echo_timeout=echo_timeout)
+        response = self._run_and_confirm(cmd, echo_timeout=echo_timeout, prompt=prompt)
 
         # Sometimes we are dealing with a long command. Extra time is allocated
-        if not self._confirm_ready(response):
-            response += self.read_console(timeout=timeout)
-        if not self._confirm_ready(response):
+        if not self._confirm_ready(response, prompt=prompt):
+            response += self.read_console(timeout=timeout, prompt=prompt)
+        if not self._confirm_ready(response, prompt=prompt):
             raise DolosConsoleError(
                 f"Command: {repr(cmd)} Timeout: {timeout} "
                 + f" expired waiting for response {repr(response)}"
@@ -397,14 +416,19 @@ class DolosConsole:
         logging.debug("Command: %r Response: %r", cmd, response)
         return response
 
-    def get_version(self):
+    def get_version(self, bootloader=False):
         """Call version command on UART and parse results.
 
+        Args:
+            bootloader (boolean): flag to query for bootloader version
+
         Returns:
-            string: version of the Dolos firmware.
+            string: version of the Dolos firmware or bootloader.
         """
-        result = self.run_firmware_command("version")
-        match = re.search(r"Dolos version (.*)\n", result)
+        result = self.run_firmware_command(
+            "version" if not bootloader else "version_bootloader"
+        )
+        match = re.search(r" version (.*)\n", result)
         if match:
             return match.group(1)
         raise DolosConsoleError("Failed to find version")
@@ -463,8 +487,8 @@ class DolosConsole:
             dict{string: string} : Mapping of status keys to values.
         """
         status_map = {}
-        for line in lines[2:-1]:
-            sections = line.split(":")
+        for line in lines[1:-1]:
+            sections = line.split(":", 1)
             if len(sections) != 2:
                 continue
             key = sections[0].strip()
@@ -492,6 +516,36 @@ class DolosConsole:
         status_dict["Serial number"] = dolos_serial
         self._serial = dolos_serial
         return status_dict
+
+    def get_uptime(self):
+        """Gets the uptime of the device.
+
+        This method parses the 'Uptime' value from the status output and
+        returns it as a timedelta object.
+
+        Returns:
+            datetime.timedelta: The uptime of the device, or None if the
+                                uptime string cannot be parsed.
+        """
+        status = self.get_status()
+        uptime_str = status.get("Uptime")
+
+        if not uptime_str:
+            logging.warning("Uptime information not found in status.")
+            return None
+
+        match = re.search(r"(\d+)\s+days.*(\d+):(\d+):(\d+)\s+seconds", uptime_str)
+        if match:
+            days = int(match.group(1))
+            hours = int(match.group(2))
+            minutes = int(match.group(3))
+            seconds = int(match.group(4))
+
+            # Create and return a timedelta object
+            return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+
+        logging.warning("Could not parse uptime string: %r", uptime_str)
+        return None
 
     def fix_broken_serial(self, dolos_serial_number):
         """Fix serial number format incorrectly written in manufacturing.
