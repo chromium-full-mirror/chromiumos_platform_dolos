@@ -8,6 +8,7 @@
 #include <string.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/sys/crc.h>
+#include <zephyr/drivers/led.h>
 
 #define RO_RECORD_SIZE 32
 #define DEV_FLAG_OFFSET 0
@@ -25,6 +26,11 @@ enum ro_record_offset {
 enum firmware_trailer_offset {
         FIRMWARE_TRAILER_OFFSET_CRC = 0
 };
+
+static const struct device *leds = DEVICE_DT_GET(DT_NODELABEL(leds));
+
+#define NUM_LEDS 4
+static bool leds_state = false;
 
 void init_flags(void)
 {
@@ -210,4 +216,25 @@ int check_firmware_CRC(void)
     uart_print(print_buf);
 
     return rc;
+}
+
+void leds_init(void)
+{
+    leds_state = true;
+    for(int i = 0; i < NUM_LEDS; i++) {
+        led_on(leds, i);
+    }
+}
+
+void leds_callback(struct k_timer *timer)
+{
+    for(int i = 0; i < NUM_LEDS; i++)
+    {
+        if(leds_state == false) {
+            led_on(leds, i);
+        } else {
+            led_off(leds, i);
+        }
+    }
+    leds_state = !leds_state;
 }

@@ -6,6 +6,7 @@
  #ifndef __UTILS_H__
  #define __UTILS_H__
 
+ #include <zephyr/kernel.h>
 
 /**
  * @brief Boots the main application image.
@@ -39,12 +40,31 @@
  */
  int check_dev_flag_set(void);
 
- /**
-  * @brief Checks if the stored CRC32 matches the computed CRC32 of the firmware
-  *
-  * @retval 0 if they match
-  * @retval non-zero if different
-  */
-  int check_firmware_CRC(void);
+/**
+ * @brief Checks if the stored CRC32 matches the computed CRC32 of the firmware
+ *
+ * @retval 0 if they match
+ * @retval non-zero if different
+ */
+ int check_firmware_CRC(void);
+
+/**
+ * @brief Initializes the LEDs by turning them all on.
+ *
+ * This function sets the initial state of all LEDs to ON. It should be
+ * called once during startup before the blinking timer is activated.
+ */
+ void leds_init(void);
+
+/**
+ * @brief Toggles the state of all LEDs for blinking.
+ *
+ * This function is designed to be used as a callback for a k_timer.
+ * Each time it's called, it inverts the state of all configured LEDs
+ * (from ON to OFF or OFF to ON), creating a blinking effect.
+ *
+ * @param timer A pointer to the timer instance that triggered the callback. Unused.
+ */
+ void leds_callback(struct k_timer *timer);
 
  #endif /* __UTILS_H__ */

@@ -10,7 +10,10 @@
 
 #define MSG_SIZE 32
 #define BOOT_TIMEOUT_SECONDS 10
+#define BLINK_INTERVAL_SECONDS 1
 #define PROMPT "\x1b[31mboot:~> \x1b[m"
+
+K_TIMER_DEFINE(blink_timer, leds_callback, NULL);
 
 int main(void)
 {
@@ -37,6 +40,10 @@ int main(void)
                 }
         }
 
+        leds_init();
+        k_timer_start(&blink_timer,
+                K_SECONDS(BLINK_INTERVAL_SECONDS),
+                K_SECONDS(BLINK_INTERVAL_SECONDS));
 	uart_print(PROMPT);
 	while (1) {
 		/* Wait for a command */
