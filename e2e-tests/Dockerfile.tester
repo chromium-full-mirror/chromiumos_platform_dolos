@@ -1,0 +1,18 @@
+# Copyright 2025 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+FROM python:3.11-slim
+
+WORKDIR /
+COPY ./tools /tools
+
+RUN pip3 install -r /tools/requirements.txt --require-hashes --break-system-packages
+RUN pip3 install google-cloud-storage --break-system-packages
+
+WORKDIR /tools/doloscmd
+RUN python3 setup.py bdist_wheel
+
+
+WORKDIR /src
+ENTRYPOINT ["pytest", "--capture=tee-sys"]

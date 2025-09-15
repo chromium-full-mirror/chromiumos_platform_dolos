@@ -1,0 +1,88 @@
+# Copyright 2025 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+networks:
+  servo_test_net:
+    driver: bridge
+
+volumes:
+  servod1_logs:
+  servod2_logs:
+
+x-servod-healthcheck: &servod-healthcheck
+  test:
+    - "CMD-SHELL"
+    - |
+      python3 -c '
+      import sys
+      import xmlrpc.client
+      try:
+          s = xmlrpc.client.ServerProxy("http://localhost:9999")
+          s.get("servo_type")
+      except Exception as e:
+          print(f"Healthcheck failed: {e}", file=sys.stderr)
+          sys.exit(1)
+      '
+  interval: 10s
+  timeout: 5s
+  retries: 5
+
+services:
+  servod1:
+    image: us-docker.pkg.dev/chromeos-hw-tools/servod/servod:release
+    container_name: servod_main
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - servod1_logs:/var/log/servod_9999/
+    networks:
+      - servo_test_net
+    command:
+      - "bash"
+      - "/start_servod_dev.sh"
+      - >-
+        --port 9999
+        --serialname ${SERVO_SERIAL_MAIN:?err_SERVO_SERIAL_MAINnot_set}
+    healthcheck: *servod-healthcheck
+
+
+  servod2:
+    image: us-docker.pkg.dev/chromeos-hw-tools/servod/servod:release
+    container_name: servod_power
+    privileged: true
+    volumes:
+      - /dev:/dev
+      - servod2_logs:/var/log/servod_9999/
+    networks:
+      - servo_test_net
+    command:
+      - "bash"
+      - "/start_servod_dev.sh"
+      - >-
+        --port 9999
+        --serialname ${SERVO_SERIAL_POWER:?err_SERVO_SERIAL_POWER_not_set}
+    healthcheck: *servod-healthcheck
+
+
+  tester:
+    build:
+      context: ../
+      dockerfile: e2e-tests/Dockerfile.tester
+    container_name: tester
+    privileged: true
+    depends_on:
+      servod1:
+        condition: service_healthy
+      servod2:
+        condition: service_healthy
+    networks:
+      - servo_test_net
+    volumes:
+      - ./src:/src
+      - /dev:/dev
+      - ./images:/images
+    environment:
+    - SERVO_SERIAL_MAIN=${SERVO_SERIAL_MAIN}
+    - SERVO_SERIAL_POWER=${SERVO_SERIAL_POWER}
+    - TARGET_FW_VERSION=${TARGET_FW_VERSION}
