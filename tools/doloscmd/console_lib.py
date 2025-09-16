@@ -5,6 +5,10 @@
 # When pylint supports proto better remove
 # pylint: disable=no-member
 
+# Might warrant a refactor in the future
+# pylint: disable=too-many-lines
+# pylint: disable=too-many-public-methods
+
 """Code that abstracts the implementation of the Dolos serial console from users."""
 
 from datetime import timedelta
@@ -31,8 +35,20 @@ FIRMWARE_URL = (
     "https://storage.googleapis.com/dolos-firmware/"
     "box_firmware/%(firmware_version)s/zephyr.txt"
 )
+BOOTLOADER_URL = (
+    "https://storage.googleapis.com/dolos-firmware/"
+    "box_firmware/bootloader/%(bootloader_version)s/boot.txt"
+)
+COMBINED_URL = (
+    "https://storage.googleapis.com/dolos-firmware/"
+    "box_firmware/%(combined_version)s/combined.txt"
+)
+# TODO(b/438110087): Change URLs when removing support for legacy
+
 SERIAL_PATH = "/dev/serial/by-id/"
 DOLOS_FTDI_GLOB = "usb-FTDI_FT232R_USB_UART_*"
+
+TEMP_DIR = "/usr/local/tmp/"
 
 CONSOLE_PROMPT = "dolos:~> \x1b[m"
 BOOTLOADER_PROMPT = "boot:~> \x1b[m"
@@ -589,6 +605,119 @@ class DolosConsole:
                 logging.warning("Failed to load serial %s", err)
         return self._serial
 
+    def _get_firmware_updater(self, temp_directory: tempfile.TemporaryDirectory):
+        """Download the fw-updater tool and make it executable.
+
+        Fetches the updater from the public Google Cloud Storage bucket and saves
+        it to the provided temporary directory. It then sets the execute permission
+        on the downloaded file.
+
+        Args:
+            temp_directory (tempfile.TemporaryDirectory): The directory where the
+                updater will be downloaded.
+        """
+
+        firmware_updater_filename = f"{temp_directory}/fw-updater"
+        req = requests.get(
+            "https://storage.googleapis.com/dolos-firmware/fw-updater",
+            stream=True,
+            timeout=180,
+        )
+        with open(firmware_updater_filename, "wb") as download_file:
+            for chunk in req.iter_content(chunk_size=128):
+                download_file.write(chunk)
+
+        st = os.stat(firmware_updater_filename)
+        os.chmod(firmware_updater_filename, st.st_mode | stat.S_IEXEC)
+
+    def _get_binary(self, file_name: str, version: str):
+        """Download a specific firmware or bootloader binary.
+
+        Fetches the specified version of the firmware or bootloader from the
+        public Google Cloud Storage bucket and saves it to a local file.
+
+        0.x is legacy firmware version
+        1.x is new firmware version
+        2.x is bootloader version
+        3.x is combined image version
+
+        Args:
+            file_name (str): The local path to save the downloaded binary.
+            version (str): The version of the binary to download.
+            bootloader (bool): If True, downloads the bootloader; otherwise,
+                            downloads the firmware.
+        """
+        # TODO(b/438110087): Change file paths when removing support for legacy
+        if version.startswith("0.") or version.startswith("1."):
+            final_url = FIRMWARE_URL % {"firmware_version": version}
+        elif version.startswith("2."):
+            final_url = BOOTLOADER_URL % {"bootloader_version": version}
+        else:
+            final_url = COMBINED_URL % {"combined_version": version}
+        req = requests.get(
+            final_url,
+            stream=True,
+            timeout=180,
+        )
+        with open(file_name, "wb") as download_file:
+            for chunk in req.iter_content(chunk_size=128):
+                download_file.write(chunk)
+
+    def _run_update(
+        self,
+        temp_directory: tempfile.TemporaryDirectory,
+        file_name: str,
+        bsl_mode: bool,
+    ):
+        """Run the fw-updater tool.
+
+        This method temporarily closes the serial connection to free up the port,
+        then executes the fw-updater with the provided binary. It logs the
+        output and raises a DolosConsoleError on failure. The serial connection
+        is reopened regardless of the outcome.
+
+        Args:
+            temp_directory (tempfile.TemporaryDirectory): The directory containing
+                the fw-updater executable.
+            file_name (str): The path to the firmware or bootloader binary to flash.
+            bsl_mode (bool): If True, the --bsl-mode flag is passed to the updater.
+
+        Raises:
+            DolosConsoleError: If the updater subprocess returns a non-zero exit code.
+        """
+        try:
+            self.close()
+            cmd = [
+                f"{temp_directory}/fw-updater",
+                "-vvv",
+                "--uart",
+                SERIAL_PATH + self.uartname,
+            ]
+
+            if bsl_mode:
+                cmd.append("--bsl-mode")
+
+            cmd.append(file_name)
+
+            proc = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+            )
+            logging.debug(
+                "Firmware update %r, stdout: %r ,stderr: %r",
+                " ".join(cmd),
+                proc.stdout,
+                proc.stderr,
+            )
+        except subprocess.CalledProcessError as err:
+            logging.debug(str(err))
+            logging.debug(err.stderr)
+            logging.debug(err.stdout)
+            raise DolosConsoleError(str(err)) from err
+        finally:
+            self.open()
+
     def update_firmware(self, firmware_version, bsl_mode=False):
         """Update the Dolos firmware to a different version.
 
@@ -603,64 +732,59 @@ class DolosConsole:
             bsl_mode (bool): True if you wish the updater to use alternative
                              bootloader.
         """
-        temp_dir = "/usr/local/tmp/"
-        if not os.path.exists(temp_dir):
-            temp_dir = None
-        with tempfile.TemporaryDirectory(prefix=temp_dir) as temp_directory:
-            firmware_updater_filename = f"{temp_directory}/fw-updater"
-            req = requests.get(
-                "https://storage.googleapis.com/dolos-firmware/fw-updater",
-                stream=True,
-                timeout=180,
-            )
-            with open(firmware_updater_filename, "wb") as download_file:
-                for chunk in req.iter_content(chunk_size=128):
-                    download_file.write(chunk)
+        if os.path.exists(TEMP_DIR):
+            prefix = TEMP_DIR
+        else:
+            prefix = None
+        with tempfile.TemporaryDirectory(prefix=prefix) as temp_directory:
+            self._get_firmware_updater(temp_directory)
+            # TODO(b/438110087): Change file paths when removing support for legacy
+            if firmware_version.startswith("3."):
+                dolo_hex_firmware_filename = f"{temp_directory}/combined.txt"
+            else:
+                dolo_hex_firmware_filename = f"{temp_directory}/zephyr.txt"
+            self._get_binary(dolo_hex_firmware_filename, firmware_version)
+            self._run_update(temp_directory, dolo_hex_firmware_filename, bsl_mode)
 
-            st = os.stat(firmware_updater_filename)
-            os.chmod(firmware_updater_filename, st.st_mode | stat.S_IEXEC)
+    def update_firmware_local(self, image_path, bsl_mode=False):
+        """Update the Dolos firmware using a local image.
 
-            dolo_hex_firmware_filename = f"{temp_directory}/zephyr.txt"
-            req = requests.get(
-                FIRMWARE_URL % {"firmware_version": firmware_version},
-                stream=True,
-                timeout=180,
-            )
-            with open(dolo_hex_firmware_filename, "wb") as download_file:
-                for chunk in req.iter_content(chunk_size=128):
-                    download_file.write(chunk)
-            try:
-                self.close()
-                cmd = [
-                    f"{temp_directory}/fw-updater",
-                    "-vvv",
-                    "--uart",
-                    SERIAL_PATH + self.uartname,
-                ]
+        Args:
+            image_path (string): path to binary to update with.
+            bsl_mode (bool): True if you wish the updater to use alternative
+                             bootloader.
+        """
+        if os.path.exists(TEMP_DIR):
+            prefix = TEMP_DIR
+        else:
+            prefix = None
+        with tempfile.TemporaryDirectory(prefix=prefix) as temp_directory:
+            self._get_firmware_updater(temp_directory)
+            self._run_update(temp_directory, image_path, bsl_mode)
 
-                if bsl_mode:
-                    cmd.append("--bsl-mode")
+    def update_bootloader(self, bootloader_version, bsl_mode=False):
+        """Update the Dolos bootloader to a different version.
 
-                cmd.append(f"{temp_directory}/zephyr.txt")
+        Both the updater and the bootloader are posted on a public Google Cloud bucket,
+        fetch both into a temporary directory and run the updater.
 
-                proc = subprocess.run(
-                    cmd,
-                    check=True,
-                    capture_output=True,
-                )
-                logging.debug(
-                    "Firmware update %r, stdout: %r ,stderr: %r",
-                    " ".join(cmd),
-                    proc.stdout,
-                    proc.stderr,
-                )
-            except subprocess.CalledProcessError as err:
-                logging.debug(str(err))
-                logging.debug(err.stderr)
-                logging.debug(err.stdout)
-                raise DolosConsoleError(str(err)) from err
-            finally:
-                self.open()
+        Both the updater and bootloader are very small so cost of download is not high
+        enough to warrant a complex caching strategy.
+
+        Args:
+            bootloader_version (string): version of the bootloader to update to.
+            bsl_mode (bool): True if you wish the updater to use BSL
+                             bootloader.
+        """
+        if os.path.exists(TEMP_DIR):
+            prefix = TEMP_DIR
+        else:
+            prefix = None
+        with tempfile.TemporaryDirectory(prefix=prefix) as temp_directory:
+            self._get_firmware_updater(temp_directory)
+            dolos_hex_bootloader_filename = f"{temp_directory}/boot.txt"
+            self._get_binary(dolos_hex_bootloader_filename, bootloader_version)
+            self._run_update(temp_directory, dolos_hex_bootloader_filename, bsl_mode)
 
     def determine_status(self, status_dict):
         """The external status of the device is abstracted from the internal status.
