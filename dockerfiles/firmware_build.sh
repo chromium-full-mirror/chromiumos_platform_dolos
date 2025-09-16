@@ -46,7 +46,9 @@ function build_legacy {
 	fi
 
 	# TODO(b/438110087): Remove rm call when legacy no longer supported
-	rm -r build
+	if [[ -d "build" ]]; then
+                rm -r build
+        fi
 
 	./src/version.sh
 	west build -b dolos
