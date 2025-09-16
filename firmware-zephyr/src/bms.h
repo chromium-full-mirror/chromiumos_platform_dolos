@@ -4,7 +4,7 @@
  */
 
 #ifndef BMS_H_
-#define BMS_H
+#define BMS_H_
 
 #include <stdbool.h>
 
@@ -16,6 +16,7 @@ enum bms_state {
 	BMS_STATE_TIMER,
 	BMS_STATE_POWER_GOOD_WAIT,
 	BMS_STATE_POWER_OUTPUT_ON,
+	BMS_STATE_COMM_POWER_OFF,
 	BMS_STATE_INVALID,
 };
 
@@ -42,6 +43,13 @@ bool bms_get_efuse_pg(void);
  * @return True if HIGH, false if LOW
  */
 bool bms_get_sys_pres(void);
+
+/**
+ * @brief Is SYSTEM_PRESENT floating signal
+ *
+ * @return True if YES, false if NO
+ */
+bool bms_get_sys_pres_is_floating(void);
 
 /**
  * @brief Returns raw SYSTEM_PRESENT signal, ignoring the forced value

@@ -78,7 +78,7 @@ STATIC_ASSERT_STRUCT_SIZE(sb_word_register, 3);
 
 struct eeprom_data {
   uint8_t version;           /* Version of this data structure. */
-  uint8_t polarity;          /* Polarity of the 1. */
+  uint8_t polarity;          /* Polarity, can be 2-float, 1-high, 0-low */
   uint8_t manufactured_year; /* Manufactured year. */
   uint8_t manufactured_week; /* Manufactured week. */
   uint16_t serial_number;    /* Serial Number of the cable. */

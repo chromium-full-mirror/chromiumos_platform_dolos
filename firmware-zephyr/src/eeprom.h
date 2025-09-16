@@ -10,6 +10,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+enum eeprom_sys_pres_pol {
+	SYS_PRES_POL_LOW = 0,
+	SYS_PRES_POL_HIGH = 1,
+	SYS_PRES_POL_FLOAT = 2,
+};
+
 /**
  * @brief Reads 1 byte from Dolos Connector EEPROM
  *
@@ -154,5 +160,6 @@ struct sb_word_register *eeprom_get_word_reg_arr(size_t *arr_size);
  * @return Returns a pointer to sb_block_registers array.
  */
 struct sb_block_register *eeprom_get_block_reg_arr(size_t *arr_size);
+
 
 #endif /* EEPROM_H_ */

@@ -23,6 +23,13 @@ int smbus_target_init(void);
  *
  * @return True if there was communication, false otherwise
  */
-bool smbus_target_is_communication_detected(void);
+bool smbus_target_is_comms_detected_long(void);
+
+/**
+ * @brief Checks if there was communication in the last 2 seconds
+ *
+ * @return True if there was communication, false otherwise
+ */
+bool smbus_target_is_comms_detected_short(void);
 
 #endif /* SMBUS_TARGET_H_ */

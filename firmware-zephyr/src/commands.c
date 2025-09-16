@@ -143,10 +143,11 @@ void print_system_present_state(const struct shell *sh)
 		bms_get_sys_pres_raw() ? "HIGH" : "LOW");
 
 	shell_print(sh,
-		    "SYSTEM_PRESENT pin state : %s (signal %s, polarity %s%s)\n",
+		    "SYSTEM_PRESENT pin state : %s (signal %s, polarity %s%s%s)\n",
 		    bms_get_sys_pres() ? "Present" : "Absent",
 		    bms_get_sys_pres() ? "HIGH" : "LOW",
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
+		    bms_get_sys_pres_is_floating() ? "(floating)" : "",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 }
 
@@ -206,11 +207,12 @@ static int sub_gpio_cmd_handler(const struct shell *sh, size_t argc,
 	return 0;
 }
 
-static char how_jump_to[4][140] = {
+static char how_jump_to[5][150] = {
 	"Transition to BMS_STATE_POWER_OUTPUT_OFF happens when either the system or charger is disconnected.",
-	"Transition to BMS_STATE_TIMER happens when the system and charger are connected.",
+	"Transition to BMS_STATE_TIMER happens when the system and charger are connected. When FLOAT polarity also I2C comm from DUT in last 2s expected.",
 	"Transition to BMS_STATE_POWER_GOOD_WAIT happens when the system and charger are connected and the input voltage is out of efuse range.",
-	"Transition to BMS_STATE_POWER_OUTPUT_ON happens when the system and charger are connected and the input voltage is within efuse range."
+	"Transition to BMS_STATE_POWER_OUTPUT_ON happens when the system and charger are connected and the input voltage is within efuse range.",
+	"Transition to BMS_STATE_COMM_POWER_OFF happens when either the system or charger is disconnected and configured polarity is FLOAT."
 };
 
 static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
@@ -241,8 +243,8 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	/* Get BMS current state string */
 	enum bms_state bms_state = bms_get_curr_state();
 	char bms_state_str[32] = { 0 };
-	char next_bms_state_str[128] = { 0 };
-	char next_bms_state_desc[512] = { 0 };
+	char next_bms_state_str[168] = { 0 };
+	char next_bms_state_desc[700] = { 0 };
 
 	switch (bms_state) {
 	case BMS_STATE_POWER_OUTPUT_OFF:
@@ -253,32 +255,44 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 		break;
 	case BMS_STATE_TIMER:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
-		sprintf(next_bms_state_str, "Next States can be %s or %s or %s",
+		sprintf(next_bms_state_str, "Next States can be %s or %s or %s or %s",
 			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF),
 			ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON),
-			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
-		sprintf(next_bms_state_desc, "%s\n%24s %s\n%24s %s",
+			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT),
+			ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+		sprintf(next_bms_state_desc, "%s\n%24s %s\n%24s %s\n%24s %s",
 			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF], "",
 			how_jump_to[BMS_STATE_POWER_OUTPUT_ON], "",
-			how_jump_to[BMS_STATE_POWER_GOOD_WAIT]);
+			how_jump_to[BMS_STATE_POWER_GOOD_WAIT], "",
+			how_jump_to[BMS_STATE_COMM_POWER_OFF]);
 		break;
 	case BMS_STATE_POWER_GOOD_WAIT:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
-		sprintf(next_bms_state_str, "Next States can be %s or %s",
+		sprintf(next_bms_state_str, "Next States can be %s or %s or %s",
 			ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON),
-			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
-		sprintf(next_bms_state_desc, "%s\n%24s %s",
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF),
+			ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+		sprintf(next_bms_state_desc, "%s\n%24s %s\n%24s %s",
 			how_jump_to[BMS_STATE_POWER_OUTPUT_ON], "",
-			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF]);
+			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF], "",
+			how_jump_to[BMS_STATE_COMM_POWER_OFF]);
 		break;
 	case BMS_STATE_POWER_OUTPUT_ON:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON));
-		sprintf(next_bms_state_str, "Next States can be %s or %s",
+		sprintf(next_bms_state_str, "Next States can be %s or %s or %s",
 			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT),
-			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
-		sprintf(next_bms_state_desc, "%s\n%24s %s",
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF),
+			ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+		sprintf(next_bms_state_desc, "%s\n%24s %s\n%24s %s",
 			how_jump_to[BMS_STATE_POWER_GOOD_WAIT], "",
-			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF]);
+			how_jump_to[BMS_STATE_POWER_OUTPUT_OFF], "",
+			how_jump_to[BMS_STATE_COMM_POWER_OFF]);
+		break;
+	case BMS_STATE_COMM_POWER_OFF:
+		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+		strcpy(next_bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
+		sprintf(next_bms_state_desc, "%s",
+			how_jump_to[BMS_STATE_TIMER]);
 		break;
 	default:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_INVALID));
@@ -297,10 +311,11 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	shell_print(sh, "    E-Fuse Power       : %s",
 		    bms_get_efuse_pg() ? "Good" : "Not good");
 	shell_print(sh,
-		    "    System present     : %s (signal %s, polarity %s%s)",
+		    "    System present     : %s (signal %s, polarity %s%s%s)",
 		    bms_get_sys_pres() ? "Present" : "Absent",
 		    bms_get_sys_pres_raw() ? "HIGH" : "LOW",
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
+			bms_get_sys_pres_is_floating() ? "(floating)" : "",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 	shell_print(sh, "    BMS current state  : %s", bms_state_str);
 	shell_print(sh, "    BMS next state     : %s", next_bms_state_str);
@@ -308,7 +323,7 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 		shell_print(sh, "%24s %s", "", next_bms_state_desc);
 	}
 	shell_print(sh, "    SMBus communication: %s",
-		    smbus_target_is_communication_detected() ? "Detected" :
+		    smbus_target_is_comms_detected_long() ? "Detected" :
 							       "Not detected");
 	if (strcmp(eeprom_status, "EEPROM Read Error.") != 0) {
 		shell_print(sh,

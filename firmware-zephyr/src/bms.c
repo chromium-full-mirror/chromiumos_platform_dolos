@@ -8,6 +8,7 @@
 #include "eeprom.h"
 #include "error.h"
 #include "led.h"
+#include "smbus_target.h"
 
 #include <stdint.h>
 
@@ -33,6 +34,11 @@ static const struct gpio_dt_spec bq_chrg_ok =
 	GPIO_DT_SPEC_GET(DT_NODELABEL(bq_charge_ok), gpios);
 
 static bool sys_pres_pol = true;
+/**
+ * There are certain devices that should not be powered on
+ * only based on sys_present signal but also extra I2C communication
+ */
+static bool sys_pres_is_floating = false;
 static bool force_sys_pres_flag;
 static bool force_sys_pres_value;
 
@@ -145,17 +151,39 @@ struct bms_state_data {
 static const struct smf_state bms_states[];
 
 /**
+ * @brief BMS_STATE_POWER_OUTPUT_OFF entry handler
+ */
+static void power_output_off_state_entry(void *o)
+{
+	LOG_DBG("Executing %s entry", ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+	bms_enable_power_output(false);
+}
+
+/**
  * @brief BMS_STATE_POWER_OUTPUT_OFF run handler
  */
 static void power_output_off_state_run(void *o)
 {
-	bms_enable_power_output(false);
-
 	if (system_present_signal_state.state &&
 	    bq_charge_ok_signal_state.state) {
 		LOG_DBG("Changing state to %s", ENUM_NAME(BMS_STATE_TIMER));
 		smf_set_state(SMF_CTX(&state_data),
 			      &bms_states[BMS_STATE_TIMER]);
+	}
+}
+
+static void handle_disconnect(void)
+{
+	if (sys_pres_is_floating) {
+		LOG_DBG("Changing state to %s",
+			ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+		smf_set_state(SMF_CTX(&state_data),
+			      &bms_states[BMS_STATE_COMM_POWER_OFF]);
+	} else {
+		LOG_DBG("Changing state to %s",
+			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
+		smf_set_state(SMF_CTX(&state_data),
+			      &bms_states[BMS_STATE_POWER_OUTPUT_OFF]);
 	}
 }
 
@@ -180,10 +208,7 @@ static void timer_state_run(void *o)
 {
 	if (!system_present_signal_state.state ||
 	    !bq_charge_ok_signal_state.state) {
-		LOG_DBG("Changing state to %s",
-			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
-		smf_set_state(SMF_CTX(&state_data),
-			      &bms_states[BMS_STATE_POWER_OUTPUT_OFF]);
+		handle_disconnect();
 		return;
 	}
 
@@ -205,18 +230,22 @@ static void timer_state_run(void *o)
 }
 
 /**
+ * @brief BMS_STATE_POWER_GOOD_WAIT entry handler
+ */
+static void power_good_wait_state_entry(void *o)
+{
+	LOG_DBG("Executing %s entry", ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT));
+	bms_enable_power_output(false);
+}
+
+/**
  * @brief BMS_STATE_POWER_GOOD_WAIT run handler
  */
 static void power_good_wait_state_run(void *o)
 {
-	bms_enable_power_output(false);
-
 	if (!system_present_signal_state.state ||
 	    !bq_charge_ok_signal_state.state) {
-		LOG_DBG("Changing state to %s",
-			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
-		smf_set_state(SMF_CTX(&state_data),
-			      &bms_states[BMS_STATE_POWER_OUTPUT_OFF]);
+		handle_disconnect();
 		return;
 	}
 
@@ -229,18 +258,22 @@ static void power_good_wait_state_run(void *o)
 }
 
 /**
+ * @brief BMS_STATE_POWER_OUTPUT_ON entry handler
+ */
+static void power_output_on_state_entry(void *o)
+{
+	LOG_DBG("Executing %s entry", ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON));
+	bms_enable_power_output(true);
+}
+
+/**
  * @brief BMS_STATE_POWER_OUTPUT_ON run handler
  */
 static void power_output_on_state_run(void *o)
 {
-	bms_enable_power_output(true);
-
 	if (!system_present_signal_state.state ||
 	    !bq_charge_ok_signal_state.state) {
-		LOG_DBG("Changing state to %s",
-			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF));
-		smf_set_state(SMF_CTX(&state_data),
-			      &bms_states[BMS_STATE_POWER_OUTPUT_OFF]);
+		handle_disconnect();
 		return;
 	}
 
@@ -252,15 +285,58 @@ static void power_output_on_state_run(void *o)
 	}
 }
 
+/**
+ * @brief BMS_STATE_COMM_POWER_OFF entry handler
+ */
+static void comm_power_off_state_entry(void *o)
+{
+	LOG_DBG("Executing %s entry", ENUM_NAME(BMS_STATE_COMM_POWER_OFF));
+	bms_enable_power_output(false);
+}
+
+/**
+ * @brief BMS_STATE_COMM_POWER_OFF run handler
+ */
+static void comm_power_off_state_run(void *o)
+{
+	/*
+	 * For devices with float polarity we should go out of power off state
+	 * only when both sys_prest and smbus communication asserted.
+	 * However we still want to persist forcing functionality working
+	 * for devices with float polarity, as that is useful for debugging -
+	 * this is why extra OR condition is applied. system_present_signal_state
+	 * would be equal forced value when force flag on.
+	 */
+	if (system_present_signal_state.state &&
+	    (smbus_target_is_comms_detected_short() || force_sys_pres_flag) &&
+	    bq_charge_ok_signal_state.state) {
+		LOG_DBG("Changing state to %s", ENUM_NAME(BMS_STATE_TIMER));
+		smf_set_state(SMF_CTX(&state_data),
+			      &bms_states[BMS_STATE_TIMER]);
+	}
+}
+
 static const struct smf_state bms_states[] = {
 	[BMS_STATE_POWER_OUTPUT_OFF] = SMF_CREATE_STATE(
-		NULL, power_output_off_state_run, NULL, NULL, NULL),
-	[BMS_STATE_TIMER] = SMF_CREATE_STATE(timer_state_entry, timer_state_run,
-					     NULL, NULL, NULL),
+		power_output_off_state_entry,
+		power_output_off_state_run,
+		NULL, NULL, NULL),
+	[BMS_STATE_TIMER] = SMF_CREATE_STATE(
+		timer_state_entry,
+		timer_state_run,
+		NULL, NULL, NULL),
 	[BMS_STATE_POWER_GOOD_WAIT] = SMF_CREATE_STATE(
-		NULL, power_good_wait_state_run, NULL, NULL, NULL),
+		power_good_wait_state_entry,
+		power_good_wait_state_run,
+		NULL, NULL, NULL),
 	[BMS_STATE_POWER_OUTPUT_ON] = SMF_CREATE_STATE(
-		NULL, power_output_on_state_run, NULL, NULL, NULL),
+		power_output_on_state_entry,
+		power_output_on_state_run,
+		NULL, NULL, NULL),
+	[BMS_STATE_COMM_POWER_OFF] = SMF_CREATE_STATE(
+		comm_power_off_state_entry,
+		comm_power_off_state_run,
+		NULL, NULL, NULL),
 };
 
 /**
@@ -292,8 +368,8 @@ struct k_thread bms_state_machine_thread_data;
 void bms_tick_handler_task_fn(void *, void *, void *);
 
 K_THREAD_DEFINE(bms_tick_handler_thread, BMS_TICK_HANDLER_THREAD_STACK_SIZE,
-		bms_tick_handler_task_fn, NULL, NULL, NULL,
-		BMS_TICK_HANDLER_THREAD_PRIORITY, 0, 0);
+			bms_tick_handler_task_fn, NULL, NULL, NULL,
+			BMS_TICK_HANDLER_THREAD_PRIORITY, 0, 0);
 
 /**
  * @brief Proccesses signal state change.
@@ -322,12 +398,34 @@ static bool bms_process_state_change(struct bms_signal_state_tracker *tracker,
 static int bms_init(void)
 {
 	int ret;
+	uint8_t sys_pres_pol_eeprom;
 
 	LOG_DBG("Getting System present polarity");
-	sys_pres_pol = (bool)eeprom_get_sys_pres_pol();
-	if (!sys_pres_pol) {
+	sys_pres_pol_eeprom = eeprom_get_sys_pres_pol();
+
+	switch (sys_pres_pol_eeprom) {
+	case SYS_PRES_POL_LOW:
+		sys_pres_is_floating = false;
+		sys_pres_pol = false;
 		gpio_configs[GPIO_CONFIG_IDX_SYS_PRES].flags |= GPIO_PULL_UP;
+		break;
+	case SYS_PRES_POL_FLOAT:
+		sys_pres_is_floating = true;
+		sys_pres_pol = true;
+		gpio_configs[GPIO_CONFIG_IDX_SYS_PRES].flags |= GPIO_PULL_UP;
+		break;
+	case SYS_PRES_POL_HIGH:
+		sys_pres_is_floating = false;
+		sys_pres_pol = true;
+		/* No pull up resistor needed for polarity HIGH */
+		break;
+	default:
+		DOLOS_LOG_ERR(ERROR_BMS, -ENOTSUP,
+			      "Not supported EEPROM SYS_POLARITY: %d",
+			      sys_pres_pol_eeprom);
+		return -ENOTSUP;
 	}
+
 	LOG_DBG("System present polarity obtained, sys_pres_pol=%d%s",
 		sys_pres_pol,
 		(sys_pres_pol ? "" : ", configured a pullup resistor"));
@@ -409,6 +507,11 @@ bool bms_get_efuse_pg(void)
 
 bool bms_get_sys_pres(void)
 {
+	if (sys_pres_is_floating) {
+		return gpio_get_sys_pres() &&
+		       smbus_target_is_comms_detected_short();
+	}
+
 	return gpio_get_sys_pres();
 }
 
@@ -420,6 +523,11 @@ bool bms_get_sys_pres_raw(void)
 bool bms_get_sys_pres_pol(void)
 {
 	return sys_pres_pol;
+}
+
+bool bms_get_sys_pres_is_floating(void)
+{
+	return sys_pres_is_floating;
 }
 
 bool bms_is_sys_pres_forced(void)
@@ -519,11 +627,14 @@ static int cmd_bms_sys_pres_force_handler(const struct shell *sh, size_t argc,
 static int cmd_bms_sys_pres_handler(const struct shell *sh, size_t argc,
 				    char **argv)
 {
-	shell_print(sh, "System present polarity: %s",
-		    sys_pres_pol ? "HIGH" : "LOW");
+	shell_print(sh, "System present polarity: %s%s",
+		    sys_pres_pol ? "HIGH" : "LOW",
+		    sys_pres_is_floating ? " (floating)" : "");
+
 	shell_print(sh, "System present: %s %s",
-		    gpio_get_sys_pres() ? "Present" : "Not present",
+		    bms_get_sys_pres() ? "Present" : "Not present",
 		    force_sys_pres_flag ? "(forced)" : "");
+
 	return 0;
 }
 
@@ -540,9 +651,9 @@ int print_gpio_stats_handler(const struct shell *sh, size_t argc, char **argv)
 }
 
 SHELL_SUBCMD_DICT_SET_CREATE(sys_pres_sub_cmd, cmd_bms_sys_pres_force_handler,
-			     (on, "on", "Force system to be present"),
-			     (off, "off", "Force system to be absent"),
-			     (disable, "disable", "Disable the forced value"));
+				     (on, "on", "Force system to be present"),
+				     (off, "off", "Force system to be absent"),
+				     (disable, "disable", "Disable the forced value"));
 
 SHELL_CMD_REGISTER(sys_pres, &sys_pres_sub_cmd,
 		   "Forces system present signal to set value (on/off/disable)",
