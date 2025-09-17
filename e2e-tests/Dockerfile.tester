@@ -15,4 +15,4 @@ RUN python3 setup.py bdist_wheel
 
 
 WORKDIR /src
-ENTRYPOINT ["pytest", "--capture=tee-sys"]
+ENTRYPOINT ["pytest", "-s", "-v"]

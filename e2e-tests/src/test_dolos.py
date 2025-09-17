@@ -19,6 +19,7 @@ import time
 import commands
 from doloscmd.console_lib import DolosConsole
 import pytest
+import utils
 
 
 MINIMUM_VERSION_FIRMWARE = "1.228.0-ced081e"
@@ -29,7 +30,14 @@ MINIMUM_VERSION_COMBINED = "3.228.0-ced081e"
 @pytest.fixture(scope="session", autouse=True)
 def setup():
     """
-    Setup fixture to initialize the environment
+    Setup fixture to initialize the environment once per test session.
+    Expected behaviour:
+     - Sets up the hardware environment (USB mux).
+     - Checks for the mandatory TARGET_FW_VERSION environment variable.
+     - Detects if the device is running a legacy firmware (version 0.x).
+     - If legacy, performs a one-time 'conversion update' to a baseline version.
+     - Ensures the device is in a known, non-legacy state before the
+       test suite begins.
     """
     commands.servo_client_main.set("top_usb_mux_sel", "servo_sees_usbkey")
     # Sleep to let USB devices properly enumerate
@@ -41,15 +49,12 @@ def setup():
         pytest.exit(
             "Test run aborted due to missing environment variable.", returncode=1
         )
-    target_version_firmware = "1" + target_version_suffix
-    target_version_bootloader = "2" + target_version_suffix
-    target_version_combined = "3" + target_version_suffix
 
     console = DolosConsole.find_dolos_serial()
     current_version = console.get_version()
 
     if current_version.startswith("0."):
-        print("Legacy version detected, running conversion update...")
+        print("[INFO]: Legacy version detected, running conversion update...")
         sys.stdout.flush()
         console.update_firmware(MINIMUM_VERSION_COMBINED)
         time.sleep(1)
@@ -63,28 +68,6 @@ def setup():
                 returncode=1,
             )
 
-    if current_version != target_version_firmware:
-        print("Updating to target version...")
-        sys.stdout.flush()
-        console.update_firmware(target_version_combined)
-        time.sleep(1)
-        console.run_firmware_command("boot", bootloader=True)
-        time.sleep(2)
-        post_update_version_firmware = console.get_version()
-        if post_update_version_firmware != target_version_firmware:
-            console.close()
-            pytest.exit(
-                "Test run aborted. Failed to update to target firmware version.",
-                returncode=1,
-            )
-        post_update_version_bootloader = console.get_version(bootloader=True)
-        if post_update_version_bootloader != target_version_bootloader:
-            console.close()
-            pytest.exit(
-                "Test run aborted. Failed to update to target bootloader version.",
-                returncode=1,
-            )
-
     console.close()
     # Let the firmware stabilize
     time.sleep(2)
@@ -92,21 +75,73 @@ def setup():
 
 @pytest.fixture
 def console():
-    """Pytest fixture to set up and tear down the DolosConsole."""
+    """
+    Pytest fixture to set up and tear down the DolosConsole for each test.
+    Expected behaviour:
+     - (Setup) Before each test, it connects to the Dolos console.
+     - (Setup) It checks if the running FW and bootloader versions match the
+       target versions specified by the environment variable.
+     - (Setup) If there is a mismatch, it updates the FW and/or bootloader
+       to the target version.
+     - (Setup) It yields an active console object to the test function.
+     - (Teardown) After each test, it closes the console connection and pauses
+       to ensure a clean state for the next test.
+    """
+
+    # Pre test setup
     dolos_console = DolosConsole.find_dolos_serial()
+
+    target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
+    target_version_firmware = "1" + target_version_suffix
+    target_version_bootloader = "2" + target_version_suffix
+
+    firmware_version = dolos_console.get_version()
+    bootloader_version = dolos_console.get_version(bootloader=True)
+
+    if firmware_version is None or bootloader_version is None:
+        pytest.fail("[ERROR]: Unable to retrieve version strings.")
+
+    if firmware_version != target_version_firmware:
+        print(
+            "[INFO]: Running firmware version different from target. "
+            "Running update..."
+        )
+        sys.stdout.flush()
+        dolos_console.update_firmware(target_version_firmware)
+        time.sleep(1)
+        dolos_console.run_firmware_command("boot", bootloader=True)
+        time.sleep(3)
+
+    if bootloader_version != target_version_bootloader:
+        print(
+            "[INFO]: Running bootloader version different from target."
+            " Running update..."
+        )
+        sys.stdout.flush()
+        dolos_console.update_bootloader(target_version_bootloader)
+        time.sleep(1)
+        dolos_console.run_firmware_command("boot", bootloader=True)
+        time.sleep(3)
 
     yield dolos_console
 
-    print("\nClosing console connection.")
+    # Post test cleanup
     dolos_console.close()
     del dolos_console
+    sys.stdout.flush()
     time.sleep(3)
 
 
 @pytest.mark.parametrize("execution_count", range(5))
 def test_powercycle(console, execution_count):
     """
-    Test for powercycle
+    Test for powercycle.
+    Expected behaviour:
+     - Get uptime from FW before powercycle
+     - Powercycle Dolos and wait for bootloader
+     - Boot into FW from bootloader
+     - Get uptime from FW after powercycle
+     - Uptime after powercycle should be less than before
     """
     preboot_uptime = console.get_uptime()
     if preboot_uptime is None:
@@ -129,3 +164,86 @@ def test_powercycle(console, execution_count):
     # the fixture after each test, so a failure of this test
     # means a failure of the firmware, not of the environment.
     assert postboot_uptime <= preboot_uptime
+
+
+def test_update_firmware(console):
+    """
+    Test the update process by updating the firmware to the latest version
+    which is different from the one currently running.
+    Expected behaviour:
+     - Read current FW version
+     - Find a different, available FW version to update to
+     - Run the update process
+     - Boot into the newly updated FW
+     - The new FW version should match the target version and be
+       different from the pre-test version
+    """
+    pretest_version = console.get_version()
+
+    versions = utils.get_firmware_versions()
+
+    assert len(versions) >= 2
+
+    # Since versions are sorted descending, assume latest is
+    # different from running version, else use the next one
+    target_version = versions[0]
+    if pretest_version == target_version:
+        target_version = versions[1]
+
+    console.update_firmware(target_version)
+    console.run_firmware_command("boot", bootloader=True)
+
+    time.sleep(3)
+
+    posttest_version = console.get_version()
+
+    assert pretest_version != posttest_version
+    assert posttest_version == target_version
+
+
+def test_update_bootloader(console):
+    """
+    Test the update process by updating the bootloader to the latest version
+    which is different from the one currently running.
+    Expected behaviour:
+     - Read current bootloader version from FW
+     - Find a different, available bootloader version to update to
+     - Run the update process
+     - The bootloader should report its new version correctly
+     - Boot into FW
+     - The FW should report the new bootloader version, which should
+       match the target version
+    """
+    pretest_bootloader_version = console.get_version(bootloader=True)
+    pretest_firmware_version = console.get_version()
+
+    versions = utils.get_bootloader_versions()
+
+    assert len(versions) >= 2
+
+    # Since versions are sorted descending, assume latest is
+    # different from running version, else use the next one
+    target_version = versions[0]
+    if pretest_bootloader_version == target_version:
+        target_version = versions[1]
+
+    assert target_version is not None
+
+    console.update_bootloader(target_version)
+    time.sleep(1)
+    # Also query bootloader for its version
+    version_from_bootloader = console.run_firmware_command("version", bootloader=True)
+    console.run_firmware_command("boot", bootloader=True)
+
+    time.sleep(3)
+
+    posttest_bootloader_version = console.get_version(bootloader=True)
+    posttest_firmware_version = console.get_version()
+
+    assert pretest_bootloader_version != posttest_bootloader_version
+    assert posttest_bootloader_version == target_version
+    # Bootloader prints version as "Bootloader version 2.x"
+    # so check if version is substring not equality
+    assert posttest_bootloader_version in version_from_bootloader
+    # Check that bootloader update does not affect firmware
+    assert pretest_firmware_version == posttest_firmware_version
