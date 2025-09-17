@@ -68,7 +68,8 @@ repos:
                 LICENSE|
                 DIR_METADATA|
                 PRESUBMIT.cfg|
-                .*\.json
+                .*\.json|
+                e2e-tests/images/.*
             )$
 
   - repo: https://github.com/koalaman/shellcheck-precommit

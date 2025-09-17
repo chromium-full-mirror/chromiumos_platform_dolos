@@ -303,3 +303,48 @@ def test_bootloader_help(console):
     assert "reset" in help_response
     assert "bsl" in help_response
     assert "version" in help_response
+
+
+def test_skip_recovery(console):
+    """
+    Test that the 'skip recovery' bootloader flag takes effect.
+    Expected behaviour:
+     - Update the device with a special bootloader build that has the
+       'skip recovery' feature enabled.
+     - This bootloader should bypass the standard 10-second timeout and
+       boot the main firmware almost instantly.
+     - The test should be able to communicate with the firmware and read
+       its version immediately after the boot.
+     - The bootloader is restored to the standard target version after
+       the test completes.
+    """
+
+    # Since the developer flag is packaged with the bootloader image
+    # at build time and no such images are currently stored in
+    # Google Cloud we will use a local copy for the time being
+    # TODO(b/438110087) Change this test to use a current copy
+    skip_enabled_image_path = os.getcwd() + "/../images/2.233.0-acc33f7-skip/boot.txt"
+
+    console.update_bootloader_local(skip_enabled_image_path)
+    time.sleep(1)
+    version = console.get_version()
+    bootloader_version = console.get_version(bootloader=True)
+
+    # If the version commands succeed in such a short time
+    # that means the bootloader skipped the timeout.
+    assert version is not None
+    assert bootloader_version == "2.233.0-acc33f7"
+
+    # Restore bootloader to non skip version.
+    # Must do that here manually in case skip enabled image version
+    # coincides with the target version, in which case, the fixture
+    # won't catch it.
+    target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
+    target_version_bootloader = "2" + target_version_suffix
+    console.update_bootloader(target_version_bootloader)
+
+    time.sleep(1)
+    console.run_firmware_command("boot", bootloader=True)
+    post_update_version = console.get_version(bootloader=True)
+    # Check update worked
+    assert post_update_version == target_version_bootloader

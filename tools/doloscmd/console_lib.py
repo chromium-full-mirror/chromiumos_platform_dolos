@@ -786,6 +786,22 @@ class DolosConsole:
             self._get_binary(dolos_hex_bootloader_filename, bootloader_version)
             self._run_update(temp_directory, dolos_hex_bootloader_filename, bsl_mode)
 
+    def update_bootloader_local(self, bootloader_path, bsl_mode=False):
+        """Update the Dolos bootloader using a local image
+
+        Args:
+            bootloader_path (string): path to binary to update with
+            bsl_mode (bool): True if you wish the updater to use BSL
+                             bootloader.
+        """
+        if os.path.exists(TEMP_DIR):
+            prefix = TEMP_DIR
+        else:
+            prefix = None
+        with tempfile.TemporaryDirectory(prefix=prefix) as temp_directory:
+            self._get_firmware_updater(temp_directory)
+            self._run_update(temp_directory, bootloader_path, bsl_mode)
+
     def determine_status(self, status_dict):
         """The external status of the device is abstracted from the internal status.
 
