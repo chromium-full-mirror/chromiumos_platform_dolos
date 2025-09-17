@@ -247,3 +247,59 @@ def test_update_bootloader(console):
     assert posttest_bootloader_version in version_from_bootloader
     # Check that bootloader update does not affect firmware
     assert pretest_firmware_version == posttest_firmware_version
+
+
+def test_bootloader_timeout(console):
+    """
+    Test the timeout feature of the bootloader.
+    Expected behaviour:
+     - Dolos boots into bootloader after FW reset command
+     - Bootloader console is responsive
+     - Bootloader, after 10s of inactivity, should time out and boot into FW
+     - Able to read FW uptime, this should be lower than pre-test uptime
+    """
+    # Extra delay to make sure the preboot_uptime is
+    # greater than after timeout
+    time.sleep(5)
+
+    preboot_uptime = console.get_uptime()
+
+    console.run_firmware_command("reset")
+    console.close()
+    time.sleep(1)
+    console.open()
+
+    # Test that bootloader console is up
+    invalid_response = console.run_firmware_command("gibberish", bootloader=True)
+    assert "Unrecognized command" in invalid_response
+
+    # Give the bootloader enough time to timeout
+    time.sleep(12)
+
+    postboot_uptime = console.get_uptime()
+    assert postboot_uptime <= preboot_uptime
+
+
+def test_bootloader_help(console):
+    """
+    Test the help command of the bootloader console.
+    Expected behaviour:
+     - Dolos boots into bootloader after FW reset command
+     - The 'help' command returns a list of available commands
+     - The command list should contain expected commands like 'boot' and 'reset'
+     - The device can successfully boot back into FW
+    """
+    # Reset to enter bootloader console
+    console.run_firmware_command("reset")
+    console.close()
+    time.sleep(1)
+    console.open()
+    help_response = console.run_firmware_command("help", bootloader=True)
+    console.run_firmware_command("boot", bootloader=True)
+
+    # Check some of the expected commands are present
+    assert "--" in help_response
+    assert "boot" in help_response
+    assert "reset" in help_response
+    assert "bsl" in help_response
+    assert "version" in help_response
