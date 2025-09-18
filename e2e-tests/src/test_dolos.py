@@ -28,6 +28,13 @@ MINIMUM_VERSION_FIRMWARE = "1.228.0-ced081e"
 MINIMUM_VERSION_BOOTLOADER = "2.228.0-ced081e"
 MINIMUM_VERSION_COMBINED = "3.228.0-ced081e"
 
+BOOTLOADER_TIMEOUT = 10
+BOOTLOADER_TIMEOUT_EXTRA = BOOTLOADER_TIMEOUT + 2
+DELAY_VERY_SMALL = 1
+DELAY_SMALL = 2
+DELAY_MEDIUM = 3
+DELAY_LARGE = 5
+
 
 @pytest.fixture(scope="session", autouse=True)
 def setup():
@@ -43,7 +50,7 @@ def setup():
     """
     commands.servo_client_main.set("top_usb_mux_sel", "servo_sees_usbkey")
     # Sleep to let USB devices properly enumerate
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
     # Remove the major version number to get suffix
     target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
     if target_version_suffix is None:
@@ -59,9 +66,9 @@ def setup():
         print("[INFO]: Legacy version detected, running conversion update...")
         sys.stdout.flush()
         console.update_firmware(MINIMUM_VERSION_COMBINED)
-        time.sleep(1)
+        time.sleep(DELAY_VERY_SMALL)
         console.run_firmware_command("boot", bootloader=True)
-        time.sleep(2)
+        time.sleep(DELAY_SMALL)
         current_version = console.get_version()
         if current_version != MINIMUM_VERSION_FIRMWARE:
             console.close()
@@ -72,7 +79,7 @@ def setup():
 
     console.close()
     # Let the firmware stabilize
-    time.sleep(2)
+    time.sleep(DELAY_SMALL)
 
 
 @pytest.fixture
@@ -110,9 +117,9 @@ def console():
         )
         sys.stdout.flush()
         dolos_console.update_firmware(target_version_firmware)
-        time.sleep(1)
+        time.sleep(DELAY_VERY_SMALL)
         dolos_console.run_firmware_command("boot", bootloader=True)
-        time.sleep(3)
+        time.sleep(DELAY_MEDIUM)
 
     if bootloader_version != target_version_bootloader:
         print(
@@ -121,9 +128,9 @@ def console():
         )
         sys.stdout.flush()
         dolos_console.update_bootloader(target_version_bootloader)
-        time.sleep(1)
+        time.sleep(DELAY_VERY_SMALL)
         dolos_console.run_firmware_command("boot", bootloader=True)
-        time.sleep(3)
+        time.sleep(DELAY_MEDIUM)
 
     yield dolos_console
 
@@ -131,7 +138,7 @@ def console():
     dolos_console.close()
     del dolos_console
     sys.stdout.flush()
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
 
 
 @pytest.mark.parametrize("execution_count", range(5))
@@ -154,10 +161,10 @@ def test_powercycle(console, execution_count):
     commands.dolos_powercycle()
     console.open()
 
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
     console.run_firmware_command("boot", bootloader=True)
 
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
     postboot_uptime = console.get_uptime()
     if postboot_uptime is None:
         pytest.fail("Unable to get uptime from Dolos")
@@ -195,7 +202,7 @@ def test_update_firmware(console):
     console.update_firmware(target_version)
     console.run_firmware_command("boot", bootloader=True)
 
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
 
     posttest_version = console.get_version()
 
@@ -232,12 +239,12 @@ def test_update_bootloader(console):
     assert target_version is not None
 
     console.update_bootloader(target_version)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     # Also query bootloader for its version
     version_from_bootloader = console.run_firmware_command("version", bootloader=True)
     console.run_firmware_command("boot", bootloader=True)
 
-    time.sleep(3)
+    time.sleep(DELAY_MEDIUM)
 
     posttest_bootloader_version = console.get_version(bootloader=True)
     posttest_firmware_version = console.get_version()
@@ -262,13 +269,13 @@ def test_bootloader_timeout(console):
     """
     # Extra delay to make sure the preboot_uptime is
     # greater than after timeout
-    time.sleep(5)
+    time.sleep(DELAY_LARGE)
 
     preboot_uptime = console.get_uptime()
 
     console.run_firmware_command("reset")
     console.close()
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     console.open()
 
     # Test that bootloader console is up
@@ -276,7 +283,7 @@ def test_bootloader_timeout(console):
     assert "Unrecognized command" in invalid_response
 
     # Give the bootloader enough time to timeout
-    time.sleep(12)
+    time.sleep(BOOTLOADER_TIMEOUT_EXTRA)
 
     postboot_uptime = console.get_uptime()
     assert postboot_uptime <= preboot_uptime
@@ -294,7 +301,7 @@ def test_bootloader_help(console):
     # Reset to enter bootloader console
     console.run_firmware_command("reset")
     console.close()
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     console.open()
     help_response = console.run_firmware_command("help", bootloader=True)
     console.run_firmware_command("boot", bootloader=True)
@@ -328,7 +335,7 @@ def test_skip_recovery(console):
     skip_enabled_image_path = os.getcwd() + "/../images/2.233.0-acc33f7-skip/boot.txt"
 
     console.update_bootloader_local(skip_enabled_image_path)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     version = console.get_version()
     bootloader_version = console.get_version(bootloader=True)
 
@@ -345,7 +352,7 @@ def test_skip_recovery(console):
     target_version_bootloader = "2" + target_version_suffix
     console.update_bootloader(target_version_bootloader)
 
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     console.run_firmware_command("boot", bootloader=True)
     post_update_version = console.get_version(bootloader=True)
     # Check update worked
@@ -375,7 +382,7 @@ def test_invalid_crc_recovery(console):
     invalid_image_path = os.getcwd() + "/../images/1.233.0-acc33f7-invalid/firmware.txt"
 
     console.update_firmware_local(invalid_image_path)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
 
     target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
     target_version_firmware = "1" + target_version_suffix
@@ -390,7 +397,7 @@ def test_invalid_crc_recovery(console):
     # Boot should throw an error because of failed CRC verification
     assert "ERROR" in invalid_boot_response
 
-    time.sleep(13)
+    time.sleep(BOOTLOADER_TIMEOUT_EXTRA)
     bootloader_help_response = console.run_firmware_command("help", bootloader=True)
     # Normally bootloader would have timed out, but in case of
     # invalid CRC it stays in recovery mode
@@ -401,9 +408,9 @@ def test_invalid_crc_recovery(console):
     console.run_firmware_command("bsl", bootloader=True)
     console.update_firmware(target_version_firmware, bsl_mode=True)
 
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     console.run_firmware_command("boot", bootloader=True)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
     firmware_version = console.get_version()
 
     assert firmware_version == target_version_firmware
@@ -427,7 +434,7 @@ def test_failing_image_recovery(console):
     failing_image_path = os.getcwd() + "/../images/1.233.0-acc33f7-failing/firmware.txt"
 
     console.update_firmware_local(failing_image_path)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
 
     target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
     target_version_firmware = "1" + target_version_suffix
@@ -439,13 +446,13 @@ def test_failing_image_recovery(console):
     assert target_version_bootloader in bootloader_version
 
     console.run_firmware_command("boot", bootloader=True)
-    time.sleep(1)
+    time.sleep(DELAY_VERY_SMALL)
 
     # This only succeeds if firmware is running
     assert console.get_version() is not None
 
     # Failing image is setup to fail after about 10s
-    time.sleep(12)
+    time.sleep(BOOTLOADER_TIMEOUT_EXTRA)
 
     # Confirm console is unresponsive
     with pytest.raises(DolosConsoleNoEchoError):
@@ -455,12 +462,12 @@ def test_failing_image_recovery(console):
     console.close()
     commands.dolos_powercycle()
     console.open()
-    time.sleep(2)
+    time.sleep(DELAY_SMALL)
 
     console.run_firmware_command("bsl", bootloader=True)
     console.update_firmware(target_version_firmware, bsl_mode=True)
     # Let bootloader timeout
-    time.sleep(13)
+    time.sleep(BOOTLOADER_TIMEOUT_EXTRA)
 
     post_recovery_version = console.get_version()
     assert post_recovery_version == target_version_firmware
