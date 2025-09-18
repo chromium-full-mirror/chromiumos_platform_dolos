@@ -7,6 +7,7 @@
 # pylint: disable=missing-module-docstring
 # pylint: disable=missing-function-docstring
 # pylint: disable=unused-argument
+# pylint: disable=import-error
 
 import sys
 
@@ -348,3 +349,60 @@ def test_skip_recovery(console):
     post_update_version = console.get_version(bootloader=True)
     # Check update worked
     assert post_update_version == target_version_bootloader
+
+
+def test_invalid_crc_recovery(console):
+    """
+    Test the bootloader's recovery mechanism when faced with
+    firmware that has an invalid CRC.
+    Expected behaviour:
+     - Flash a local FW image known to have an invalid CRC.
+     - Device should enter the bootloader.
+     - Attempting the 'boot' command should fail and return an "ERROR".
+     - The bootloader should *not* time out and boot automatically,
+       even after waiting longer than the standard 10s timeout.
+     - The device should remain in the bootloader (recovery mode).
+     - Initiate recovery by entering BSL mode.
+     - Flash a known-good, target FW version via BSL.
+     - The device should successfully boot into the new, valid FW.
+     - The running FW version should match the target version.
+    """
+    # Since the CRC32 checksum is packaged with the firmware image
+    # at build time and no invalid images are stored in
+    # Google Cloud we will use a local copy for the time being
+    # TODO(b/438110087) Change this test to use a current copy
+    invalid_image_path = os.getcwd() + "/../images/1.233.0-acc33f7-invalid/firmware.txt"
+
+    console.update_firmware_local(invalid_image_path)
+    time.sleep(1)
+
+    target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
+    target_version_firmware = "1" + target_version_suffix
+    target_version_bootloader = "2" + target_version_suffix
+
+    bootloader_version = console.run_firmware_command("version", bootloader=True)
+    # Bootloader prints version as "Bootloader version 2.x"
+    # so check if version is substring not equality
+    assert target_version_bootloader in bootloader_version
+
+    invalid_boot_response = console.run_firmware_command("boot", bootloader=True)
+    # Boot should throw an error because of failed CRC verification
+    assert "ERROR" in invalid_boot_response
+
+    time.sleep(13)
+    bootloader_help_response = console.run_firmware_command("help", bootloader=True)
+    # Normally bootloader would have timed out, but in case of
+    # invalid CRC it stays in recovery mode
+    assert "boot_unsafe" in bootloader_help_response
+
+    ### START RECOVERY ###
+
+    console.run_firmware_command("bsl", bootloader=True)
+    console.update_firmware(target_version_firmware, bsl_mode=True)
+
+    time.sleep(1)
+    console.run_firmware_command("boot", bootloader=True)
+    time.sleep(1)
+    firmware_version = console.get_version()
+
+    assert firmware_version == target_version_firmware
