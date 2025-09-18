@@ -19,6 +19,7 @@ import time
 
 import commands
 from doloscmd.console_lib import DolosConsole
+from doloscmd.error import DolosConsoleNoEchoError
 import pytest
 import utils
 
@@ -406,3 +407,60 @@ def test_invalid_crc_recovery(console):
     firmware_version = console.get_version()
 
     assert firmware_version == target_version_firmware
+
+
+def test_failing_image_recovery(console):
+    """
+    Test recovery from a firmware image that boots successfully but then crashes.
+    Expected behaviour:
+     - Flash a local FW image that is known to boot but then crash after ~10s.
+     - Verify that the FW boots successfully by reading its version.
+     - Wait for the FW to crash.
+     - Confirm the crash by verifying that the console becomes unresponsive.
+     - Initiate recovery via a powercycle to get back to the bootloader.
+     - Enter BSL mode and flash a known-good, stable FW version.
+     - Verify that the device successfully boots and runs the new, stable FW.
+    """
+    # Since the all images stored in Google Cloud are in working order
+    # we will use a local copy for the time being
+    # TODO(b/438110087) Change this test to use a current copy
+    failing_image_path = os.getcwd() + "/../images/1.233.0-acc33f7-failing/firmware.txt"
+
+    console.update_firmware_local(failing_image_path)
+    time.sleep(1)
+
+    target_version_suffix = os.getenv("TARGET_FW_VERSION")[1:]
+    target_version_firmware = "1" + target_version_suffix
+    target_version_bootloader = "2" + target_version_suffix
+
+    bootloader_version = console.run_firmware_command("version", bootloader=True)
+    # Bootloader prints version as "Bootloader version 2.x"
+    # so check if version is substring not equality
+    assert target_version_bootloader in bootloader_version
+
+    console.run_firmware_command("boot", bootloader=True)
+    time.sleep(1)
+
+    # This only succeeds if firmware is running
+    assert console.get_version() is not None
+
+    # Failing image is setup to fail after about 10s
+    time.sleep(12)
+
+    # Confirm console is unresponsive
+    with pytest.raises(DolosConsoleNoEchoError):
+        console.get_version()
+
+    ### START RECOVERY ###
+    console.close()
+    commands.dolos_powercycle()
+    console.open()
+    time.sleep(2)
+
+    console.run_firmware_command("bsl", bootloader=True)
+    console.update_firmware(target_version_firmware, bsl_mode=True)
+    # Let bootloader timeout
+    time.sleep(13)
+
+    post_recovery_version = console.get_version()
+    assert post_recovery_version == target_version_firmware
