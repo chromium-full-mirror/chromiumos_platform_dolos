@@ -45,7 +45,6 @@ enum bq_reg_space {
 #define BQ_MAX_DESIGN_VOLTAGE_3S_MV 13200
 #define BQ_MAX_DESIGN_VOLTAGE_4S_MV 17600
 
-
 #define BQ_REG_CHARGE_VOLTAGE_MASK 0x7ff8
 #define BQ_REG_CHARGE_CURRENT_MASK 0x1fc0
 
@@ -131,7 +130,8 @@ static int bq25731_write_charge_voltage_sb(void)
 	uint16_t design_voltage;
 	uint16_t charge_voltage;
 
-	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage,
+			  sizeof(design_voltage));
 	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_BUCKBOOST, ret,
@@ -176,7 +176,8 @@ static int bq25731_write_current_limit_sb(void)
 	uint16_t design_voltage;
 	uint16_t input_current_limit_ma;
 
-	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage,
+			  sizeof(design_voltage));
 	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_BUCKBOOST, ret,
@@ -196,7 +197,8 @@ static int bq25731_write_current_limit_sb(void)
 		input_current_limit_ma = BQ_REG_INPUT_CURRENT_LIM_6000_MA;
 	}
 
-	ret = bq25731_write_config(BQ_REG_INPUT_CURRENT_LIM, input_current_limit_ma);
+	ret = bq25731_write_config(BQ_REG_INPUT_CURRENT_LIM,
+				   input_current_limit_ma);
 
 	if (ret != 0) {
 		DOLOS_LOG_ERR(
@@ -274,23 +276,27 @@ int bq25731_init(void)
 	return ret;
 }
 
-static int cmd_dump_handler(const struct shell* sh, size_t argc, char **argv)
+static int cmd_dump_handler(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	uint8_t ranges_start[] = {0x00, 0x0e, 0x20, 0x30};
-	uint8_t ranges_end[] = {0x0c, 0x10, 0x2e, 0x40};
+	uint8_t ranges_start[] = { 0x00, 0x0e, 0x20, 0x30 };
+	uint8_t ranges_end[] = { 0x0c, 0x10, 0x2e, 0x40 };
 
 	uint16_t reg_data;
 
 	int ret;
 
-	for(size_t i = 0; i < ARRAY_SIZE(ranges_start); i++) {
-		for(uint8_t j = ranges_start[i] ; j < ranges_end[i]; j+=2) {
-			ret = i2c_write_read_dt(&i2c_spec, &j, sizeof(j), &reg_data, sizeof(reg_data));
-			if(ret != 0) {
-				shell_error(sh, "Failed to read register at address=0x%02x, err=%d", j, ret);
+	for (size_t i = 0; i < ARRAY_SIZE(ranges_start); i++) {
+		for (uint8_t j = ranges_start[i]; j < ranges_end[i]; j += 2) {
+			ret = i2c_write_read_dt(&i2c_spec, &j, sizeof(j),
+						&reg_data, sizeof(reg_data));
+			if (ret != 0) {
+				shell_error(
+					sh,
+					"Failed to read register at address=0x%02x, err=%d",
+					j, ret);
 			}
 
 			shell_print(sh, "@0x%02x: 0x%04x", j, reg_data);
@@ -300,10 +306,9 @@ static int cmd_dump_handler(const struct shell* sh, size_t argc, char **argv)
 	return 0;
 }
 
-SHELL_STATIC_SUBCMD_SET_CREATE(
-	bq_sub_cmds,
-	SHELL_CMD(dump, NULL, "Dumps all BQ registers",
-		  cmd_dump_handler),
-	SHELL_SUBCMD_SET_END);
+SHELL_STATIC_SUBCMD_SET_CREATE(bq_sub_cmds,
+			       SHELL_CMD(dump, NULL, "Dumps all BQ registers",
+					 cmd_dump_handler),
+			       SHELL_SUBCMD_SET_END);
 
 SHELL_CMD_REGISTER(bq, &bq_sub_cmds, "Buckboost command set", NULL);

@@ -20,7 +20,6 @@ void uart_init(void);
  */
 void uart_print(const char *buf);
 
-
 /**
  * @brief Receives a line from the RX ring buffer.
  *

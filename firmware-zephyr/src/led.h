@@ -7,6 +7,7 @@
 #define LED_H
 
 #include <stdbool.h>
+
 #include <zephyr/drivers/led.h>
 
 void dled_error_led_turn_on();

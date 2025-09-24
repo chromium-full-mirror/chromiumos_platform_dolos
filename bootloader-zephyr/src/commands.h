@@ -20,5 +20,4 @@
  */
 int process_command(char *buf, int safe_to_boot);
 
-
 #endif /* __COMMANDS_H__ */

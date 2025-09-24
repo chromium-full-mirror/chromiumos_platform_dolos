@@ -190,7 +190,7 @@ static int sb_reg_read_word(uint8_t offset, uint8_t *buf, uint8_t buf_size)
 		return -EINVAL;
 	}
 
-	if(buf_size < WORD_SIZE) {
+	if (buf_size < WORD_SIZE) {
 		return -EOVERFLOW;
 	}
 
@@ -206,7 +206,7 @@ static int sb_reg_read_block(uint8_t offset, uint8_t *buf, uint8_t buf_size)
 		return -EINVAL;
 	}
 
-	if(buf_size < reg->length) {
+	if (buf_size < reg->length) {
 		return -EOVERFLOW;
 	}
 
@@ -326,11 +326,12 @@ static int sb_get_capacity_mode(uint8_t *capacity_mode)
 	uint16_t batt_mode;
 	int ret;
 
-	if(capacity_mode == NULL) {
+	if (capacity_mode == NULL) {
 		return -EINVAL;
 	}
 
-	ret = sb_reg_read(SB_BATTERY_MODE, (uint8_t *)&batt_mode, sizeof(batt_mode));
+	ret = sb_reg_read(SB_BATTERY_MODE, (uint8_t *)&batt_mode,
+			  sizeof(batt_mode));
 	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
@@ -370,7 +371,8 @@ static int sb_reg_calc_capacity(void)
 		return ret;
 	}
 
-	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage, sizeof(design_voltage));
+	ret = sb_reg_read(SB_DESIGN_VOLTAGE, (uint8_t *)&design_voltage,
+			  sizeof(design_voltage));
 	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
@@ -400,7 +402,8 @@ static int sb_reg_calc_capacity(void)
 	}
 
 	ret = sb_reg_read(SB_FULL_CHARGE_CAPACITY,
-			  (uint8_t *)&full_charge_capacity, sizeof(full_charge_capacity));
+			  (uint8_t *)&full_charge_capacity,
+			  sizeof(full_charge_capacity));
 	if (ret < 0) {
 		DOLOS_LOG_ERR(
 			ERROR_SMART_BATTERY, ret,
@@ -591,14 +594,14 @@ static inline void cmd_sb_reg_print(const struct shell *sh, uint8_t addr)
 	uint8_t offset = sb_get_block_register_offset(addr);
 	if (offset == 0xff) {
 		struct sb_word_register *reg = eeprom_get_word_reg(addr);
-		if(reg == NULL) {
+		if (reg == NULL) {
 			shell_print(sh, "Failed to read register");
 			return;
 		}
 		shell_print(sh, "Data (word): 0x%04x", reg->data);
 	} else {
 		struct sb_block_register *reg = eeprom_get_block_reg(offset);
-		if(reg == NULL) {
+		if (reg == NULL) {
 			shell_print(sh, "Failed to read block");
 			return;
 		}

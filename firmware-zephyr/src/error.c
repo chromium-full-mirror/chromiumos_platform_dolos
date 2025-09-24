@@ -4,8 +4,10 @@
  */
 
 #include "error.h"
-#include <stdlib.h>
 #include "led.h"
+
+#include <stdlib.h>
+
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
 #include <zephyr/shell/shell.h>
@@ -120,7 +122,6 @@ static int error_show_handler(const struct shell *sh, size_t argc, char **argv)
 	}
 	return 0;
 }
-
 
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	error_sub_cmd,

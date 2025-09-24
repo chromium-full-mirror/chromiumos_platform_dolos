@@ -32,58 +32,70 @@ led_state_t led_states[NUM_LEDS] = {
 	{ .state = false },
 };
 
-void dled_error_led_turn_on() {
+void dled_error_led_turn_on()
+{
 	led_on(leds, LED_ERR);
 	led_states[ERROR_LED_INDEX].state = true;
 }
 
-void dled_error_led_turn_off() {
+void dled_error_led_turn_off()
+{
 	led_off(leds, LED_ERR);
 	led_states[ERROR_LED_INDEX].state = false;
 }
 
-bool dled_error_led_is_on(){
+bool dled_error_led_is_on()
+{
 	return led_states[ERROR_LED_INDEX].state;
 }
 
-void dled_program_led_turn_on(){
+void dled_program_led_turn_on()
+{
 	led_on(leds, LED_PRG);
 	led_states[PROGRAMMED_LED_INDEX].state = true;
 }
 
-void dled_program_led_turn_off(){
+void dled_program_led_turn_off()
+{
 	led_off(leds, LED_PRG);
 	led_states[PROGRAMMED_LED_INDEX].state = false;
 }
 
-bool dled_program_led_is_on(){
+bool dled_program_led_is_on()
+{
 	return led_states[PROGRAMMED_LED_INDEX].state;
 }
 
-void dled_ready_led_turn_on(){
+void dled_ready_led_turn_on()
+{
 	led_on(leds, LED_RDY);
 	led_states[READY_LED_INDEX].state = true;
 }
 
-void dled_ready_led_turn_off(){
+void dled_ready_led_turn_off()
+{
 	led_off(leds, LED_RDY);
 	led_states[READY_LED_INDEX].state = false;
 }
 
-bool dled_ready_led_is_on(){
+bool dled_ready_led_is_on()
+{
 	return led_states[READY_LED_INDEX].state;
 }
 
-void dled_powering_led_turn_on(){
+void dled_powering_led_turn_on()
+{
 	led_on(leds, LED_PWR);
 	led_states[POWERING_LED_INDEX].state = true;
 }
 
-void dled_powering_led_turn_off(){
+void dled_powering_led_turn_off()
+{
 	led_off(leds, LED_PWR);
 	led_states[POWERING_LED_INDEX].state = false;
 }
 
-bool dled_powering_led_is_on(){
+bool dled_powering_led_is_on()
+{
 	return led_states[POWERING_LED_INDEX].state;
 }

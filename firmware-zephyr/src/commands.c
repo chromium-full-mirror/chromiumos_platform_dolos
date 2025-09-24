@@ -23,10 +23,10 @@
 #define RO_RECORD_SIZE 32
 
 enum ro_record_offset {
-        RO_RECORD_OFFSET_VERSION = 0,
-        RO_RECORD_OFFSET_FLAGS = RO_RECORD_SIZE,
-        RO_RECORD_OFFSET_UNUSED_1 = 2 * RO_RECORD_SIZE,
-        RO_RECORD_OFFSET_UNUSED_2 = 3 * RO_RECORD_SIZE
+	RO_RECORD_OFFSET_VERSION = 0,
+	RO_RECORD_OFFSET_FLAGS = RO_RECORD_SIZE,
+	RO_RECORD_OFFSET_UNUSED_1 = 2 * RO_RECORD_SIZE,
+	RO_RECORD_OFFSET_UNUSED_2 = 3 * RO_RECORD_SIZE
 };
 
 #endif
@@ -97,29 +97,30 @@ static int cmd_version_handler(const struct shell *sh, size_t argc, char **argv)
 // TODO(b/438110087): remove guards
 #ifdef CONFIG_BOOTLOADER_ENABLED
 
-static int cmd_version_bootloader_handler(const struct shell *sh, size_t argc, char **argv)
+static int cmd_version_bootloader_handler(const struct shell *sh, size_t argc,
+					  char **argv)
 {
-        ARG_UNUSED(argc);
+	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-        const struct flash_area *ro_partition;
-	if (flash_area_open(FIXED_PARTITION_ID(ro_partition), &ro_partition) != 0)
-	{
-                shell_print(sh, "ERROR: Unable to open RO partition\n");
-                return -1;
+	const struct flash_area *ro_partition;
+	if (flash_area_open(FIXED_PARTITION_ID(ro_partition), &ro_partition) !=
+	    0) {
+		shell_print(sh, "ERROR: Unable to open RO partition\n");
+		return -1;
 	}
 
-        char bootloader_version[RO_RECORD_SIZE];
-        // Read first section of RO partition to get version
-        if(flash_area_read(ro_partition, RO_RECORD_OFFSET_VERSION, bootloader_version, RO_RECORD_SIZE) != 0)
-        {
-                shell_print(sh, "ERROR: Unable to read bootloader version\n");
-                return -1;
-        }
+	char bootloader_version[RO_RECORD_SIZE];
+	// Read first section of RO partition to get version
+	if (flash_area_read(ro_partition, RO_RECORD_OFFSET_VERSION,
+			    bootloader_version, RO_RECORD_SIZE) != 0) {
+		shell_print(sh, "ERROR: Unable to read bootloader version\n");
+		return -1;
+	}
 
-        bootloader_version[RO_RECORD_SIZE-1] = '\0';
-        shell_print(sh, "Bootloader version %s", bootloader_version);
-        return 0;
+	bootloader_version[RO_RECORD_SIZE - 1] = '\0';
+	shell_print(sh, "Bootloader version %s", bootloader_version);
+	return 0;
 }
 #endif
 
@@ -142,25 +143,26 @@ void print_system_present_state(const struct shell *sh)
 	sprintf(sys_pres_forced_str, " (Signal was forced, raw signal %s)",
 		bms_get_sys_pres_raw() ? "HIGH" : "LOW");
 
-	shell_print(sh,
-		    "SYSTEM_PRESENT pin state : %s (signal %s, polarity %s%s%s)\n",
-		    bms_get_sys_pres() ? "Present" : "Absent",
-		    bms_get_sys_pres() ? "HIGH" : "LOW",
-		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
-		    bms_get_sys_pres_is_floating() ? "(floating)" : "",
-		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
+	shell_print(
+		sh,
+		"SYSTEM_PRESENT pin state : %s (signal %s, polarity %s%s%s)\n",
+		bms_get_sys_pres() ? "Present" : "Absent",
+		bms_get_sys_pres() ? "HIGH" : "LOW",
+		bms_get_sys_pres_pol() ? "HIGH" : "LOW",
+		bms_get_sys_pres_is_floating() ? "(floating)" : "",
+		bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 }
 
 int print_leds_state(const struct shell *sh)
 {
 	shell_print(sh, "Error LED                : %s\r\n",
-		        dled_error_led_is_on() ? "On" : "Off");
+		    dled_error_led_is_on() ? "On" : "Off");
 	shell_print(sh, "Programmed LED           : %s\r\n",
-		        dled_program_led_is_on() ? "On" : "Off");
+		    dled_program_led_is_on() ? "On" : "Off");
 	shell_print(sh, "Ready LED                : %s\r\n",
-		        dled_ready_led_is_on() ? "On" : "Off");
+		    dled_ready_led_is_on() ? "On" : "Off");
 	shell_print(sh, "Powering LED             : %s\r\n",
-		        dled_powering_led_is_on() ? "On" : "Off");
+		    dled_powering_led_is_on() ? "On" : "Off");
 	return 0;
 }
 
@@ -255,7 +257,8 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 		break;
 	case BMS_STATE_TIMER:
 		strcpy(bms_state_str, ENUM_NAME(BMS_STATE_TIMER));
-		sprintf(next_bms_state_str, "Next States can be %s or %s or %s or %s",
+		sprintf(next_bms_state_str,
+			"Next States can be %s or %s or %s or %s",
 			ENUM_NAME(BMS_STATE_POWER_OUTPUT_OFF),
 			ENUM_NAME(BMS_STATE_POWER_OUTPUT_ON),
 			ENUM_NAME(BMS_STATE_POWER_GOOD_WAIT),
@@ -315,7 +318,7 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 		    bms_get_sys_pres() ? "Present" : "Absent",
 		    bms_get_sys_pres_raw() ? "HIGH" : "LOW",
 		    bms_get_sys_pres_pol() ? "HIGH" : "LOW",
-			bms_get_sys_pres_is_floating() ? "(floating)" : "",
+		    bms_get_sys_pres_is_floating() ? "(floating)" : "",
 		    bms_is_sys_pres_forced() ? sys_pres_forced_str : "");
 	shell_print(sh, "    BMS current state  : %s", bms_state_str);
 	shell_print(sh, "    BMS next state     : %s", next_bms_state_str);
@@ -324,11 +327,12 @@ static int status_cmd_handler(const struct shell *sh, int argc, char **argv)
 	}
 	shell_print(sh, "    SMBus communication: %s",
 		    smbus_target_is_comms_detected_long() ? "Detected" :
-							       "Not detected");
+							    "Not detected");
 	if (strcmp(eeprom_status, "EEPROM Read Error.") != 0) {
 		shell_print(sh,
 			    "    Serial number      : DOLOSV1-C-%02d20%02d%04d",
-			    eeprom_get_week(), eeprom_get_year(), eeprom_get_serial_no());
+			    eeprom_get_week(), eeprom_get_year(),
+			    eeprom_get_serial_no());
 	} else {
 		shell_print(
 			sh,
@@ -360,7 +364,8 @@ SHELL_CMD_REGISTER(version, NULL, "Prints Dolos version", cmd_version_handler);
 SHELL_CMD_REGISTER(bsl, NULL, "Invokes BSL", cmd_jump_to_bsl_handler);
 // TODO(b/438110087): remove guards
 #ifdef CONFIG_BOOTLOADER_ENABLED
-SHELL_CMD_REGISTER(version_bootloader, NULL, "Prints bootloader version", cmd_version_bootloader_handler);
+SHELL_CMD_REGISTER(version_bootloader, NULL, "Prints bootloader version",
+		   cmd_version_bootloader_handler);
 #endif
 
 SHELL_SUBCMD_DICT_SET_CREATE(sub_gpio_cmds, sub_gpio_cmd_handler,

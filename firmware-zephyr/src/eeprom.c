@@ -108,7 +108,7 @@ int eeprom_write(uint16_t addr, uint8_t data)
 
 	LOG_DBG("Starting EEPROM write, addr=%#x, data=%#x", addr, data);
 	ret = i2c_reg_write_byte(i2c_dev, EEPROM_I2C_ADDR | (addr >> 8),
-				(uint8_t)addr, data);
+				 (uint8_t)addr, data);
 	if (ret != 0) {
 		DOLOS_LOG_ERR(
 			ERROR_EEPROM, ret,
@@ -382,7 +382,7 @@ static int cmd_eeprom_writen_handler(const struct shell *sh, size_t argc,
 
 		if (err != 0) {
 			shell_error(sh, "Invalid data byte: %d:%s", i,
-					    argv[i + 3]);
+				    argv[i + 3]);
 			return 0;
 		}
 	}
@@ -443,15 +443,15 @@ static int cmd_eeprom_data_handler(const struct shell *sh, size_t argc,
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	eeprom_sub_cmds,
 	SHELL_CMD_ARG(read, NULL, "Reads a single byte",
-			      cmd_eeprom_read_handler, 2, 0),
+		      cmd_eeprom_read_handler, 2, 0),
 	SHELL_CMD_ARG(write, NULL, "Writes a single byte",
-			      cmd_eeprom_write_handler, 3, 0),
+		      cmd_eeprom_write_handler, 3, 0),
 	SHELL_CMD(data, NULL, "Reads EEPROM data block",
-			  cmd_eeprom_data_handler),
+		  cmd_eeprom_data_handler),
 	SHELL_CMD(readall, NULL, "Reads all EEPROM bytes",
-			  cmd_eeprom_readall_handler),
+		  cmd_eeprom_readall_handler),
 	SHELL_CMD_ARG(writen, NULL, "Writes N bytes up to 16 bytes",
-			      cmd_eeprom_writen_handler, 3, 16),
+		      cmd_eeprom_writen_handler, 3, 16),
 	SHELL_SUBCMD_SET_END);
 
 SHELL_CMD_REGISTER(eeprom, &eeprom_sub_cmds, "EEPROM command set", NULL);

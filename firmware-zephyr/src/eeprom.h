@@ -161,5 +161,4 @@ struct sb_word_register *eeprom_get_word_reg_arr(size_t *arr_size);
  */
 struct sb_block_register *eeprom_get_block_reg_arr(size_t *arr_size);
 
-
 #endif /* EEPROM_H_ */

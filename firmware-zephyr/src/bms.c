@@ -304,8 +304,9 @@ static void comm_power_off_state_run(void *o)
 	 * only when both sys_prest and smbus communication asserted.
 	 * However we still want to persist forcing functionality working
 	 * for devices with float polarity, as that is useful for debugging -
-	 * this is why extra OR condition is applied. system_present_signal_state
-	 * would be equal forced value when force flag on.
+	 * this is why extra OR condition is applied.
+	 * system_present_signal_state would be equal forced value when force
+	 * flag on.
 	 */
 	if (system_present_signal_state.state &&
 	    (smbus_target_is_comms_detected_short() || force_sys_pres_flag) &&
@@ -317,26 +318,20 @@ static void comm_power_off_state_run(void *o)
 }
 
 static const struct smf_state bms_states[] = {
-	[BMS_STATE_POWER_OUTPUT_OFF] = SMF_CREATE_STATE(
-		power_output_off_state_entry,
-		power_output_off_state_run,
-		NULL, NULL, NULL),
-	[BMS_STATE_TIMER] = SMF_CREATE_STATE(
-		timer_state_entry,
-		timer_state_run,
-		NULL, NULL, NULL),
-	[BMS_STATE_POWER_GOOD_WAIT] = SMF_CREATE_STATE(
-		power_good_wait_state_entry,
-		power_good_wait_state_run,
-		NULL, NULL, NULL),
-	[BMS_STATE_POWER_OUTPUT_ON] = SMF_CREATE_STATE(
-		power_output_on_state_entry,
-		power_output_on_state_run,
-		NULL, NULL, NULL),
-	[BMS_STATE_COMM_POWER_OFF] = SMF_CREATE_STATE(
-		comm_power_off_state_entry,
-		comm_power_off_state_run,
-		NULL, NULL, NULL),
+	[BMS_STATE_POWER_OUTPUT_OFF] =
+		SMF_CREATE_STATE(power_output_off_state_entry,
+				 power_output_off_state_run, NULL, NULL, NULL),
+	[BMS_STATE_TIMER] = SMF_CREATE_STATE(timer_state_entry, timer_state_run,
+					     NULL, NULL, NULL),
+	[BMS_STATE_POWER_GOOD_WAIT] =
+		SMF_CREATE_STATE(power_good_wait_state_entry,
+				 power_good_wait_state_run, NULL, NULL, NULL),
+	[BMS_STATE_POWER_OUTPUT_ON] =
+		SMF_CREATE_STATE(power_output_on_state_entry,
+				 power_output_on_state_run, NULL, NULL, NULL),
+	[BMS_STATE_COMM_POWER_OFF] =
+		SMF_CREATE_STATE(comm_power_off_state_entry,
+				 comm_power_off_state_run, NULL, NULL, NULL),
 };
 
 /**
@@ -368,8 +363,8 @@ struct k_thread bms_state_machine_thread_data;
 void bms_tick_handler_task_fn(void *, void *, void *);
 
 K_THREAD_DEFINE(bms_tick_handler_thread, BMS_TICK_HANDLER_THREAD_STACK_SIZE,
-			bms_tick_handler_task_fn, NULL, NULL, NULL,
-			BMS_TICK_HANDLER_THREAD_PRIORITY, 0, 0);
+		bms_tick_handler_task_fn, NULL, NULL, NULL,
+		BMS_TICK_HANDLER_THREAD_PRIORITY, 0, 0);
 
 /**
  * @brief Proccesses signal state change.
@@ -651,9 +646,9 @@ int print_gpio_stats_handler(const struct shell *sh, size_t argc, char **argv)
 }
 
 SHELL_SUBCMD_DICT_SET_CREATE(sys_pres_sub_cmd, cmd_bms_sys_pres_force_handler,
-				     (on, "on", "Force system to be present"),
-				     (off, "off", "Force system to be absent"),
-				     (disable, "disable", "Disable the forced value"));
+			     (on, "on", "Force system to be present"),
+			     (off, "off", "Force system to be absent"),
+			     (disable, "disable", "Disable the forced value"));
 
 SHELL_CMD_REGISTER(sys_pres, &sys_pres_sub_cmd,
 		   "Forces system present signal to set value (on/off/disable)",
