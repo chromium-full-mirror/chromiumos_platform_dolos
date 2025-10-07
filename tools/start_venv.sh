@@ -23,5 +23,5 @@ pip3 install --require-hashes -r requirements.txt -q --break-system-packages
 # Install the dolos tools if they are missing. These commands take longer
 # to run so for now we'll only run once.
 if ! [ -x "$(command -v doloscmd)" ]; then
-	pip3 install --no-deps --no-index ./doloscmd ./dolosbattery --break-system-packages
+	pip3 install --no-deps --no-index ./doloscmd ./dolosbattery --break-system-packages --no-build-isolation
 fi
