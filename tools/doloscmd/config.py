@@ -1,10 +1,11 @@
-# Copyright The ChromiumOS Authors
+# Copyright 2025 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Provides a mechanism to load the configs and map the HWID correctly."""
 
 import logging
+from pathlib import Path
 
 from doloscmd import download
 from doloscmd.error import DolosConsoleError
@@ -46,7 +47,7 @@ class Config:
         """
         txt = None
         if file:
-            txt = self._load_local_config(file)
+            txt = self._load_local_config(Path(file))
         elif self.model:
             txt = self._load_network_config()
         else:
