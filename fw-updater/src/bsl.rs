@@ -6,6 +6,8 @@
 /// Spec: https://www.ti.com/lit/ug/slau887/slau887.pdf
 use std::iter;
 use std::process::exit;
+use std::thread::sleep;
+use std::time::Duration;
 
 use anyhow::{bail, Result};
 use log::{debug, trace, error};
@@ -330,58 +332,137 @@ impl Bsl {
         }
     }
 
-    /// Receive BSL ack code for previous command packet.
-    fn receive_bsl_ack(&mut self) -> Result<BslResponseAck> {
-        debug!("Waiting for BSL ack");
-        let mut ack_buf = vec![0u8; 1];
-        self.uart.read_exact(&mut ack_buf)?;
-        trace!("Read Ack response of : {ack_buf:?}");
-        let code = unsafe { std::mem::transmute(ack_buf[0]) };
-        Ok(code)
-    }
+        /// Receive BSLCoreResponse packet for previous command packet.
+        ///
+        /// If `first_byte` is provided, it is used as the first byte of the header.
+        /// This is useful when the header start byte (0x08) was read during the ACK check.
+        fn receive_bsl_core_response(&mut self, first_byte: Option<u8>) -> Result<BslCoreResponse> {
+            trace!("Waiting for BSL core response");
+            let mut header = vec![0u8; 4];
 
-    /// Receive BSLCoreResponse packet for previous command packet.
-    fn receive_bsl_core_response(&mut self) -> Result<BslCoreResponse> {
-        trace!("Waiting for BSL core response");
-        let mut header = vec![0u8; 4];
-        self.uart.read_exact(&mut header)?;
-        if header[0] != 0x8 {
-            bail!("Invalid response message header {:?}", header);
-        }
-        let len: usize = ((header[2] as usize) << 8 | header[1] as usize) + 3;
-        let mut data = vec![0u8; len];
-        self.uart.read_exact(&mut data)?;
-        trace!("Data from BSL: {:x?}", data);
+            if let Some(b) = first_byte {
+                header[0] = b;
+                self.uart.read_exact(&mut header[1..])?;
+            } else {
+                self.uart.read_exact(&mut header)?;
+            }
 
-        let response_code: BslCoreResponseCode = unsafe { std::mem::transmute(header[3]) };
-        let result = Self::parse_response(response_code, &data);
-        Ok(result)
-    }
+            if header[0] != 0x8 {
+                bail!("Invalid response message header {:?}", header);
+            }
+            let len: usize = ((header[2] as usize) << 8 | header[1] as usize) + 3;
+            let mut data = vec![0u8; len];
+            self.uart.read_exact(&mut data)?;
+            trace!("Data from BSL: {:x?}", data);
 
-    /// Send command to BSL and wait for response for the command.
-    fn issue_command(
-        &mut self,
-        cmd: u8,
-        address: Option<u32>,
-        data: Option<Vec<u8>>,
-        expect_bsl_core_response: bool,
-    ) -> Result<Option<BslCoreResponse>> {
-        let packet = Self::construct_cmd_packet(cmd, address, data);
-        trace!("Issuing command {packet:x?}");
-        self.uart.write_all(&packet)?;
-
-        let ack = self.receive_bsl_ack()?;
-        if ack != BslResponseAck::Ack {
-            bail!("Command failed with {ack:?}");
+            let response_code: BslCoreResponseCode = unsafe { std::mem::transmute(header[3]) };
+            let result = Self::parse_response(response_code, &data);
+            Ok(result)
         }
 
-        // if no core response is expected, then return now
-        if !expect_bsl_core_response {
-            return Ok(None);
+        /// Receive BSL ack code for previous command packet.
+        ///
+        /// Returns `AckResult` to distinguish between a standard ACK,
+        /// a response header start (indicating the device skipped ACK or we missed it),
+        /// or an unknown/error byte.
+        fn receive_bsl_ack(&mut self) -> Result<AckResult> {
+            debug!("Waiting for BSL ack");
+            let mut ack_buf = vec![0u8; 1];
+            self.uart.read_exact(&mut ack_buf)?;
+            let byte = ack_buf[0];
+            trace!("Read Ack response of : {byte:#02x}");
+            match byte {
+                0x00 => Ok(AckResult::Ack),
+                0x08 => Ok(AckResult::Header(byte)),
+                _ => Ok(AckResult::Unknown(byte)),
+            }
         }
 
-        let result = self.receive_bsl_core_response()?;
-        trace!("Received response = {result:x?}");
-        Ok(Some(result))
+        /// Send command to BSL and wait for response for the command.
+        ///
+        /// Implements a retry mechanism (3 attempts) and flushes the input buffer
+        /// before sending to ensure reliability. Handles cases where the device
+        /// responds immediately with data instead of an ACK.
+        fn issue_command(
+            &mut self,
+            cmd: u8,
+            address: Option<u32>,
+            data: Option<Vec<u8>>,
+            expect_bsl_core_response: bool,
+        ) -> Result<Option<BslCoreResponse>> {
+            let packet = Self::construct_cmd_packet(cmd, address, data);
+            let mut retries = 5;
+
+            loop {
+                trace!("Issuing command {packet:x?}");
+                // Flush input buffer to remove any stale data or garbage
+                if let Err(e) = self.uart.flush_input() {
+                    debug!("Failed to flush input: {e}");
+                }
+
+                if let Err(e) = self.uart.write_all(&packet) {
+                    debug!("Failed to write packet: {e}");
+                } else {
+                    match self.receive_bsl_ack() {
+                        Ok(AckResult::Ack) => {
+                            if !expect_bsl_core_response {
+                                return Ok(None);
+                            }
+                            match self.receive_bsl_core_response(None) {
+                                Ok(result) => {
+                                    trace!("Received response = {result:x?}");
+                                    return Ok(Some(result));
+                                }
+                                Err(e) => debug!("Failed to receive core response: {e}"),
+                            }
+                        }
+                        Ok(AckResult::Header(b)) => {
+                             // Device sent response immediately (missed ACK or no ACK)
+                             if !expect_bsl_core_response {
+                                // Unexpected response
+                                debug!("Received unexpected response header: {b:#02x}");
+                             } else {
+                                match self.receive_bsl_core_response(Some(b)) {
+                                    Ok(result) => {
+                                        trace!("Received response (direct) = {result:x?}");
+                                        return Ok(Some(result));
+                                    }
+                                    Err(e) => debug!("Failed to receive core response (direct): {e}"),
+                                }
+                             }
+                        }
+                        Ok(AckResult::Unknown(b)) => {
+                             debug!("Received unknown byte awaiting ACK: {b:#02x}");
+                             match b {
+                                0x51 => debug!("BSL Error: Header Incorrect"),
+                                0x52 => debug!("BSL Error: Checksum Incorrect"),
+                                0x53 => debug!("BSL Error: Packet Size Zero"),
+                                0x54 => debug!("BSL Error: Packet Size Too Big"),
+                                0x55 => debug!("BSL Error: Unknown Error"),
+                                0x56 => debug!("BSL Error: Unknown Baud Rate"),
+                                _ => {}
+                             }
+                        }
+                        Err(e) => debug!("Failed to receive ACK: {e}"),
+                    }
+                }
+
+                retries -= 1;
+                if retries == 0 {
+                    bail!("Command failed after retries");
+                }
+                debug!("Retrying command...");
+                sleep(Duration::from_millis(100));
+            }
+        }
     }
-}
+
+    /// Result of waiting for an ACK from the BSL device.
+    enum AckResult {
+        /// Standard ACK received (0x00).
+        Ack,
+        /// Response header start byte received (0x08), implying ACK was skipped or lost.
+        Header(u8),
+        /// Unknown or error byte received.
+        Unknown(u8),
+    }

@@ -226,6 +226,11 @@ impl Uart {
         Ok(())
     }
 
+    pub fn flush_input(&self) -> Result<()> {
+        tcflush(self.file.as_raw_fd(), TCIFLUSH)?;
+        Ok(())
+    }
+
     pub fn flush(&mut self) -> Result<()> {
         self.file.flush()?;
         Ok(())
