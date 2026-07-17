@@ -5,26 +5,30 @@
 use std::io::Write;
 use std::thread::sleep;
 use std::time::Duration;
-use std::process::exit;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
-use log::{debug, info, trace, error};
-use regex::Regex;
+use log::{debug, info, trace};
 
 use fw_updater::bsl;
 use fw_updater::titxt;
 use fw_updater::uart::Uart;
+use fw_updater::{MAUI_PID, MAUI_VID};
 
-/// Dolos firmware updater.
-///
-/// Program the Dolos firmware(in Ti TXT format) through UART.
+/// Program the MSPM0G MCU firmware (in Ti TXT format) through UART or direct USB DFU.
 #[derive(Parser, Debug)]
 #[clap(author, version=env!("VERSION"), verbatim_doc_comment)]
 pub struct Args {
-    /// Dolos UART port through which the programming will be done.
-    #[clap(short, long, default_value = "/dev/ttyUSB0")]
-    uart: String,
+    /// Dolos or Maui UART port through which initial BSL jump command is sent.
+    /// If omitted in standard UART mode, defaults to /dev/ttyUSB0.
+    /// If omitted in USB mode (--usb), auto-detects Maui CDC ACM serial interfaces.
+    #[clap(short, long)]
+    uart: Option<String>,
+
+    /// Target Maui onboard USB Hub serial number (e.g. CC00086185C0).
+    /// Used to disambiguate multiple Maui devices in USB DFU or normal mode.
+    #[clap(long = "hub-serial")]
+    hub_serial: Option<String>,
 
     /// FW UART baudrate.
     #[clap(short, long, default_value = "115200")]
@@ -44,6 +48,10 @@ pub struct Args {
     /// into bsl mode before starting the programming
     #[clap(long, default_value = "false", action, verbatim_doc_comment)]
     bsl_mode: bool,
+
+    /// Use direct USB interface instead of UART for BSL programming
+    #[clap(long, default_value = "false", action, verbatim_doc_comment)]
+    usb: bool,
 
     /// Logging verbosity level.
     /// By default only error messages are logged.
@@ -94,30 +102,6 @@ fn init_logger(verbose: usize) {
 
 const APP_FIRMWARE_DELAY_MSEC: u64 = 500;
 
-// Gets the firmware version
-fn firmware_version(uart: &mut Uart) -> Result<String> {
-    info!("Obtaining firmware version");
-    // Send version command
-    let mut version_buf = vec![0u8; 128];
-    uart.write_all("version\r".as_bytes())?;
-    sleep(Duration::from_millis(APP_FIRMWARE_DELAY_MSEC));
-    uart.read_all(&mut version_buf)?;
-
-    ///Check if was able to read version
-    if version_buf.iter().all(|&x| x == 0) {
-        error!("Unable to read from UART. Maybe another process is holding the connection?");
-        exit(1);
-    }
-
-    // Get the version from the output string
-    let version_str = String::from_utf8(version_buf).unwrap();
-    let re = Regex::new(r"[0-9]+\.[0-9]+(\.[0-9])?-[a-z0-9]+").unwrap();
-    let m = re.find(&version_str).unwrap();
-    info!("Firmware version: {}", &version_str[m.start()..m.end()]);
-
-    Ok(version_str[m.start()..m.end()].to_string())
-}
-
 /// Jump to BSL from firmware.
 fn jump_to_bsl(uart: &mut Uart, cmd: &str) -> Result<()> {
     info!("Jumping to BSL");
@@ -132,6 +116,43 @@ fn jump_to_bsl(uart: &mut Uart, cmd: &str) -> Result<()> {
 
 fn progress(total: u32, completed: u32) {
     println!("{:3.0} %", (completed as f32 / total as f32) * 100f32);
+}
+
+fn flash_image<T: bsl::Transport>(bsl: &mut bsl::Bsl<T>, image: &titxt::TiTxt) -> Result<()> {
+    for section in &image.sections {
+        //Last byte in section start address is start + len - 1
+        let end_address: u32 = (section.address + section.data.len() as u32) - 1;
+        bsl.erase(section.address, end_address)?;
+        info!("Successfully erased flash from {0:#x} to {end_address:#x}", section.address);
+        trace!(
+            "Programming section @{:#x} with {}bytes",
+            section.address,
+            section.data.len()
+        );
+        bsl.program(section.address, section.data.clone(), &progress)?;
+    }
+    Ok(())
+}
+
+pub fn program_usb(image: &titxt::TiTxt, location: Option<&fw_updater::usb::UsbLocation>) -> Result<()> {
+    let usb = fw_updater::usb::Usb::open(0x2047, 0x0210, location)?;
+    let mut bsl = bsl::Bsl::open(usb)?;
+
+    bsl.connect()?;
+    info!("connected to BSL");
+
+    bsl.unlock_bootloader()?;
+    trace!("Unlocked bootloader");
+
+    let bsl_info = bsl.get_device_info()?;
+    info!("bsl_info: {bsl_info:?}");
+
+    flash_image(&mut bsl, image)?;
+
+    bsl.start_application()?;
+    info!("Firmware started");
+
+    Ok(())
 }
 
 pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()> {
@@ -152,22 +173,34 @@ pub fn program(path: &String, baud_rate: u32, image: &titxt::TiTxt) -> Result<()
     let uart = Uart::open(path, baud_rate)?;
     let mut bsl = bsl::Bsl::open(uart)?;
 
-    for section in &image.sections {
-        //Last byte in section start address is start + len - 1
-        let end_address: u32 = (section.address + section.data.len() as u32) - 1;
-        bsl.erase(section.address, end_address)?;
-        info!("Successfully erased flash from {0:#x} to {end_address:#x}", section.address);
-        trace!(
-            "Programming section @{:#x} with {}bytes",
-            section.address,
-            section.data.len()
-        );
-        bsl.program(section.address, section.data.clone(), &progress)?;
-    }
+    flash_image(&mut bsl, image)?;
 
     bsl.start_application()?;
     info!("Firmware started");
 
+    Ok(())
+}
+
+fn verify_serial_port_vid_pid(port_path: &str) -> Result<()> {
+    let Ok(ports) = serialport::available_ports() else {
+        return Ok(());
+    };
+
+    for p in ports {
+        if p.port_name != port_path {
+            continue;
+        }
+
+        if let serialport::SerialPortType::UsbPort(info) = p.port_type {
+            if info.vid == MAUI_VID && info.pid == MAUI_PID {
+                return Ok(());
+            }
+            bail!(
+                "Specified port {} ({:04x}:{:04x}) is not a Maui CDC ACM device ({:04x}:{:04x}). When using --usb, please specify a Maui USB device or omit --usb for standard UART flashing.",
+                port_path, info.vid, info.pid, MAUI_VID, MAUI_PID
+            );
+        }
+    }
     Ok(())
 }
 
@@ -178,25 +211,70 @@ fn main() -> Result<()> {
     info!("Reading image: {}", args.firmware_image);
     let image = titxt::parse(&args.firmware_image)?;
 
+    let mut usb_location = args.hub_serial.as_ref().map(|hub_sn| fw_updater::usb::UsbLocation {
+        bus: 0,
+        ports: Vec::new(),
+        parent_hub_serial: Some(hub_sn.clone()),
+        port_on_parent: None,
+    });
+
+    if let Some(ref hub_sn) = args.hub_serial {
+        info!("Target device USB hub serial filter: {hub_sn}");
+    }
+
     if !args.bsl_mode {
-        let mut uart = Uart::open(&args.uart, args.fw_baud_rate)?;
+        // Determine the initial UART port:
+        // 1. Explicitly provided via --uart <PORT>.
+        // 2. In USB mode (--usb), auto-detected via Maui CDC ACM VID:PID (18d1:5085), optionally filtered by --hub-serial.
+        // 3. In standard UART mode, defaults to "/dev/ttyUSB0".
+        let uart_path = if let Some(ref port) = args.uart {
+            if args.usb {
+                verify_serial_port_vid_pid(port)?;
+            }
+            port.clone()
+        } else if args.usb {
+            let port = Uart::find_serial_port(MAUI_VID, MAUI_PID, args.hub_serial.as_deref())?;
+            info!("Auto-detected Maui device serial port: {port}");
+            port
+        } else {
+            "/dev/ttyUSB0".to_string()
+        };
+
+        // Capture physical USB hub topology location (bus and port hierarchy) from the UART path.
+        // This ensures subsequent USB DFU or UART re-enumeration connects to the exact same physical device.
+        let loc = fw_updater::usb::UsbLocation::from_tty_path(&uart_path);
+        if let Some(ref l) = loc {
+            if let Some(ref hub_sn) = l.parent_hub_serial {
+                info!("Target device USB physical location: parent hub serial {}, bus {} ports {:?}", hub_sn, l.bus, l.ports);
+            } else {
+                info!("Target device USB physical location: bus {} ports {:?}", l.bus, l.ports);
+            }
+            usb_location = loc;
+        }
+
+        let mut uart = Uart::open(&uart_path, args.fw_baud_rate)?;
         debug!("Clearing UART IO buffers");
         uart.clear_io()?;
 
-        let version = firmware_version(&mut uart).unwrap();
+        info!("Sending BSL command to device at {uart_path}");
+        jump_to_bsl(&mut uart, "bsl\n")?;
+        drop(uart);
 
-        // Check version number, 0.70 will be considered baremetal
-        if version.contains("0.70") {
-            info!("Firmware is running on baremetal");
-            jump_to_bsl(&mut uart, "jump-to-bsl\r")?;
-        } else {
-            info!("Firmware is running on Zephyr OS");
-            jump_to_bsl(&mut uart, "bsl\n")?;
+        if args.usb {
+            info!("Waiting for device to re-enumerate as TI DFU...");
+            sleep(Duration::from_secs(1));
         }
+    } else if let Some(ref port) = args.uart {
+        usb_location = fw_updater::usb::UsbLocation::from_tty_path(port);
     }
 
     info!("Programming the device");
-    program(&args.uart, args.bsl_baud_rate, &image)?;
+    if args.usb {
+        program_usb(&image, usb_location.as_ref())?;
+    } else {
+        let uart_path = args.uart.unwrap_or_else(|| "/dev/ttyUSB0".to_string());
+        program(&uart_path, args.bsl_baud_rate, &image)?;
+    }
 
     info!("Completed successfully");
 

@@ -5,3 +5,7 @@
 pub mod bsl;
 pub mod titxt;
 pub mod uart;
+pub mod usb;
+
+pub const MAUI_VID: u16 = 0x18d1;
+pub const MAUI_PID: u16 = 0x5085;

@@ -111,3 +111,27 @@ To flash just the firmware execute:
 ```shell
 ./build_result/fw-updater firmware-zephyr/build/zephyr/firmware.txt
 ```
+
+### Flashing Maui Devices (USB DFU / MSPM0 MCUs)
+
+Maui devices (Phase 2 / MSPM0 hardware revisions with native USB support) support firmware updates via direct USB DFU. When updating these Maui devices, pass the `--usb` flag:
+
+```shell
+./build_result/fw-updater --usb firmware.txt
+```
+
+Optionally, you can specify the initial ACM UART interface:
+```shell
+./build_result/fw-updater --usb --uart /dev/ttyACM0 firmware.txt
+```
+
+**How it works:**
+1. The updater connects to the initial serial/ACM interface (auto-detected via VID:PID `18d1:5085` or specified via `--uart`).
+2. It sends the `bsl` command to transition the device into ROM Bootloader mode.
+3. The device re-enumerates on USB as a TI MSPM0 DFU device (VID:PID `2047:0210`).
+4. The updater detects the USB DFU device and flashes the firmware image.
+
+If the device is already in BSL mode, pass `--bsl-mode`:
+```shell
+./build_result/fw-updater --usb --bsl-mode firmware.txt
+```

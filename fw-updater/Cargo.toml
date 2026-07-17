@@ -1,8 +1,11 @@
+# Copyright 2026 The ChromiumOS Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
 [package]
 name = "fw-updater"
 version = "0.1.0"
 edition = "2021"
-
 
 [dependencies]
 anyhow = "1.0.56"
@@ -13,7 +16,9 @@ indicatif = "0.17.3"
 log = "0.4.14"
 termios = "0.3"
 regex = "1.10.4"
+rusb = "0.9.3"
 serialport = "3.1.0"
+
 [build-dependencies]
 anyhow = "1.0.56"
 chrono = "0.4"

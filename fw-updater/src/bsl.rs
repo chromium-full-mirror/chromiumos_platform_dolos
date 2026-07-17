@@ -12,8 +12,6 @@ use std::time::Duration;
 use anyhow::{bail, Result};
 use log::{debug, trace, error};
 
-use crate::uart::Uart;
-
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -83,6 +81,7 @@ pub enum BslBaudRateOption {
 }
 
 #[allow(dead_code)]
+#[repr(C)]
 #[derive(Debug)]
 pub struct BslGetDeviceInfo {
     command_interpreter_version: u16,
@@ -104,14 +103,21 @@ enum BslCoreResponse {
     DetailedError(u32),
 }
 
-pub struct Bsl {
-    uart: Uart,
+pub trait Transport {
+    fn write_all(&mut self, data: &[u8]) -> Result<()>;
+    fn read_exact(&mut self, buf: &mut [u8]) -> Result<()>;
+    fn flush_input(&mut self) -> Result<()>;
+    fn is_usb(&self) -> bool { false }
 }
 
-impl Bsl {
-    /// Open BSL interface over UART
-    pub fn open(uart: Uart) -> Result<Bsl> {
-        let bsl = Bsl { uart };
+pub struct Bsl<T: Transport> {
+    transport: T,
+}
+
+impl<T: Transport> Bsl<T> {
+    /// Open BSL interface over Transport
+    pub fn open(transport: T) -> Result<Bsl<T>> {
+        let bsl = Bsl { transport };
 
         Ok(bsl)
     }
@@ -159,7 +165,7 @@ impl Bsl {
             BslCoreCommandCode::UnlockBootloader as _,
             None,
             Some(default_password),
-            true,
+            !self.transport.is_usb(),
         )?;
 
         Ok(())
@@ -169,7 +175,7 @@ impl Bsl {
     pub fn change_baud_rate(&mut self, baud_rate: u32) -> Result<()> {
         debug!("ChangeBaudRate");
         let baud_rate_enum = Self::baud_rate_to_enum(baud_rate);
-        let result = self.issue_command(
+        self.issue_command(
             BslCoreCommandCode::ChangeBaudRate as _,
             None,
             Some(vec![baud_rate_enum as u8]),
@@ -198,15 +204,18 @@ impl Bsl {
     pub fn erase(&mut self, start_address: u32, end_address: u32) -> Result<()> {
         debug!("Erasing flash from @{start_address:#x} to @{end_address:#x}");
         let erase_end_address: Vec<u8> = end_address.to_le_bytes().to_vec();
+        let expect_response = !self.transport.is_usb();
         let result = self
             .issue_command(
                 BslCoreCommandCode::FlashRangeErase as _,
                 Some(start_address),
                 Some(erase_end_address),
-                true,
-            )?
-            .unwrap();
-        match result {
+                expect_response,
+            )?;
+        if !expect_response {
+            return Ok(());
+        }
+        match result.unwrap() {
             BslCoreResponse::Message(v) => match v {
                 BslCoreMessageCode::OperationSuccessful => Ok(()),
                 _ => {
@@ -221,15 +230,18 @@ impl Bsl {
 
     fn program_chunk(&mut self, address: u32, chunk: &[u8]) -> Result<()> {
         debug!("Writing chunk @{address:#x} with {}bytes", chunk.len());
+        let expect_response = !self.transport.is_usb();
         let result = self
             .issue_command(
                 BslCoreCommandCode::ProgramData as _,
                 Some(address),
                 Some(chunk.to_vec()),
-                true,
-            )?
-            .unwrap();
-        match result {
+                expect_response,
+            )?;
+        if !expect_response {
+            return Ok(());
+        }
+        match result.unwrap() {
             BslCoreResponse::Message(v) => match v {
                 BslCoreMessageCode::OperationSuccessful => Ok(()),
                 _ => {
@@ -256,6 +268,14 @@ impl Bsl {
         );
         let mut cur_address = address;
         let mut written = 0u32;
+
+        if self.transport.is_usb() {
+            self.program_chunk(cur_address, &data)?;
+            written += data.len() as u32;
+            progress_cb(data.len() as _, written);
+            return Ok(());
+        }
+
         for chunk in data
             .chunks(Self::BSL_PACKET_MAX_DATA_SIZE as usize)
             .collect::<Vec<_>>()
@@ -287,7 +307,16 @@ impl Bsl {
     }
 
     /// Construct byte array contains cmd packet to send to the BSL
-    fn construct_cmd_packet(cmd: u8, address: Option<u32>, data: Option<Vec<u8>>) -> Vec<u8> {
+    fn construct_cmd_packet(&self, cmd: u8, address: Option<u32>, data: Option<Vec<u8>>) -> Vec<u8> {
+        if self.transport.is_usb() && cmd == BslCoreCommandCode::ProgramData as u8 {
+            let mut buf: Vec<u8> = vec![0x80, 0x00, 0x00, cmd];
+            buf.extend_from_slice(&address.unwrap().to_le_bytes()); // Address
+            buf.extend_from_slice(&(data.as_ref().unwrap().len() as u32).to_le_bytes()); // Length
+            buf.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]); // Reserved
+            buf.extend_from_slice(data.as_ref().unwrap());
+            return buf;
+        }
+
         let mut buf: Vec<u8> = vec![0x80];
         let mut len: u16 = 1;
         if let Some(ref d) = data {
@@ -307,9 +336,11 @@ impl Bsl {
             buf.append(&mut d);
         }
         // calculate CRC after header
-        let crc32 = Self::calculate_crc(&buf[3..]);
-        let mut b = crc32.to_le_bytes().to_vec();
-        buf.append(&mut b);
+        if !self.transport.is_usb() {
+            let crc32 = Self::calculate_crc(&buf[3..]);
+            let mut b = crc32.to_le_bytes().to_vec();
+            buf.append(&mut b);
+        }
 
         buf
     }
@@ -336,15 +367,26 @@ impl Bsl {
         ///
         /// If `first_byte` is provided, it is used as the first byte of the header.
         /// This is useful when the header start byte (0x08) was read during the ACK check.
-        fn receive_bsl_core_response(&mut self, first_byte: Option<u8>) -> Result<BslCoreResponse> {
+        fn receive_bsl_core_response(&mut self, first_byte: Option<u8>, cmd: u8) -> Result<BslCoreResponse> {
             trace!("Waiting for BSL core response");
+
+            if self.transport.is_usb() {
+                if cmd == BslCoreCommandCode::GetDeviceInfo as u8 {
+                    let mut data = vec![0u8; 24];
+                    self.transport.read_exact(&mut data)?;
+                    let v: BslGetDeviceInfo = unsafe { std::ptr::read_unaligned(data.as_ptr() as *const _) };
+                    return Ok(BslCoreResponse::GetDeviceInfo(v));
+                }
+                bail!("Unexpected command expecting response over USB: {}", cmd);
+            }
+
             let mut header = vec![0u8; 4];
 
             if let Some(b) = first_byte {
                 header[0] = b;
-                self.uart.read_exact(&mut header[1..])?;
+                self.transport.read_exact(&mut header[1..])?;
             } else {
-                self.uart.read_exact(&mut header)?;
+                self.transport.read_exact(&mut header)?;
             }
 
             if header[0] != 0x8 {
@@ -352,7 +394,7 @@ impl Bsl {
             }
             let len: usize = ((header[2] as usize) << 8 | header[1] as usize) + 3;
             let mut data = vec![0u8; len];
-            self.uart.read_exact(&mut data)?;
+            self.transport.read_exact(&mut data)?;
             trace!("Data from BSL: {:x?}", data);
 
             let response_code: BslCoreResponseCode = unsafe { std::mem::transmute(header[3]) };
@@ -367,8 +409,11 @@ impl Bsl {
         /// or an unknown/error byte.
         fn receive_bsl_ack(&mut self) -> Result<AckResult> {
             debug!("Waiting for BSL ack");
+            if self.transport.is_usb() {
+                return Ok(AckResult::Ack);
+            }
             let mut ack_buf = vec![0u8; 1];
-            self.uart.read_exact(&mut ack_buf)?;
+            self.transport.read_exact(&mut ack_buf)?;
             let byte = ack_buf[0];
             trace!("Read Ack response of : {byte:#02x}");
             match byte {
@@ -390,25 +435,29 @@ impl Bsl {
             data: Option<Vec<u8>>,
             expect_bsl_core_response: bool,
         ) -> Result<Option<BslCoreResponse>> {
-            let packet = Self::construct_cmd_packet(cmd, address, data);
+            let packet = self.construct_cmd_packet(cmd, address, data);
             let mut retries = 5;
 
             loop {
                 trace!("Issuing command {packet:x?}");
                 // Flush input buffer to remove any stale data or garbage
-                if let Err(e) = self.uart.flush_input() {
+                if let Err(e) = self.transport.flush_input() {
                     debug!("Failed to flush input: {e}");
                 }
 
-                if let Err(e) = self.uart.write_all(&packet) {
+                if let Err(e) = self.transport.write_all(&packet) {
                     debug!("Failed to write packet: {e}");
+                    if self.transport.is_usb() && cmd == BslCoreCommandCode::StartApplication as u8 {
+                        debug!("USB device disconnected after starting firmware (expected).");
+                        return Ok(None);
+                    }
                 } else {
                     match self.receive_bsl_ack() {
                         Ok(AckResult::Ack) => {
                             if !expect_bsl_core_response {
                                 return Ok(None);
                             }
-                            match self.receive_bsl_core_response(None) {
+                            match self.receive_bsl_core_response(None, cmd) {
                                 Ok(result) => {
                                     trace!("Received response = {result:x?}");
                                     return Ok(Some(result));
@@ -422,7 +471,7 @@ impl Bsl {
                                 // Unexpected response
                                 debug!("Received unexpected response header: {b:#02x}");
                              } else {
-                                match self.receive_bsl_core_response(Some(b)) {
+                                match self.receive_bsl_core_response(Some(b), cmd) {
                                     Ok(result) => {
                                         trace!("Received response (direct) = {result:x?}");
                                         return Ok(Some(result));
